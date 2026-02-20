@@ -1,0 +1,7 @@
+{
+  "name": "Drocsid",
+  "description": "A real-time communication platform with text and voice channels.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

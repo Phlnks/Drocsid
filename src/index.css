@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-discord-dark: #313338;
+  --color-discord-sidebar: #2b2d31;
+  --color-discord-guilds: #1e1f22;
+  --color-discord-text: #dbdee1;
+  --color-discord-muted: #949ba4;
+  --color-discord-accent: #5865f2;
+}
+
+@layer base {
+  body {
+    @apply bg-discord-dark text-discord-text font-sans antialiased overflow-hidden;
+  }
+}
