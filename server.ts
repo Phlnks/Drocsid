@@ -45,6 +45,14 @@ async function startServer() {
   const userRoles: Record<string, string[]> = {}; // userId -> roleIds
   const usernames: Record<string, string> = {}; // userId -> username
 
+  const getVoiceUsersMap = () => {
+    const map: Record<string, string[]> = {};
+    Object.keys(voiceUsers).forEach(id => {
+      map[id] = Array.from(voiceUsers[id]);
+    });
+    return map;
+  };
+
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
@@ -53,7 +61,17 @@ async function startServer() {
     userRoles[socket.id] = ['member'];
     io.emit("presence-update", userPresence);
 
-    socket.emit("init", { channels, messages, roles, userPresence, screenSharers, voiceStates, userRoles, usernames });
+    socket.emit("init", { 
+      channels, 
+      messages, 
+      roles, 
+      userPresence, 
+      screenSharers, 
+      voiceStates, 
+      userRoles, 
+      usernames,
+      voiceUsers: getVoiceUsersMap()
+    });
 
     socket.on("join-channel", (channelId) => {
       socket.join(channelId);
@@ -114,7 +132,7 @@ async function startServer() {
       if (voiceUsers[channelId]) {
         voiceUsers[channelId].add(socket.id);
         socket.join(`voice-${channelId}`);
-        io.to(`voice-${channelId}`).emit("voice-users-update", Array.from(voiceUsers[channelId]));
+        io.emit("voice-users-update", getVoiceUsersMap());
       }
     });
 
@@ -122,7 +140,7 @@ async function startServer() {
       if (voiceUsers[channelId]) {
         voiceUsers[channelId].delete(socket.id);
         socket.leave(`voice-${channelId}`);
-        io.to(`voice-${channelId}`).emit("voice-users-update", Array.from(voiceUsers[channelId]));
+        io.emit("voice-users-update", getVoiceUsersMap());
       }
     });
 
@@ -217,12 +235,16 @@ async function startServer() {
       }
       io.emit("presence-update", userPresence);
       // Clean up voice users
+      let changed = false;
       Object.keys(voiceUsers).forEach((channelId) => {
         if (voiceUsers[channelId].has(socket.id)) {
           voiceUsers[channelId].delete(socket.id);
-          io.to(`voice-${channelId}`).emit("voice-users-update", Array.from(voiceUsers[channelId]));
+          changed = true;
         }
       });
+      if (changed) {
+        io.emit("voice-users-update", getVoiceUsersMap());
+      }
     });
   });
 

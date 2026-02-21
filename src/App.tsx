@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
 import { Channel, Message, User, Role, Permission, PresenceStatus } from './types';
+import { soundService } from './services/soundService';
 
 const SOCKET_URL = window.location.origin;
 
@@ -14,7 +15,7 @@ export default function App() {
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const [currentVoiceChannel, setCurrentVoiceChannel] = useState<Channel | null>(null);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
-  const [voiceUsers, setVoiceUsers] = useState<string[]>([]);
+  const [channelVoiceUsers, setChannelVoiceUsers] = useState<Record<string, string[]>>({});
   const [voiceStates, setVoiceStates] = useState<Record<string, { speaking: boolean, muted: boolean, deafened: boolean }>>({});
   const [isJoinedVoice, setIsJoinedVoice] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -48,13 +49,26 @@ export default function App() {
   const [isMicTesting, setIsMicTesting] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
 
+  const AUDIO_CONSTRAINTS = {
+    echoCancellation: { ideal: true },
+    noiseSuppression: { ideal: true },
+    autoGainControl: { ideal: true },
+  };
+
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
+  const [pendingVoiceChannel, setPendingVoiceChannel] = useState<Channel | null>(null);
+
   const isMutedRef = useRef(isMuted);
   const isDeafenedRef = useRef(isDeafened);
   const voiceSampleRateRef = useRef(voiceSampleRate);
+  const isJoinedVoiceRef = useRef(isJoinedVoice);
+  const currentVoiceChannelRef = useRef(currentVoiceChannel);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isDeafenedRef.current = isDeafened; }, [isDeafened]);
   useEffect(() => { voiceSampleRateRef.current = voiceSampleRate; }, [voiceSampleRate]);
+  useEffect(() => { isJoinedVoiceRef.current = isJoinedVoice; }, [isJoinedVoice]);
+  useEffect(() => { currentVoiceChannelRef.current = currentVoiceChannel; }, [currentVoiceChannel]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -83,7 +97,7 @@ export default function App() {
       console.error('Socket connection error:', err);
     });
 
-    newSocket.on('init', ({ channels, messages, roles, userPresence, voiceStates, screenSharers, userRoles, usernames }) => {
+    newSocket.on('init', ({ channels, messages, roles, userPresence, voiceStates, screenSharers, userRoles, usernames, voiceUsers }) => {
       setChannels(channels);
       setMessages(messages);
       setRoles(roles || []);
@@ -91,6 +105,7 @@ export default function App() {
       setVoiceStates(voiceStates || {});
       setAllUserRoles(userRoles || {});
       setUsernames(usernames || {});
+      setChannelVoiceUsers(voiceUsers || {});
       if (channels.length > 0) {
         setCurrentChannel(channels[0]);
         newSocket.emit('join-channel', channels[0].id);
@@ -123,6 +138,7 @@ export default function App() {
     });
 
     newSocket.on('new-message', ({ channelId, message }) => {
+      soundService.playMessage();
       setMessages((prev) => ({
         ...prev,
         [channelId]: [...(prev[channelId] || []), message],
@@ -138,8 +154,31 @@ export default function App() {
       }));
     });
 
-    newSocket.on('voice-users-update', (users) => {
-      setVoiceUsers(users);
+    newSocket.on('voice-users-update', (usersMap) => {
+      setChannelVoiceUsers((prev) => {
+        if (isJoinedVoiceRef.current && currentVoiceChannelRef.current) {
+          const cid = currentVoiceChannelRef.current.id;
+          const prevUsers = prev[cid] || [];
+          const nextUsers = usersMap[cid] || [];
+          
+          if (nextUsers.length > prevUsers.length) {
+            // Someone joined (could be me or someone else)
+            soundService.playJoin();
+          } else if (nextUsers.length < prevUsers.length) {
+            // Someone left. Only play if I'm still in the channel (someone else left)
+            if (nextUsers.includes(newSocket.id)) {
+              soundService.playLeave();
+            }
+          }
+        }
+        return usersMap;
+      });
+    });
+
+    newSocket.on('screen-share-started', ({ userId, channelId }) => {
+      if (isJoinedVoiceRef.current && currentVoiceChannelRef.current?.id === channelId) {
+        soundService.playScreenShare();
+      }
     });
 
     newSocket.on('user-typing', ({ channelId, user, isTyping }) => {
@@ -212,6 +251,12 @@ export default function App() {
   const handleChannelSelect = (channel: Channel) => {
     if (currentChannel?.id === channel.id) return;
     
+    if (channel.type === 'voice' && isJoinedVoice && currentVoiceChannel?.id !== channel.id) {
+      setPendingVoiceChannel(channel);
+      setShowSwitchConfirm(true);
+      return;
+    }
+
     setSearchQuery('');
     if (currentChannel) {
       socket?.emit('leave-channel', currentChannel.id);
@@ -303,7 +348,9 @@ export default function App() {
     if (!currentChannel || currentChannel.type !== 'voice') return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: AUDIO_CONSTRAINTS 
+      });
       mediaStreamRef.current = stream;
       setIsJoinedVoice(true);
       setCurrentVoiceChannel(currentChannel);
@@ -314,7 +361,8 @@ export default function App() {
       try {
         // Try creating with requested sample rate, but be ready to fallback
         audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-          sampleRate: voiceSampleRate
+          sampleRate: voiceSampleRate,
+          latencyHint: 'interactive'
         });
         
         // Test if createMediaStreamSource works with this sample rate
@@ -322,7 +370,9 @@ export default function App() {
         testSource.disconnect();
       } catch (e) {
         console.warn("Requested sample rate not supported by hardware/stream, falling back to default", e);
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+          latencyHint: 'interactive'
+        });
       }
       
       if (audioContext.state === 'suspended') {
@@ -349,8 +399,8 @@ export default function App() {
       inputGain.gain.value = inputVolume / 100;
       inputGainRef.current = inputGain;
 
-      // Use ScriptProcessor for capturing raw PCM
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      // Use ScriptProcessor for capturing raw PCM - reduced buffer for better quality/latency
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
       const channelId = currentChannel.id;
@@ -384,7 +434,12 @@ export default function App() {
 
       source.connect(inputGain);
       inputGain.connect(processor);
-      processor.connect(audioContext.destination);
+      
+      // Connect to a silent gain node to keep processor active without local loopback
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
     } catch (err) {
       console.error('Failed to get microphone:', err);
       alert("Failed to access microphone. Please check permissions and ensure no other app is using it.");
@@ -429,6 +484,9 @@ export default function App() {
   }, [socket]);
 
   const stopVoice = () => {
+    if (isJoinedVoice) {
+      soundService.playLeave();
+    }
     if (currentVoiceChannel) {
       socket?.emit('leave-voice', currentVoiceChannel.id);
     }
@@ -443,7 +501,6 @@ export default function App() {
     audioContextRef.current = null;
     setIsJoinedVoice(false);
     setCurrentVoiceChannel(null);
-    setVoiceUsers([]);
     inputGainRef.current = null;
     outputGainRef.current = null;
   };
@@ -505,6 +562,7 @@ export default function App() {
   const toggleMute = () => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
+    soundService.playToggle(!newMuted);
     socket?.emit('update-voice-state', { muted: newMuted });
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach(track => {
@@ -516,6 +574,7 @@ export default function App() {
   const toggleDeafen = () => {
     const newDeafened = !isDeafened;
     setIsDeafened(newDeafened);
+    soundService.playToggle(!newDeafened);
     socket?.emit('update-voice-state', { deafened: newDeafened });
     // If deafened, also mute
     if (newDeafened && !isMuted) {
@@ -630,10 +689,14 @@ export default function App() {
     } else {
       // Start testing
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: AUDIO_CONSTRAINTS 
+        });
         micTestStreamRef.current = stream;
         
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+          latencyHint: 'interactive'
+        });
         if (audioContext.state === 'suspended') {
           await audioContext.resume();
         }
@@ -695,6 +758,65 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
+      {/* Switch Voice Channel Confirmation Modal */}
+      <AnimatePresence>
+        {showSwitchConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSwitchConfirm(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-discord-dark rounded-lg shadow-2xl overflow-hidden"
+            >
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-white mb-2">Switch Voice Channels?</h2>
+                <p className="text-discord-muted mb-6">
+                  You are already in a voice channel. Do you want to disconnect from <span className="text-white font-semibold">{currentVoiceChannel?.name}</span> and join <span className="text-white font-semibold">{pendingVoiceChannel?.name}</span>?
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowSwitchConfirm(false)}
+                    className="px-4 py-2 text-white hover:underline transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      stopVoice();
+                      setShowSwitchConfirm(false);
+                      if (pendingVoiceChannel) {
+                        // Small delay to ensure cleanup
+                        setTimeout(() => {
+                          setSearchQuery('');
+                          if (currentChannel) {
+                            socket?.emit('leave-channel', currentChannel.id);
+                          }
+                          setCurrentChannel(pendingVoiceChannel);
+                          socket?.emit('join-channel', pendingVoiceChannel.id);
+                          
+                          // Then start voice
+                          setTimeout(startVoice, 100);
+                        }, 150);
+                      }
+                    }}
+                    className="px-6 py-2 bg-red-500 text-white font-bold rounded hover:bg-red-600 transition-colors"
+                  >
+                    Switch Channel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Guilds Sidebar (Mock) */}
       <div className="w-18 bg-discord-guilds flex flex-col items-center py-3 gap-2 overflow-y-auto no-scrollbar">
         <div className="w-12 h-12 bg-discord-accent rounded-2xl flex items-center justify-center text-white cursor-pointer hover:rounded-xl transition-all duration-200">
@@ -829,7 +951,7 @@ export default function App() {
                 </div>
                 {(currentChannel?.id === channel.id || currentVoiceChannel?.id === channel.id) && channel.type === 'voice' && (
                   <div className="pl-8 space-y-1">
-                    {voiceUsers.map(userId => (
+                    {(channelVoiceUsers[channel.id] || []).map(userId => (
                       <div key={userId} className="flex items-center gap-2 py-1">
                         <div className="relative shrink-0">
                           <div className={cn(
@@ -1147,9 +1269,12 @@ export default function App() {
                     </p>
                     <button
                       onClick={async () => {
-                        if (isJoinedVoice) stopVoice();
-                        // Small delay to ensure cleanup before re-joining
-                        setTimeout(startVoice, 100);
+                        if (isJoinedVoice && currentVoiceChannel?.id !== currentChannel?.id) {
+                          setPendingVoiceChannel(currentChannel);
+                          setShowSwitchConfirm(true);
+                        } else {
+                          startVoice();
+                        }
                       }}
                       className="px-8 py-3 bg-discord-accent text-white font-bold rounded hover:bg-indigo-500 transition-colors flex items-center gap-2 mx-auto"
                     >
