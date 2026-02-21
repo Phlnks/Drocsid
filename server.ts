@@ -133,6 +133,7 @@ async function startServer() {
         voiceUsers[channelId].add(socket.id);
         socket.join(`voice-${channelId}`);
         io.emit("voice-users-update", getVoiceUsersMap());
+        socket.to(`voice-${channelId}`).emit("user-joined-voice", { userId: socket.id });
       }
     });
 
@@ -141,12 +142,20 @@ async function startServer() {
         voiceUsers[channelId].delete(socket.id);
         socket.leave(`voice-${channelId}`);
         io.emit("voice-users-update", getVoiceUsersMap());
+        socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id });
       }
     });
 
-    socket.on("audio-data", ({ channelId, data, sampleRate }) => {
-      // Broadcast audio data to everyone else in the voice channel
-      socket.to(`voice-${channelId}`).emit("audio-stream", { userId: socket.id, data, sampleRate });
+    socket.on("webrtc-offer", ({ targetUserId, offer }) => {
+      io.to(targetUserId).emit("webrtc-offer", { sourceUserId: socket.id, offer });
+    });
+
+    socket.on("webrtc-answer", ({ targetUserId, answer }) => {
+      io.to(targetUserId).emit("webrtc-answer", { sourceUserId: socket.id, answer });
+    });
+
+    socket.on("webrtc-ice-candidate", ({ targetUserId, candidate }) => {
+      io.to(targetUserId).emit("webrtc-ice-candidate", { sourceUserId: socket.id, candidate });
     });
 
     socket.on("screen-share-start", (channelId) => {
@@ -239,6 +248,7 @@ async function startServer() {
       Object.keys(voiceUsers).forEach((channelId) => {
         if (voiceUsers[channelId].has(socket.id)) {
           voiceUsers[channelId].delete(socket.id);
+          socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id });
           changed = true;
         }
       });

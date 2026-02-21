@@ -84,6 +84,7 @@ export default function App() {
   const micTestAudioContextRef = useRef<AudioContext | null>(null);
   const micTestAnalyzerRef = useRef<AnalyserNode | null>(null);
   const micTestAnimationRef = useRef<number | null>(null);
+  const peerConnections = useRef<Record<string, RTCPeerConnection>>({});
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL, {
@@ -162,10 +163,8 @@ export default function App() {
           const nextUsers = usersMap[cid] || [];
           
           if (nextUsers.length > prevUsers.length) {
-            // Someone joined (could be me or someone else)
             soundService.playJoin();
           } else if (nextUsers.length < prevUsers.length) {
-            // Someone left. Only play if I'm still in the channel (someone else left)
             if (nextUsers.includes(newSocket.id)) {
               soundService.playLeave();
             }
@@ -173,6 +172,48 @@ export default function App() {
         }
         return usersMap;
       });
+    });
+
+    newSocket.on('user-joined-voice', async ({ userId }) => {
+      if (isJoinedVoiceRef.current && mediaStreamRef.current) {
+        // We are already in, someone else joined. They will send us an offer.
+        // Or we can send them an offer. Let's have the existing users send offers to the new user.
+        const pc = createPeerConnection(userId, mediaStreamRef.current);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        newSocket.emit('webrtc-offer', { targetUserId: userId, offer });
+      }
+    });
+
+    newSocket.on('user-left-voice', ({ userId }) => {
+      if (peerConnections.current[userId]) {
+        peerConnections.current[userId].close();
+        delete peerConnections.current[userId];
+      }
+    });
+
+    newSocket.on('webrtc-offer', async ({ sourceUserId, offer }) => {
+      if (isJoinedVoiceRef.current && mediaStreamRef.current) {
+        const pc = createPeerConnection(sourceUserId, mediaStreamRef.current);
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        newSocket.emit('webrtc-answer', { targetUserId: sourceUserId, answer });
+      }
+    });
+
+    newSocket.on('webrtc-answer', async ({ sourceUserId, answer }) => {
+      const pc = peerConnections.current[sourceUserId];
+      if (pc) {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      }
+    });
+
+    newSocket.on('webrtc-ice-candidate', async ({ sourceUserId, candidate }) => {
+      const pc = peerConnections.current[sourceUserId];
+      if (pc) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      }
     });
 
     newSocket.on('screen-share-started', ({ userId, channelId }) => {
@@ -344,12 +385,53 @@ export default function App() {
     setGifs(mockGifs);
   };
 
+  const createPeerConnection = (targetUserId: string, stream: MediaStream) => {
+    if (peerConnections.current[targetUserId]) {
+      peerConnections.current[targetUserId].close();
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    peerConnections.current[targetUserId] = pc;
+
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket?.emit('webrtc-ice-candidate', { targetUserId, candidate: event.candidate });
+      }
+    };
+
+    pc.ontrack = (event) => {
+      const remoteStream = event.streams[0];
+      if (audioContextRef.current && outputGainRef.current) {
+        const source = audioContextRef.current.createMediaStreamSource(remoteStream);
+        source.connect(outputGainRef.current);
+      } else {
+        // Fallback if AudioContext isn't ready
+        const audio = new Audio();
+        audio.srcObject = remoteStream;
+        audio.play().catch(console.error);
+      }
+    };
+
+    return pc;
+  };
+
   const startVoice = async () => {
     if (!currentChannel || currentChannel.type !== 'voice') return;
-
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: AUDIO_CONSTRAINTS 
+        audio: {
+          ...AUDIO_CONSTRAINTS,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
       });
       mediaStreamRef.current = stream;
       setIsJoinedVoice(true);
@@ -357,33 +439,30 @@ export default function App() {
       socket?.emit('join-voice', currentChannel.id);
       socket?.emit('update-voice-state', { muted: isMuted, deafened: isDeafened });
 
+      // Initiate WebRTC with everyone already in the channel
+      const existingUsers = channelVoiceUsers[currentChannel.id] || [];
+      existingUsers.forEach(async (userId) => {
+        if (userId !== socket?.id) {
+          const pc = createPeerConnection(userId, stream);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket?.emit('webrtc-offer', { targetUserId: userId, offer });
+        }
+      });
+
       let audioContext: AudioContext;
       try {
-        // Try creating with requested sample rate, but be ready to fallback
         audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-          sampleRate: voiceSampleRate,
           latencyHint: 'interactive'
         });
-        
-        // Test if createMediaStreamSource works with this sample rate
-        const testSource = audioContext.createMediaStreamSource(stream);
-        testSource.disconnect();
       } catch (e) {
-        console.warn("Requested sample rate not supported by hardware/stream, falling back to default", e);
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-          latencyHint: 'interactive'
-        });
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       
       if (audioContext.state === 'suspended') {
         await audioContext.resume();
       }
       audioContextRef.current = audioContext;
-      
-      // Update state to reflect actual sample rate being used
-      if (audioContext.sampleRate !== voiceSampleRate) {
-        setVoiceSampleRate(audioContext.sampleRate);
-      }
 
       // Master Output Gain
       const outputGain = audioContext.createGain();
@@ -391,25 +470,21 @@ export default function App() {
       outputGain.connect(audioContext.destination);
       outputGainRef.current = outputGain;
 
-      const source = audioContext.createMediaStreamSource(stream);
-      sourceRef.current = source;
-
       // Input Gain
       const inputGain = audioContext.createGain();
       inputGain.gain.value = inputVolume / 100;
       inputGainRef.current = inputGain;
 
-      // Use ScriptProcessor for capturing raw PCM - reduced buffer for better quality/latency
+      const source = audioContext.createMediaStreamSource(stream);
+      sourceRef.current = source;
+
       const processor = audioContext.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
-      const channelId = currentChannel.id;
       let lastSpeakingState = false;
 
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
-        
-        // Speaking detection
         let sum = 0;
         for (let i = 0; i < inputData.length; i++) {
           sum += inputData[i] * inputData[i];
@@ -421,28 +496,18 @@ export default function App() {
           lastSpeakingState = isSpeaking;
           socket?.emit('update-voice-state', { speaking: isSpeaking });
         }
-
-        if (!isMutedRef.current) {
-          // Send raw Float32Array as a buffer
-          socket?.emit('audio-data', { 
-            channelId: channelId, 
-            data: inputData.buffer,
-            sampleRate: audioContext.sampleRate
-          });
-        }
       };
 
       source.connect(inputGain);
       inputGain.connect(processor);
-      
-      // Connect to a silent gain node to keep processor active without local loopback
       const silentGain = audioContext.createGain();
       silentGain.gain.value = 0;
       processor.connect(silentGain);
       silentGain.connect(audioContext.destination);
+
     } catch (err) {
       console.error('Failed to get microphone:', err);
-      alert("Failed to access microphone. Please check permissions and ensure no other app is using it.");
+      alert("Failed to access microphone. Please check permissions.");
       setIsJoinedVoice(false);
       setCurrentVoiceChannel(null);
     }
@@ -451,35 +516,7 @@ export default function App() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleAudioStream = async ({ userId, data, sampleRate }: { userId: string, data: ArrayBuffer, sampleRate?: number }) => {
-      if (!audioContextRef.current || isDeafenedRef.current || !outputGainRef.current || userId === socket.id) return;
-      
-      if (audioContextRef.current.state === 'suspended') {
-        try {
-          await audioContextRef.current.resume();
-        } catch (e) {
-          return;
-        }
-      }
-
-      try {
-        const floatData = new Float32Array(data);
-        const sr = sampleRate || audioContextRef.current.sampleRate || 44100;
-        const buffer = audioContextRef.current.createBuffer(1, floatData.length, sr);
-        buffer.getChannelData(0).set(floatData);
-        
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.connect(outputGainRef.current);
-        source.start();
-      } catch (err) {
-        console.error('Error playing audio stream:', err);
-      }
-    };
-
-    socket.on('audio-stream', handleAudioStream);
     return () => {
-      socket.off('audio-stream', handleAudioStream);
     };
   }, [socket]);
 
@@ -487,6 +524,11 @@ export default function App() {
     if (isJoinedVoice) {
       soundService.playLeave();
     }
+    
+    // Close all WebRTC connections
+    (Object.values(peerConnections.current) as RTCPeerConnection[]).forEach(pc => pc.close());
+    peerConnections.current = {};
+
     if (currentVoiceChannel) {
       socket?.emit('leave-voice', currentVoiceChannel.id);
     }
