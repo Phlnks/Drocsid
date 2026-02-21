@@ -12,6 +12,7 @@ export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
+  const [currentVoiceChannel, setCurrentVoiceChannel] = useState<Channel | null>(null);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [voiceUsers, setVoiceUsers] = useState<string[]>([]);
   const [voiceStates, setVoiceStates] = useState<Record<string, { speaking: boolean, muted: boolean, deafened: boolean }>>({});
@@ -38,14 +39,22 @@ export default function App() {
   const [newChannelType, setNewChannelType] = useState<'text' | 'voice'>('text');
   const [channelNameInput, setChannelNameInput] = useState('');
   const [settingsTab, setSettingsTab] = useState<'voice' | 'roles'>('voice');
-  const [inputVolume, setInputVolume] = useState(100);
-  const [outputVolume, setOutputVolume] = useState(100);
-  const [audioCodec, setAudioCodec] = useState<'pcm' | 'opus' | 'aac'>('pcm');
-  const [voiceSampleRate, setVoiceSampleRate] = useState<number>(44100);
+  const [inputVolume, setInputVolume] = useState(() => Number(localStorage.getItem('inputVolume')) || 100);
+  const [outputVolume, setOutputVolume] = useState(() => Number(localStorage.getItem('outputVolume')) || 100);
+  const [audioCodec, setAudioCodec] = useState<'pcm' | 'opus' | 'aac'>(() => (localStorage.getItem('audioCodec') as any) || 'pcm');
+  const [voiceSampleRate, setVoiceSampleRate] = useState<number>(() => Number(localStorage.getItem('voiceSampleRate')) || 44100);
   const [gifSearch, setGifSearch] = useState('');
   const [gifs, setGifs] = useState<string[]>([]);
   const [isMicTesting, setIsMicTesting] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+
+  const isMutedRef = useRef(isMuted);
+  const isDeafenedRef = useRef(isDeafened);
+  const voiceSampleRateRef = useRef(voiceSampleRate);
+
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isDeafenedRef.current = isDeafened; }, [isDeafened]);
+  useEffect(() => { voiceSampleRateRef.current = voiceSampleRate; }, [voiceSampleRate]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -54,6 +63,8 @@ export default function App() {
   const screenIntervalRef = useRef<any>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const inputGainRef = useRef<GainNode | null>(null);
+  const outputGainRef = useRef<GainNode | null>(null);
   const typingTimeoutRef = useRef<any>(null);
   const micTestStreamRef = useRef<MediaStream | null>(null);
   const micTestAudioContextRef = useRef<AudioContext | null>(null);
@@ -145,20 +156,6 @@ export default function App() {
       });
     });
 
-    newSocket.on('audio-stream', async ({ userId, data }) => {
-      if (!audioContextRef.current || isDeafened) return;
-      
-      try {
-        const audioBuffer = await audioContextRef.current.decodeAudioData(data);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContextRef.current.destination);
-        source.start();
-      } catch (e) {
-        // Silently fail if audio decoding fails (common with small chunks)
-      }
-    });
-
     newSocket.on('screen-share-started', ({ userId }) => {
       // User started sharing screen
     });
@@ -176,10 +173,37 @@ export default function App() {
     });
 
     return () => {
-      newSocket.close();
+      if (newSocket.connected) {
+        newSocket.close();
+      } else {
+        newSocket.disconnect();
+      }
       stopVoice();
     };
   }, []);
+
+  // Save settings to localStorage and apply dynamically
+  useEffect(() => {
+    localStorage.setItem('inputVolume', inputVolume.toString());
+    if (inputGainRef.current) {
+      inputGainRef.current.gain.value = inputVolume / 100;
+    }
+  }, [inputVolume]);
+
+  useEffect(() => {
+    localStorage.setItem('outputVolume', outputVolume.toString());
+    if (outputGainRef.current) {
+      outputGainRef.current.gain.value = outputVolume / 100;
+    }
+  }, [outputVolume]);
+
+  useEffect(() => {
+    localStorage.setItem('audioCodec', audioCodec);
+  }, [audioCodec]);
+
+  useEffect(() => {
+    localStorage.setItem('voiceSampleRate', voiceSampleRate.toString());
+  }, [voiceSampleRate]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -282,21 +306,54 @@ export default function App() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
       setIsJoinedVoice(true);
+      setCurrentVoiceChannel(currentChannel);
       socket?.emit('join-voice', currentChannel.id);
       socket?.emit('update-voice-state', { muted: isMuted, deafened: isDeafened });
 
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: voiceSampleRate
-      });
+      let audioContext: AudioContext;
+      try {
+        // Try creating with requested sample rate, but be ready to fallback
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+          sampleRate: voiceSampleRate
+        });
+        
+        // Test if createMediaStreamSource works with this sample rate
+        const testSource = audioContext.createMediaStreamSource(stream);
+        testSource.disconnect();
+      } catch (e) {
+        console.warn("Requested sample rate not supported by hardware/stream, falling back to default", e);
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
       audioContextRef.current = audioContext;
+      
+      // Update state to reflect actual sample rate being used
+      if (audioContext.sampleRate !== voiceSampleRate) {
+        setVoiceSampleRate(audioContext.sampleRate);
+      }
+
+      // Master Output Gain
+      const outputGain = audioContext.createGain();
+      outputGain.gain.value = outputVolume / 100;
+      outputGain.connect(audioContext.destination);
+      outputGainRef.current = outputGain;
 
       const source = audioContext.createMediaStreamSource(stream);
       sourceRef.current = source;
+
+      // Input Gain
+      const inputGain = audioContext.createGain();
+      inputGain.gain.value = inputVolume / 100;
+      inputGainRef.current = inputGain;
 
       // Use ScriptProcessor for capturing raw PCM
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
+      const channelId = currentChannel.id;
       let lastSpeakingState = false;
 
       processor.onaudioprocess = (e) => {
@@ -308,36 +365,48 @@ export default function App() {
           sum += inputData[i] * inputData[i];
         }
         const rms = Math.sqrt(sum / inputData.length);
-        const isSpeaking = rms > 0.01 && !isMuted;
+        const isSpeaking = rms > 0.01 && !isMutedRef.current;
 
         if (isSpeaking !== lastSpeakingState) {
           lastSpeakingState = isSpeaking;
           socket?.emit('update-voice-state', { speaking: isSpeaking });
         }
 
-        if (!isMuted) {
+        if (!isMutedRef.current) {
           // Send raw Float32Array as a buffer
           socket?.emit('audio-data', { 
-            channelId: currentChannel.id, 
+            channelId: channelId, 
             data: inputData.buffer,
             sampleRate: audioContext.sampleRate
           });
         }
       };
 
-      source.connect(processor);
+      source.connect(inputGain);
+      inputGain.connect(processor);
       processor.connect(audioContext.destination);
     } catch (err) {
       console.error('Failed to get microphone:', err);
+      alert("Failed to access microphone. Please check permissions and ensure no other app is using it.");
+      setIsJoinedVoice(false);
+      setCurrentVoiceChannel(null);
     }
   };
 
   useEffect(() => {
     if (!socket) return;
 
-    const handleAudioStream = ({ userId, data, sampleRate }: { userId: string, data: ArrayBuffer, sampleRate?: number }) => {
-      if (!audioContextRef.current || userId === socket.id) return;
+    const handleAudioStream = async ({ userId, data, sampleRate }: { userId: string, data: ArrayBuffer, sampleRate?: number }) => {
+      if (!audioContextRef.current || isDeafenedRef.current || !outputGainRef.current || userId === socket.id) return;
       
+      if (audioContextRef.current.state === 'suspended') {
+        try {
+          await audioContextRef.current.resume();
+        } catch (e) {
+          return;
+        }
+      }
+
       try {
         const floatData = new Float32Array(data);
         const sr = sampleRate || audioContextRef.current.sampleRate || 44100;
@@ -346,7 +415,7 @@ export default function App() {
         
         const source = audioContextRef.current.createBufferSource();
         source.buffer = buffer;
-        source.connect(audioContextRef.current.destination);
+        source.connect(outputGainRef.current);
         source.start();
       } catch (err) {
         console.error('Error playing audio stream:', err);
@@ -360,16 +429,23 @@ export default function App() {
   }, [socket]);
 
   const stopVoice = () => {
-    if (currentChannel) {
-      socket?.emit('leave-voice', currentChannel.id);
+    if (currentVoiceChannel) {
+      socket?.emit('leave-voice', currentVoiceChannel.id);
     }
     stopScreenShare();
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
+    inputGainRef.current?.disconnect();
+    outputGainRef.current?.disconnect();
     mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+    mediaStreamRef.current = null;
     audioContextRef.current?.close();
+    audioContextRef.current = null;
     setIsJoinedVoice(false);
+    setCurrentVoiceChannel(null);
     setVoiceUsers([]);
+    inputGainRef.current = null;
+    outputGainRef.current = null;
   };
 
   const stopScreenShare = () => {
@@ -377,8 +453,8 @@ export default function App() {
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach(track => track.stop());
     }
-    if (isSharingScreen && currentChannel) {
-      socket?.emit('screen-share-stop', currentChannel.id);
+    if (isSharingScreen && currentVoiceChannel) {
+      socket?.emit('screen-share-stop', currentVoiceChannel.id);
     }
     setIsSharingScreen(false);
   };
@@ -389,7 +465,7 @@ export default function App() {
       return;
     }
 
-    if (!currentChannel || currentChannel.type !== 'voice') return;
+    if (!currentVoiceChannel) return;
 
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -398,7 +474,7 @@ export default function App() {
       });
       screenStreamRef.current = stream;
       setIsSharingScreen(true);
-      socket?.emit('screen-share-start', currentChannel.id);
+      socket?.emit('screen-share-start', currentVoiceChannel.id);
 
       const video = document.createElement('video');
       video.srcObject = stream;
@@ -407,13 +483,15 @@ export default function App() {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
+      const voiceChannelId = currentVoiceChannel.id;
+
       screenIntervalRef.current = setInterval(() => {
         if (!ctx) return;
         canvas.width = 480; // Low res for performance
         canvas.height = (video.videoHeight / video.videoWidth) * 480;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const data = canvas.toDataURL('image/jpeg', 0.5);
-        socket?.emit('screen-data', { channelId: currentChannel.id, data });
+        socket?.emit('screen-data', { channelId: voiceChannelId, data });
       }, 200); // 5 FPS
 
       stream.getVideoTracks()[0].onended = () => {
@@ -541,9 +619,11 @@ export default function App() {
       if (micTestAnimationRef.current) cancelAnimationFrame(micTestAnimationRef.current);
       if (micTestStreamRef.current) {
         micTestStreamRef.current.getTracks().forEach(track => track.stop());
+        micTestStreamRef.current = null;
       }
       if (micTestAudioContextRef.current) {
         await micTestAudioContextRef.current.close();
+        micTestAudioContextRef.current = null;
       }
       setIsMicTesting(false);
       setMicLevel(0);
@@ -554,6 +634,9 @@ export default function App() {
         micTestStreamRef.current = stream;
         
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
         micTestAudioContextRef.current = audioContext;
         
         const source = audioContext.createMediaStreamSource(stream);
@@ -744,7 +827,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                {currentChannel?.id === channel.id && channel.type === 'voice' && (
+                {(currentChannel?.id === channel.id || currentVoiceChannel?.id === channel.id) && channel.type === 'voice' && (
                   <div className="pl-8 space-y-1">
                     {voiceUsers.map(userId => (
                       <div key={userId} className="flex items-center gap-2 py-1">
@@ -784,6 +867,28 @@ export default function App() {
             ))}
           </div>
         </div>
+        
+        {/* Voice Connection Panel */}
+        {isJoinedVoice && currentVoiceChannel && (
+          <div className="bg-[#232428] border-b border-black/20 p-2 flex items-center justify-between">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1 text-green-500">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-[12px] font-bold uppercase tracking-wider">Voice Connected</span>
+              </div>
+              <span className="text-xs text-discord-muted truncate">{currentVoiceChannel.name}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={stopVoice}
+                className="p-1.5 text-discord-muted hover:bg-white/10 hover:text-red-400 rounded transition-colors"
+                title="Disconnect"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* User Panel */}
         <div className="bg-[#232428] p-2 flex items-center justify-between relative">
@@ -1034,18 +1139,27 @@ export default function App() {
 
               <div className="max-w-md w-full">
                 <h3 className="text-2xl font-bold text-white mb-2 text-center">Voice Channel: {currentChannel?.name}</h3>
-                <p className="text-discord-muted mb-8 text-center">Connect to start talking with others in this channel.</p>
                 
-                {!isJoinedVoice ? (
-                  <button
-                    onClick={startVoice}
-                    className="px-8 py-3 bg-discord-accent text-white font-bold rounded hover:bg-indigo-500 transition-colors flex items-center gap-2 mx-auto"
-                  >
-                    <Mic size={20} />
-                    Join Voice Channel
-                  </button>
+                {(!isJoinedVoice || (currentVoiceChannel && currentVoiceChannel.id !== currentChannel?.id)) ? (
+                  <div className="space-y-4">
+                    <p className="text-discord-muted mb-8 text-center">
+                      {isJoinedVoice ? `You are currently in ${currentVoiceChannel?.name}. Join this channel instead?` : 'Connect to start talking with others in this channel.'}
+                    </p>
+                    <button
+                      onClick={async () => {
+                        if (isJoinedVoice) stopVoice();
+                        // Small delay to ensure cleanup before re-joining
+                        setTimeout(startVoice, 100);
+                      }}
+                      className="px-8 py-3 bg-discord-accent text-white font-bold rounded hover:bg-indigo-500 transition-colors flex items-center gap-2 mx-auto"
+                    >
+                      <Mic size={20} />
+                      {isJoinedVoice ? 'Switch to this Channel' : 'Join Voice Channel'}
+                    </button>
+                  </div>
                 ) : (
                   <div className="space-y-4">
+                    <p className="text-discord-muted mb-8 text-center">You are connected to this voice channel.</p>
                     <div className="flex items-center justify-center gap-4">
                       <div className="flex flex-col items-center">
                         <div className={cn(
