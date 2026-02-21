@@ -506,9 +506,13 @@ export default function App() {
   };
 
   const stopScreenShare = () => {
-    if (screenIntervalRef.current) clearInterval(screenIntervalRef.current);
+    if (screenIntervalRef.current) {
+      clearInterval(screenIntervalRef.current);
+      screenIntervalRef.current = null;
+    }
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
     }
     if (isSharingScreen && currentVoiceChannel) {
       socket?.emit('screen-share-stop', currentVoiceChannel.id);
@@ -522,40 +526,65 @@ export default function App() {
       return;
     }
 
-    if (!currentVoiceChannel) return;
+    if (!currentVoiceChannel) {
+      alert("You must be in a voice channel to share your screen.");
+      return;
+    }
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        alert("Screen sharing is not supported in this browser or environment.");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 5 },
         audio: false
       });
+      
       screenStreamRef.current = stream;
       setIsSharingScreen(true);
       socket?.emit('screen-share-start', currentVoiceChannel.id);
+      soundService.playScreenShare();
 
       const video = document.createElement('video');
+      video.muted = true;
       video.srcObject = stream;
-      video.play();
+      
+      const startStreaming = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const voiceChannelId = currentVoiceChannel.id;
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+        if (screenIntervalRef.current) clearInterval(screenIntervalRef.current);
+        
+        screenIntervalRef.current = setInterval(() => {
+          if (!ctx || !video.videoWidth) return;
+          
+          canvas.width = 480; // Low res for performance
+          canvas.height = (video.videoHeight / video.videoWidth) * 480;
+          
+          if (isNaN(canvas.height)) return;
+          
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const data = canvas.toDataURL('image/jpeg', 0.5);
+          socket?.emit('screen-data', { channelId: voiceChannelId, data });
+        }, 200); // 5 FPS
+      };
 
-      const voiceChannelId = currentVoiceChannel.id;
-
-      screenIntervalRef.current = setInterval(() => {
-        if (!ctx) return;
-        canvas.width = 480; // Low res for performance
-        canvas.height = (video.videoHeight / video.videoWidth) * 480;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const data = canvas.toDataURL('image/jpeg', 0.5);
-        socket?.emit('screen-data', { channelId: voiceChannelId, data });
-      }, 200); // 5 FPS
+      video.onloadedmetadata = () => {
+        video.play().then(startStreaming).catch(console.error);
+      };
 
       stream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
       };
     } catch (err) {
       console.error('Error sharing screen:', err);
+      setIsSharingScreen(false);
+      if ((err as any).name !== 'NotAllowedError') {
+        alert("Failed to start screen sharing. Please ensure you have granted the necessary permissions.");
+      }
     }
   };
 
