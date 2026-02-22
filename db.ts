@@ -1,3 +1,4 @@
+
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 
@@ -73,9 +74,7 @@ export async function initDb() {
   if (channelsCount.count === 0) {
     const defaultChannels = [
       { id: "general", name: "general", type: "text" },
-      { id: "lounge", name: "Lounge", type: "voice" },
-      { id: "gaming", name: "Gaming", type: "voice" },
-      { id: "dev", name: "Development", type: "text" },
+      { id: "voc", name: "Voc", type: "voice" },
     ];
     for (const channel of defaultChannels) {
       await db.run('INSERT INTO channels (id, name, type) VALUES (?, ?, ?)', [channel.id, channel.name, channel.type]);
