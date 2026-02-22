@@ -33,7 +33,7 @@ api.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 api.post('/upload', upload.single('file'), (req, res) => {
   if (req.file) {
-    res.json({ filePath: `/uploads/${req.file.filename}` });
+    res.json({ filePath: `/api/uploads/${req.file.filename}` });
   } else {
     res.status(400).send('No file uploaded.');
   }
