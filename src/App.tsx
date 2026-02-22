@@ -1163,7 +1163,7 @@ useEffect(() => {
         )}
 
         {/* User Panel */}
-        <div className="bg-[#232428] p-2 flex items-center justify-between relative">
+        <div className="bg-[#232428] p-2 flex flex-col gap-2 relative">
           <div className="flex items-center gap-2 min-w-0 group cursor-pointer" onClick={() => setShowStatusMenu(!showStatusMenu)}>
             <div className="relative shrink-0">
               <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
@@ -1204,7 +1204,7 @@ useEffect(() => {
             )}
           </AnimatePresence>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between gap-1">
             {isJoinedVoice && (
               <button 
                 onClick={handleToggleScreenShare}
