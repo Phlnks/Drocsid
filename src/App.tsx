@@ -7,6 +7,7 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
 import { Channel, Message, User, Role, Permission, PresenceStatus } from './types';
 import { soundService } from './services/soundService';
+import { searchGifs as giphySearch } from './giphy';
 
 const SOCKET_URL = window.location.origin;
 
@@ -352,18 +353,8 @@ useEffect(() => {
 
   const searchGifs = async (query: string) => {
     setGifSearch(query);
-    if (!query) {
-      setGifs([]);
-      return;
-    }
-    // Using a simple placeholder for GIF search - in a real app, use Giphy API
-    const mockGifs = [
-      `https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKMGpxxXG9JzXW0/giphy.gif`,
-      `https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l0HlHFRbmaZtBRhXG/giphy.gif`,
-      `https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif`,
-      `https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqZ3JqJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l41lTfuxV37y75y00/giphy.gif`,
-    ];
-    setGifs(mockGifs);
+    const results = await giphySearch(query);
+    setGifs(results);
   };
 
   const createPeerConnection = (targetUserId: string, stream: MediaStream, socket: Socket) => {
