@@ -3,7 +3,7 @@ import express from 'express';
 import type { Server as SocketIoServer } from 'socket.io';
 import { 
   initDb, getChannels, addChannel, updateChannel, deleteChannel, 
-  getMessages, addMessage, updateMessageReactions,
+  getMessages, addMessage, updateMessageReactions, deleteMessage,
   getRoles, updateRoles, getUserRoles, setUserRole,
   getUsers, upsertUser, logLogin
 } from './db';
@@ -248,6 +248,21 @@ export async function configureSocket(io: SocketIoServer) {
         delete voiceUsers[channelId];
         await deleteChannel(channelId);
         io.emit("channels-updated", channels);
+      }
+    });
+
+    socket.on('delete-message', async ({ channelId, messageId }) => {
+      const userRoleIds = userRoles[socket.id] || [];
+      const userPermissions = roles
+        .filter(r => userRoleIds.includes(r.id))
+        .flatMap(r => r.permissions);
+
+      const canDelete = userPermissions.includes('ADMINISTRATOR') || userPermissions.includes('DELETE_MESSAGES');
+
+      if (canDelete) {
+        messages[channelId] = messages[channelId].filter(m => m.id !== messageId);
+        await deleteMessage(messageId);
+        io.emit('messages-updated', messages);
       }
     });
 

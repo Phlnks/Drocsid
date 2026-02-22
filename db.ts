@@ -124,6 +124,10 @@ export async function addMessage(message: any, channelId: string) {
   );
 }
 
+export async function deleteMessage(id: string) {
+  await db.run('DELETE FROM messages WHERE id = ?', [id]);
+}
+
 export async function updateMessageReactions(messageId: string, reactions: any) {
   await db.run('UPDATE messages SET reactions = ? WHERE id = ?', [JSON.stringify(reactions), messageId]);
 }

@@ -120,6 +120,7 @@ useEffect(() => {
     const handleVoiceStateUpdate = ({ userId, state }: { userId: string, state: any }) => setVoiceStates(prev => ({ ...prev, [userId]: state }));
     const handlePresenceUpdate = (presence: Record<string, PresenceStatus>) => setUserPresence(presence);
     const handleRolesUpdated = (newRoles: Role[]) => setRoles(newRoles);
+    const handleMessagesUpdated = (newMessages: Record<string, Message[]>) => setMessages(newMessages);
 
     const handleNewMessage = ({ channelId, message }: { channelId: string, message: Message }) => {
         soundService.playMessage();
@@ -234,6 +235,7 @@ useEffect(() => {
     newSocket.on('user-typing', handleUserTyping);
     newSocket.on('screen-share-stopped', handleScreenShareStopped);
     newSocket.on('screen-stream', handleScreenStream);
+    newSocket.on('messages-updated', handleMessagesUpdated);
 
     newSocket.connect();
 
@@ -687,6 +689,12 @@ useEffect(() => {
     }
   };
 
+  const handleDeleteMessage = (messageId: string) => {
+    if (currentChannel) {
+      socket?.emit('delete-message', { channelId: currentChannel.id, messageId });
+    }
+  };
+
   const handleAssignRole = (userId: string, roleId: string) => {
     const currentRoles = allUserRoles[userId] || [];
     const newRoles = currentRoles.includes(roleId)
@@ -789,7 +797,8 @@ useEffect(() => {
     'MANAGE_CHANNELS',
     'MANAGE_ROLES',
     'SEND_MESSAGES',
-    'CONNECT_VOICE'
+    'CONNECT_VOICE',
+    'DELETE_MESSAGES'
   ];
 
   const renderMessage = (text: string) => {
@@ -1270,6 +1279,14 @@ useEffect(() => {
                       <button className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text">
                         <Plus size={16} />
                       </button>
+                       {hasPermission('DELETE_MESSAGES') && (
+                        <button 
+                          onClick={() => handleDeleteMessage(msg.id)}
+                          className="p-1 hover:bg-red-500/20 rounded text-discord-muted hover:text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 ))}</AnimatePresence>
