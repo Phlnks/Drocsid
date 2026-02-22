@@ -1194,7 +1194,7 @@ useEffect(() => {
                           {usernames[msg.userId || ''] || msg.user}
                         </span>
                         <span className="text-[10px] text-discord-muted">
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(msg.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       {msg.text && !msg.file && <p className="text-discord-text leading-relaxed break-words">{msg.text}</p>}
