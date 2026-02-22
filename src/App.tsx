@@ -98,18 +98,20 @@ export default function App() {
       console.error('Socket connection error:', err);
     });
 
-    newSocket.on('init', ({ channels, messages, roles, userPresence, voiceStates, screenSharers, userRoles, usernames, voiceUsers }) => {
-      setChannels(channels);
-      setMessages(messages);
+    newSocket.on('init', (data) => {
+      const { channels, messages, roles, userPresence, voiceStates, screenSharers, userRoles, usernames, voiceUsers } = data || {};
+      const initialChannels = channels || [];
+      setChannels(initialChannels);
+      setMessages(messages || {});
       setRoles(roles || []);
       setUserPresence(userPresence || {});
       setVoiceStates(voiceStates || {});
       setAllUserRoles(userRoles || {});
       setUsernames(usernames || {});
       setChannelVoiceUsers(voiceUsers || {});
-      if (channels.length > 0) {
-        setCurrentChannel(channels[0]);
-        newSocket.emit('join-channel', channels[0].id);
+      if (initialChannels.length > 0) {
+        setCurrentChannel(initialChannels[0]);
+        newSocket.emit('join-channel', initialChannels[0].id);
       }
       newSocket.emit('set-username', username);
     });

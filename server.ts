@@ -72,6 +72,7 @@ export async function configureSocket(io: SocketIoServer) {
     io.emit("presence-update", userPresence);
 
     socket.emit("init", { 
+      channels,
       messages, 
       roles, 
       userPresence, 
@@ -81,8 +82,6 @@ export async function configureSocket(io: SocketIoServer) {
       usernames,
       voiceUsers: getVoiceUsersMap()
     });
-    
-    socket.emit("channels-updated", channels);
 
     socket.on("join-channel", (channelId) => {
       socket.join(channelId);
