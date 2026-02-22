@@ -1,7 +1,6 @@
 
 import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
+import type { Server as SocketIoServer } from 'socket.io';
 import { 
   initDb, getChannels, addChannel, updateChannel, deleteChannel, 
   getMessages, addMessage, updateMessageReactions,
@@ -10,32 +9,24 @@ import {
 } from './db';
 
 const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-  },
-});
 
-const PORT = 3000;
-
-async function startServer() {
+export async function configureSocket(io: SocketIoServer) {
+  // Initialize the database and load all data first
   await initDb();
-
-  // In-memory state for ephemeral data
-  const voiceUsers: Record<string, Set<string>> = {};
-  const userPresence: Record<string, string> = {}; // userId -> status
-  const screenSharers: Record<string, string> = {}; // userId -> channelId
-  const voiceStates: Record<string, { speaking: boolean, muted: boolean, deafened: boolean }> = {};
   
-  // Load persistent data
   let channels = await getChannels();
   let messages = await getMessages();
   let roles = await getRoles();
   let userRoles = await getUserRoles();
   let usernames = await getUsers();
 
-  // Initialize voice channels
+  // In-memory state for ephemeral data
+  const voiceUsers: Record<string, Set<string>> = {};
+  const userPresence: Record<string, string> = {}; // userId -> status
+  const screenSharers: Record<string, string> = {}; // userId -> channelId
+  const voiceStates: Record<string, { speaking: boolean, muted: boolean, deafened: boolean }> = {};
+
+  // Initialize voice channels from the loaded data
   channels.forEach(c => {
     if (c.type === 'voice') {
       voiceUsers[c.id] = new Set();
@@ -50,16 +41,37 @@ async function startServer() {
     return map;
   };
 
-  io.on("connection", (socket) => {
+  // Now that all data is loaded, set up the connection listener
+  io.on("connection", async (socket) => {
     console.log("User connected:", socket.id);
+
+    // Assign role if the user is new
+    if (!userRoles[socket.id] || userRoles[socket.id].length === 0) {
+      const adminRole = roles.find(r => r.name === 'Administrator');
+      const memberRole = roles.find(r => r.name === 'Member');
+      
+      if (adminRole && memberRole) {
+        const hasAdmin = Object.values(userRoles).some(roleIds => roleIds.includes(adminRole.id));
+        if (!hasAdmin) {
+          console.log(`No admin found. Assigning admin role to ${socket.id}`);
+          userRoles[socket.id] = [adminRole.id];
+          await setUserRole(socket.id, adminRole.id);
+        } else {
+          console.log(`Assigning member role to ${socket.id}`);
+          userRoles[socket.id] = [memberRole.id];
+          await setUserRole(socket.id, memberRole.id);
+        }
+        io.emit("user-roles-update", userRoles);
+      } else {
+        console.error("Default 'Administrator' or 'Member' roles not found!");
+      }
+    }
 
     userPresence[socket.id] = 'online';
     voiceStates[socket.id] = { speaking: false, muted: false, deafened: false };
-    userRoles[socket.id] = ['member'];
     io.emit("presence-update", userPresence);
 
     socket.emit("init", { 
-      channels, 
       messages, 
       roles, 
       userPresence, 
@@ -69,6 +81,8 @@ async function startServer() {
       usernames,
       voiceUsers: getVoiceUsersMap()
     });
+    
+    socket.emit("channels-updated", channels);
 
     socket.on("join-channel", (channelId) => {
       socket.join(channelId);
@@ -127,7 +141,6 @@ async function startServer() {
       }
     });
 
-    // Voice handling
     socket.on("join-voice", (channelId) => {
       if (voiceUsers[channelId]) {
         voiceUsers[channelId].add(socket.id);
@@ -177,8 +190,7 @@ async function startServer() {
     });
 
     socket.on("update-roles", async (newRoles) => {
-      roles.length = 0;
-      roles.push(...newRoles);
+      roles = newRoles;
       await updateRoles(newRoles);
       io.emit("roles-updated", roles);
     });
@@ -223,16 +235,13 @@ async function startServer() {
     socket.on("set-username", async (name) => {
       usernames[socket.id] = name;
       await upsertUser(socket.id, name);
-      // Log login with a dummy IP since we're behind a proxy
       await logLogin(socket.id, name, socket.handshake.address || 'unknown');
       io.emit("usernames-update", usernames);
     });
 
     socket.on("assign-role", async ({ userId, roleIds }) => {
       userRoles[userId] = roleIds;
-      for (const roleId of roleIds) {
-        await setUserRole(userId, roleId);
-      }
+      await setUserRole(userId, roleIds);
       io.emit("user-roles-update", userRoles);
     });
 
@@ -245,15 +254,12 @@ async function startServer() {
       console.log("User disconnected:", socket.id);
       delete userPresence[socket.id];
       delete voiceStates[socket.id];
-      delete userRoles[socket.id];
-      delete usernames[socket.id];
       if (screenSharers[socket.id]) {
         const channelId = screenSharers[socket.id];
         delete screenSharers[socket.id];
         io.to(`voice-${channelId}`).emit("screen-share-stopped", { userId: socket.id, channelId });
       }
       io.emit("presence-update", userPresence);
-      // Clean up voice users
       let changed = false;
       Object.keys(voiceUsers).forEach((channelId) => {
         if (voiceUsers[channelId].has(socket.id)) {
@@ -268,11 +274,7 @@ async function startServer() {
     });
   });
 
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  console.log("Socket.IO configured");
 }
-
-startServer();
 
 export default app;
