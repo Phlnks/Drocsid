@@ -1,7 +1,7 @@
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff } from 'lucide-react';
+import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
@@ -32,6 +32,7 @@ export default function App() {
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [remoteScreens, setRemoteScreens] = useState<Record<string, string>>({});
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -128,6 +129,15 @@ useEffect(() => {
             ...prev,
             [channelId]: [...(prev[channelId] || []), message],
         }));
+    };
+
+    const handleMessageUpdated = ({ channelId, messageId, newText, editedTimestamp }: { channelId: string, messageId: string, newText: string, editedTimestamp: string }) => {
+      setMessages((prev) => ({
+        ...prev,
+        [channelId]: prev[channelId].map((m) =>
+          m.id === messageId ? { ...m, text: newText, edited: editedTimestamp } : m
+        ),
+      }));
     };
 
     const handleReactionUpdated = ({ channelId, messageId, reactions }: { channelId: string, messageId: string, reactions: any }) => {
@@ -236,6 +246,7 @@ useEffect(() => {
     newSocket.on('screen-share-stopped', handleScreenShareStopped);
     newSocket.on('screen-stream', handleScreenStream);
     newSocket.on('messages-updated', handleMessagesUpdated);
+    newSocket.on('message-updated', handleMessageUpdated);
 
     newSocket.connect();
 
@@ -295,12 +306,21 @@ useEffect(() => {
     e?.preventDefault();
     if ((!inputValue.trim() && !gifUrl) || !currentChannel || currentChannel.type !== 'text') return;
 
-    socket?.emit('send-message', {
-      channelId: currentChannel.id,
-      text: inputValue,
-      user: username,
-      gifUrl,
-    });
+    if (editingMessage) {
+      socket?.emit('edit-message', {
+        channelId: currentChannel.id,
+        messageId: editingMessage.id,
+        newText: inputValue,
+      });
+      setEditingMessage(null);
+    } else {
+      socket?.emit('send-message', {
+        channelId: currentChannel.id,
+        text: inputValue,
+        user: username,
+        gifUrl,
+      });
+    }
     
     socket?.emit('typing', { channelId: currentChannel.id, user: username, isTyping: false });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -695,6 +715,11 @@ useEffect(() => {
     }
   };
 
+  const handleEditMessage = (message: Message) => {
+    setEditingMessage(message);
+    setInputValue(message.text);
+  };
+
   const handleAssignRole = (userId: string, roleId: string) => {
     const currentRoles = allUserRoles[userId] || [];
     const newRoles = currentRoles.includes(roleId)
@@ -798,7 +823,8 @@ useEffect(() => {
     'MANAGE_ROLES',
     'SEND_MESSAGES',
     'CONNECT_VOICE',
-    'DELETE_MESSAGES'
+    'DELETE_MESSAGES',
+    'EDIT_MESSAGES'
   ];
 
   const renderMessage = (text: string) => {
@@ -1215,6 +1241,7 @@ useEffect(() => {
                         <span className="text-[10px] text-discord-muted">
                           {new Date(msg.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </span>
+                        {msg.edited && <span className="text-[10px] text-discord-muted italic">(edited)</span>}
                       </div>
                       {msg.text && !msg.file && <p className="text-discord-text leading-relaxed break-words">{renderMessage(msg.text)}</p>}
                       {msg.gifUrl && (
@@ -1257,6 +1284,14 @@ useEffect(() => {
 
                     {/* Message Actions (Hover) */}
                     <div className="absolute right-4 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-discord-sidebar border border-black/20 rounded-md shadow-lg p-1">
+                      {hasPermission('EDIT_MESSAGES') && (
+                        <button 
+                          onClick={() => handleEditMessage(msg)}
+                          className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleAddReaction(msg.id, '👍')}
                         className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
@@ -1479,10 +1514,22 @@ useEffect(() => {
                 type="text"
                 value={inputValue}
                 onChange={handleInputChange}
-                placeholder={`Message #${currentChannel.name}`}
+                placeholder={editingMessage ? "Edit your message" : `Message #${currentChannel.name}`}
                 className="w-full bg-[#383a40] text-discord-text pl-12 pr-12 py-2.5 rounded-lg focus:outline-none placeholder:text-discord-muted"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                 {editingMessage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMessage(null);
+                      setInputValue('');
+                    }}
+                    className="p-1.5 rounded transition-colors text-discord-muted hover:text-discord-text hover:bg-white/5"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

@@ -3,7 +3,7 @@ import express from 'express';
 import type { Server as SocketIoServer } from 'socket.io';
 import { 
   initDb, getChannels, addChannel, updateChannel, deleteChannel, 
-  getMessages, addMessage, updateMessageReactions, deleteMessage,
+  getMessages, addMessage, updateMessageReactions, deleteMessage, updateMessage,
   getRoles, updateRoles, getUserRoles, setUserRole,
   getUsers, upsertUser, logLogin
 } from './db';
@@ -161,6 +161,28 @@ export async function configureSocket(io: SocketIoServer) {
           }
           await updateMessageReactions(messageId, message.reactions);
           io.to(channelId).emit("reaction-updated", { channelId, messageId, reactions: message.reactions });
+        }
+      }
+    });
+
+    socket.on('edit-message', async ({ channelId, messageId, newText }) => {
+      const userRoleIds = userRoles[socket.id] || [];
+      const userPermissions = roles
+        .filter(r => userRoleIds.includes(r.id))
+        .flatMap(r => r.permissions);
+
+      const canEdit = userPermissions.includes('ADMINISTRATOR') || userPermissions.includes('EDIT_MESSAGES');
+
+      if (canEdit) {
+        const editedTimestamp = await updateMessage(messageId, newText);
+        const channelMessages = messages[channelId];
+        if (channelMessages) {
+          const message = channelMessages.find((m) => m.id === messageId);
+          if (message) {
+            message.text = newText;
+            message.edited = editedTimestamp;
+            io.emit('message-updated', { channelId, messageId, newText, editedTimestamp });
+          }
         }
       }
     });

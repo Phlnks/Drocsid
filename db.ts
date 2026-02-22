@@ -4,6 +4,17 @@ import { open, Database } from 'sqlite';
 
 let db: Database<sqlite3.Database, sqlite3.Statement>;
 
+async function runMigrations() {
+  // Check if 'edited' column exists
+  const columns = await db.all("PRAGMA table_info(messages)");
+  const hasEditedColumn = columns.some(c => c.name === 'edited');
+
+  if (!hasEditedColumn) {
+    console.log("Running migration: Adding 'edited' column to messages table.");
+    await db.exec('ALTER TABLE messages ADD COLUMN edited TEXT');
+  }
+}
+
 export async function initDb() {
   db = await open({
     filename: './database.sqlite',
@@ -56,13 +67,16 @@ export async function initDb() {
     );
   `);
 
+  // Run migrations
+  await runMigrations();
+
   // Initialize default roles if empty
   const rolesCount = await db.get('SELECT COUNT(*) as count FROM roles');
   if (rolesCount.count === 0) {
     const defaultRoles = [
       { id: "admin", name: "Administrator", color: "#f1c40f", permissions: JSON.stringify(["ADMINISTRATOR"]) },
-      { id: "mod", name: "Moderator", color: "#2ecc71", permissions: JSON.stringify(["MANAGE_CHANNELS", "SEND_MESSAGES", "CONNECT_VOICE"]) },
-      { id: "member", name: "Member", color: "#95a5a6", permissions: JSON.stringify(["SEND_MESSAGES", "CONNECT_VOICE"]) },
+      { id: "mod", name: "Moderator", color: "#2ecc71", permissions: JSON.stringify(["MANAGE_CHANNELS", "SEND_MESSAGES", "CONNECT_VOICE", "DELETE_MESSAGES", "EDIT_MESSAGES"]) },
+      { id: "member", name: "Member", color: "#95a5a6", permissions: JSON.stringify(["SEND_MESSAGES", "CONNECT_VOICE", "EDIT_MESSAGES"]) },
     ];
     for (const role of defaultRoles) {
       await db.run('INSERT INTO roles (id, name, color, permissions) VALUES (?, ?, ?, ?)', [role.id, role.name, role.color, role.permissions]);
@@ -111,7 +125,8 @@ export async function getMessages() {
       userId: row.user_id,
       timestamp: row.timestamp,
       gifUrl: row.gif_url,
-      reactions: row.reactions ? JSON.parse(row.reactions) : {}
+      reactions: row.reactions ? JSON.parse(row.reactions) : {},
+      edited: row.edited
     });
   }
   return messages;
@@ -122,6 +137,12 @@ export async function addMessage(message: any, channelId: string) {
     'INSERT INTO messages (id, channel_id, user_id, username, text, gif_url, timestamp, reactions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [message.id, channelId, message.userId, message.user, message.text, message.gifUrl, message.timestamp, JSON.stringify(message.reactions || {})]
   );
+}
+
+export async function updateMessage(messageId: string, newText: string) {
+  const editedTimestamp = new Date().toISOString();
+  await db.run('UPDATE messages SET text = ?, edited = ? WHERE id = ?', [newText, editedTimestamp, messageId]);
+  return editedTimestamp;
 }
 
 export async function deleteMessage(id: string) {
