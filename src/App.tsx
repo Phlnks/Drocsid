@@ -33,6 +33,7 @@ export default function App() {
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [remoteScreens, setRemoteScreens] = useState<Record<string, string>>({});
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -320,7 +321,7 @@ useEffect(() => {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         const data = await res.json();
         fileInfo = {
-          path: `/api${data.filePath}`,
+          path: data.filePath,
           name: file.name,
           size: file.size,
         };
@@ -356,6 +357,17 @@ useEffect(() => {
     setShowGifPicker(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) {
+          handleSendMessage(undefined, undefined, file);
+        }
+      }
     }
   };
 
@@ -926,6 +938,33 @@ useEffect(() => {
           </div>
         )}
       </AnimatePresence>
+       <AnimatePresence>
+        {previewImage && (
+          <div 
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" 
+            onClick={() => setPreviewImage(null)}
+          >
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="relative flex flex-col items-center"
+                onClick={(e) => e.stopPropagation()}
+            >
+              <button onClick={() => setPreviewImage(null)} className="absolute -top-8 right-0 text-white/80 hover:text-white transition-colors flex items-center gap-1">
+                <span className="text-sm">Close</span>
+                <X size={20} />
+              </button>
+              <img src={previewImage} alt="Image Preview" className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl" />
+              <a href={previewImage} download className="mt-4 flex items-center gap-2 px-4 py-2 bg-discord-sidebar rounded-md text-white hover:bg-white/20 transition-colors">
+                <Download size={18} />
+                <span>Download</span>
+              </a>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
 
       {/* Guilds Sidebar (Mock) */}
       <div className="w-18 bg-discord-guilds flex flex-col items-center py-3 gap-2 overflow-y-auto no-scrollbar">
@@ -1279,18 +1318,34 @@ useEffect(() => {
                           <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
                         </div>
                       )}
-                      {msg.file && (
-                        <div className="mt-2 bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm flex items-center gap-3">
-                          <FileIcon size={40} className="text-discord-muted shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <a href={msg.file.path} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium truncate block">{msg.file.name}</a>
-                            <div className="text-xs text-discord-muted">{formatFileSize(msg.file.size)}</div>
-                          </div>
-                          <a href={msg.file.path} download={msg.file.name} className="p-2 text-discord-muted hover:text-white transition-colors">
-                            <Download size={18} />
-                          </a>
-                        </div>
-                      )}
+                     {msg.file && (() => {
+                        const isImage = /\.png|\.jpg|\.jpeg|\.gif|\.webp$/i.test(msg.file.name);
+                        if (isImage) {
+                          return (
+                            <div className="mt-2 relative max-w-xs rounded-lg overflow-hidden">
+                                <img 
+                                  src={msg.file.path} 
+                                  alt={msg.file.name} 
+                                  className="max-w-full h-auto max-h-80 object-contain rounded-md cursor-pointer" 
+                                  onClick={() => setPreviewImage(msg.file.path)}
+                                />
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="mt-2 bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm flex items-center gap-3">
+                              <FileIcon size={40} className="text-discord-muted shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <a href={msg.file.path} download={msg.file.name} className="text-blue-400 hover:underline font-medium truncate block">{msg.file.name}</a>
+                                <div className="text-xs text-discord-muted">{formatFileSize(msg.file.size)}</div>
+                              </div>
+                              <a href={msg.file.path} download={msg.file.name} className="p-2 text-discord-muted hover:text-white transition-colors">
+                                <Download size={18} />
+                              </a>
+                            </div>
+                          );
+                        }
+                      })()}
                       {msg.linkPreview && (
                         <a href={msg.linkPreview.url} target="_blank" rel="noopener noreferrer" className="mt-2 block bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm hover:bg-white/5 transition-colors">
                           {msg.linkPreview.image && <img src={msg.linkPreview.image} alt={msg.linkPreview.title} className="w-full h-auto rounded-md mb-2" />}
@@ -1572,6 +1627,7 @@ useEffect(() => {
               <input
                 type="text"
                 value={inputValue}
+                onPaste={handlePaste}
                 onChange={handleInputChange}
                 placeholder={editingMessage ? "Edit your message" : `Message #${currentChannel.name}`}
                 className="w-full bg-[#383a40] text-discord-text pl-24 pr-12 py-2.5 rounded-lg focus:outline-none placeholder:text-discord-muted"
