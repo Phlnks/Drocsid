@@ -3,8 +3,15 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import { 
+  initDb, getChannels, addChannel, updateChannel, deleteChannel, 
+  getMessages, addMessage, updateMessageReactions,
+  getRoles, updateRoles, getUserRoles, setUserRole,
+  getUsers, upsertUser, logLogin
+} from "./db";
 
 async function startServer() {
+  await initDb();
   const app = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -15,35 +22,25 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // In-memory state
-  const channels = [
-    { id: "general", name: "general", type: "text" },
-    { id: "lounge", name: "Lounge", type: "voice" },
-    { id: "gaming", name: "Gaming", type: "voice" },
-    { id: "dev", name: "Development", type: "text" },
-  ];
-
-  const messages: Record<string, any[]> = {
-    general: [],
-    dev: [],
-  };
-
-  const voiceUsers: Record<string, Set<string>> = {
-    lounge: new Set(),
-    gaming: new Set(),
-  };
-
-  const roles = [
-    { id: "admin", name: "Administrator", color: "#f1c40f", permissions: ["ADMINISTRATOR"] },
-    { id: "mod", name: "Moderator", color: "#2ecc71", permissions: ["MANAGE_CHANNELS", "SEND_MESSAGES", "CONNECT_VOICE"] },
-    { id: "member", name: "Member", color: "#95a5a6", permissions: ["SEND_MESSAGES", "CONNECT_VOICE"] },
-  ];
-
+  // In-memory state for ephemeral data
+  const voiceUsers: Record<string, Set<string>> = {};
   const userPresence: Record<string, string> = {}; // userId -> status
   const screenSharers: Record<string, string> = {}; // userId -> channelId
   const voiceStates: Record<string, { speaking: boolean, muted: boolean, deafened: boolean }> = {};
-  const userRoles: Record<string, string[]> = {}; // userId -> roleIds
-  const usernames: Record<string, string> = {}; // userId -> username
+  
+  // Load persistent data
+  let channels = await getChannels();
+  let messages = await getMessages();
+  let roles = await getRoles();
+  let userRoles = await getUserRoles();
+  let usernames = await getUsers();
+
+  // Initialize voice channels
+  channels.forEach(c => {
+    if (c.type === 'voice') {
+      voiceUsers[c.id] = new Set();
+    }
+  });
 
   const getVoiceUsersMap = () => {
     const map: Record<string, string[]> = {};
@@ -83,7 +80,7 @@ async function startServer() {
       console.log(`User ${socket.id} left ${channelId}`);
     });
 
-    socket.on("send-message", ({ channelId, text, user, gifUrl }) => {
+    socket.on("send-message", async ({ channelId, text, user, gifUrl }) => {
       const message = {
         id: Math.random().toString(36).substr(2, 9),
         text,
@@ -95,10 +92,11 @@ async function startServer() {
       };
       if (!messages[channelId]) messages[channelId] = [];
       messages[channelId].push(message);
+      await addMessage(message, channelId);
       io.to(channelId).emit("new-message", { channelId, message });
     });
 
-    socket.on("add-reaction", ({ channelId, messageId, emoji, userId }) => {
+    socket.on("add-reaction", async ({ channelId, messageId, emoji, userId }) => {
       const channelMessages = messages[channelId];
       if (channelMessages) {
         const message = channelMessages.find((m) => m.id === messageId);
@@ -107,13 +105,14 @@ async function startServer() {
           if (!message.reactions[emoji]) message.reactions[emoji] = [];
           if (!message.reactions[emoji].includes(userId)) {
             message.reactions[emoji].push(userId);
+            await updateMessageReactions(messageId, message.reactions);
             io.to(channelId).emit("reaction-updated", { channelId, messageId, reactions: message.reactions });
           }
         }
       }
     });
 
-    socket.on("remove-reaction", ({ channelId, messageId, emoji, userId }) => {
+    socket.on("remove-reaction", async ({ channelId, messageId, emoji, userId }) => {
       const channelMessages = messages[channelId];
       if (channelMessages) {
         const message = channelMessages.find((m) => m.id === messageId);
@@ -122,6 +121,7 @@ async function startServer() {
           if (message.reactions[emoji].length === 0) {
             delete message.reactions[emoji];
           }
+          await updateMessageReactions(messageId, message.reactions);
           io.to(channelId).emit("reaction-updated", { channelId, messageId, reactions: message.reactions });
         }
       }
@@ -176,13 +176,14 @@ async function startServer() {
       socket.to(channelId).emit("user-typing", { channelId, user, isTyping });
     });
 
-    socket.on("update-roles", (newRoles) => {
+    socket.on("update-roles", async (newRoles) => {
       roles.length = 0;
       roles.push(...newRoles);
+      await updateRoles(newRoles);
       io.emit("roles-updated", roles);
     });
 
-    socket.on("create-channel", (channel) => {
+    socket.on("create-channel", async (channel) => {
       const newChannel = { ...channel, id: Math.random().toString(36).substr(2, 9) };
       channels.push(newChannel);
       if (newChannel.type === 'voice') {
@@ -190,23 +191,26 @@ async function startServer() {
       } else {
         messages[newChannel.id] = [];
       }
+      await addChannel(newChannel);
       io.emit("channels-updated", channels);
     });
 
-    socket.on("update-channel", (updatedChannel) => {
+    socket.on("update-channel", async (updatedChannel) => {
       const index = channels.findIndex(c => c.id === updatedChannel.id);
       if (index !== -1) {
         channels[index] = { ...channels[index], ...updatedChannel };
+        await updateChannel(channels[index]);
         io.emit("channels-updated", channels);
       }
     });
 
-    socket.on("delete-channel", (channelId) => {
+    socket.on("delete-channel", async (channelId) => {
       const index = channels.findIndex(c => c.id === channelId);
       if (index !== -1) {
         channels.splice(index, 1);
         delete messages[channelId];
         delete voiceUsers[channelId];
+        await deleteChannel(channelId);
         io.emit("channels-updated", channels);
       }
     });
@@ -216,13 +220,19 @@ async function startServer() {
       io.emit("presence-update", userPresence);
     });
 
-    socket.on("set-username", (name) => {
+    socket.on("set-username", async (name) => {
       usernames[socket.id] = name;
+      await upsertUser(socket.id, name);
+      // Log login with a dummy IP since we're behind a proxy
+      await logLogin(socket.id, name, socket.handshake.address || 'unknown');
       io.emit("usernames-update", usernames);
     });
 
-    socket.on("assign-role", ({ userId, roleIds }) => {
+    socket.on("assign-role", async ({ userId, roleIds }) => {
       userRoles[userId] = roleIds;
+      for (const roleId of roleIds) {
+        await setUserRole(userId, roleId);
+      }
       io.emit("user-roles-update", userRoles);
     });
 
