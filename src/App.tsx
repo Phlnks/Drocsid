@@ -414,8 +414,8 @@ useEffect(() => {
     return pc;
   };
 
-  const startVoice = async () => {
-    if (!currentChannel || currentChannel.type !== 'voice' || !socket) return;
+  const startVoice = async (channel: Channel | null) => {
+    if (!channel || channel.type !== 'voice' || !socket) return;
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -429,12 +429,12 @@ useEffect(() => {
       });
       mediaStreamRef.current = stream;
       setIsJoinedVoice(true);
-      setCurrentVoiceChannel(currentChannel);
-      socket?.emit('join-voice', currentChannel.id);
+      setCurrentVoiceChannel(channel);
+      socket?.emit('join-voice', channel.id);
       socket?.emit('update-voice-state', { muted: isMuted, deafened: isDeafened });
 
       // Initiate WebRTC with everyone already in the channel
-      const existingUsers = channelVoiceUsers[currentChannel.id] || [];
+      const existingUsers = channelVoiceUsers[channel.id] || [];
       existingUsers.forEach(async (userId) => {
         if (userId !== socket?.id) {
           const pc = createPeerConnection(userId, stream, socket);
@@ -870,20 +870,12 @@ useEffect(() => {
                   </button>
                   <button
                     onClick={() => {
-                      stopVoice();
-                      setShowSwitchConfirm(false);
                       if (pendingVoiceChannel) {
-                        // Small delay to ensure cleanup
+                        stopVoice();
+                        setShowSwitchConfirm(false);
                         setTimeout(() => {
-                          setSearchQuery('');
-                          if (currentChannel) {
-                            socket?.emit('leave-channel', currentChannel.id);
-                          }
                           setCurrentChannel(pendingVoiceChannel);
-                          socket?.emit('join-channel', pendingVoiceChannel.id);
-                          
-                          // Then start voice
-                          setTimeout(startVoice, 100);
+                          startVoice(pendingVoiceChannel);
                         }, 150);
                       }
                     }}
@@ -997,7 +989,7 @@ useEffect(() => {
                 <div className="group relative">
                   <button
                     onClick={() => handleChannelSelect(channel)}
-                    onDoubleClick={() => channel.type === 'voice' && startVoice()}
+                    onDoubleClick={() => channel.type === 'voice' && startVoice(channel)}
                     className={cn(
                       "w-full flex items-center gap-2 px-2 py-1.5 rounded transition-colors",
                       currentChannel?.id === channel.id ? "bg-white/10 text-white" : "text-discord-muted hover:bg-white/5 hover:text-discord-text"
@@ -1379,7 +1371,7 @@ useEffect(() => {
                           setPendingVoiceChannel(currentChannel);
                           setShowSwitchConfirm(true);
                         } else {
-                          startVoice();
+                          startVoice(currentChannel);
                         }
                       }}
                       className="px-8 py-3 bg-discord-accent text-white font-bold rounded hover:bg-indigo-500 transition-colors flex items-center gap-2 mx-auto"
