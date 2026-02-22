@@ -997,6 +997,7 @@ useEffect(() => {
                 <div className="group relative">
                   <button
                     onClick={() => handleChannelSelect(channel)}
+                    onDoubleClick={() => channel.type === 'voice' && startVoice()}
                     className={cn(
                       "w-full flex items-center gap-2 px-2 py-1.5 rounded transition-colors",
                       currentChannel?.id === channel.id ? "bg-white/10 text-white" : "text-discord-muted hover:bg-white/5 hover:text-discord-text"
