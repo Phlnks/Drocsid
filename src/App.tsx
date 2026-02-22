@@ -33,7 +33,7 @@ export default function App() {
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [remoteScreens, setRemoteScreens] = useState<Record<string, string>>({});
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ path: string; name: string } | null>(null);
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -938,7 +938,7 @@ useEffect(() => {
           </div>
         )}
       </AnimatePresence>
-       <AnimatePresence>
+      <AnimatePresence>
         {previewImage && (
           <div 
             className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" 
@@ -955,8 +955,8 @@ useEffect(() => {
                 <span className="text-sm">Close</span>
                 <X size={20} />
               </button>
-              <img src={previewImage} alt="Image Preview" className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl" />
-              <a href={previewImage} download className="mt-4 flex items-center gap-2 px-4 py-2 bg-discord-sidebar rounded-md text-white hover:bg-white/20 transition-colors">
+              <img src={previewImage.path} alt={previewImage.name} className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl" />
+              <a href={previewImage.path} download={previewImage.name} className="mt-4 flex items-center gap-2 px-4 py-2 bg-discord-sidebar rounded-md text-white hover:bg-white/20 transition-colors">
                 <Download size={18} />
                 <span>Download</span>
               </a>
@@ -1327,7 +1327,7 @@ useEffect(() => {
                                   src={msg.file.path} 
                                   alt={msg.file.name} 
                                   className="max-w-full h-auto max-h-80 object-contain rounded-md cursor-pointer" 
-                                  onClick={() => setPreviewImage(msg.file.path)}
+                                  onClick={() => setPreviewImage(msg.file)}
                                 />
                             </div>
                           );
