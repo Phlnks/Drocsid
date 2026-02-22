@@ -5,13 +5,16 @@ import { open, Database } from 'sqlite';
 let db: Database<sqlite3.Database, sqlite3.Statement>;
 
 async function runMigrations() {
-  // Check if 'edited' column exists
   const columns = await db.all("PRAGMA table_info(messages)");
-  const hasEditedColumn = columns.some(c => c.name === 'edited');
-
-  if (!hasEditedColumn) {
+  
+  if (!columns.some(c => c.name === 'edited')) {
     console.log("Running migration: Adding 'edited' column to messages table.");
     await db.exec('ALTER TABLE messages ADD COLUMN edited TEXT');
+  }
+
+  if (!columns.some(c => c.name === 'file')) {
+    console.log("Running migration: Adding 'file' column to messages table.");
+    await db.exec('ALTER TABLE messages ADD COLUMN file TEXT');
   }
 }
 
@@ -67,10 +70,8 @@ export async function initDb() {
     );
   `);
 
-  // Run migrations
   await runMigrations();
 
-  // Initialize default roles if empty
   const rolesCount = await db.get('SELECT COUNT(*) as count FROM roles');
   if (rolesCount.count === 0) {
     const defaultRoles = [
@@ -83,7 +84,6 @@ export async function initDb() {
     }
   }
 
-  // Initialize default channels if empty
   const channelsCount = await db.get('SELECT COUNT(*) as count FROM channels');
   if (channelsCount.count === 0) {
     const defaultChannels = [
@@ -126,7 +126,8 @@ export async function getMessages() {
       timestamp: row.timestamp,
       gifUrl: row.gif_url,
       reactions: row.reactions ? JSON.parse(row.reactions) : {},
-      edited: row.edited
+      edited: row.edited,
+      file: row.file ? JSON.parse(row.file) : null
     });
   }
   return messages;
@@ -134,8 +135,8 @@ export async function getMessages() {
 
 export async function addMessage(message: any, channelId: string) {
   await db.run(
-    'INSERT INTO messages (id, channel_id, user_id, username, text, gif_url, timestamp, reactions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [message.id, channelId, message.userId, message.user, message.text, message.gifUrl, message.timestamp, JSON.stringify(message.reactions || {})]
+    'INSERT INTO messages (id, channel_id, user_id, username, text, gif_url, timestamp, reactions, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [message.id, channelId, message.userId, message.user, message.text, message.gifUrl, message.timestamp, JSON.stringify(message.reactions || {}), JSON.stringify(message.file || null)]
   );
 }
 

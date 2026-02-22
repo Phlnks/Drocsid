@@ -1,6 +1,10 @@
 
-import express from 'express';
+import express, { Router } from 'express';
 import type { Server as SocketIoServer } from 'socket.io';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { 
   initDb, getChannels, addChannel, updateChannel, deleteChannel, 
   getMessages, addMessage, updateMessageReactions, deleteMessage, updateMessage,
@@ -9,9 +13,33 @@ import {
 } from './db';
 import { getLinkPreview } from './src/previews';
 
-const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-app.get('/preview', async (req, res) => {
+const app = express();
+export const api = Router();
+
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
+
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
+api.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+api.post('/upload', upload.single('file'), (req, res) => {
+  if (req.file) {
+    res.json({ filePath: `/uploads/${req.file.filename}` });
+  } else {
+    res.status(400).send('No file uploaded.');
+  }
+});
+
+api.get('/preview', async (req, res) => {
   const url = req.query.url as string;
   if (!url) {
     return res.status(400).send('URL is required');
@@ -24,8 +52,9 @@ app.get('/preview', async (req, res) => {
   }
 });
 
+app.use('/api', api);
+
 export async function configureSocket(io: SocketIoServer) {
-  // Initialize the database and load all data first
   await initDb();
   
   let channels = await getChannels();
@@ -34,13 +63,11 @@ export async function configureSocket(io: SocketIoServer) {
   let userRoles = await getUserRoles();
   let usernames = await getUsers();
 
-  // In-memory state for ephemeral data
   const voiceUsers: Record<string, Set<string>> = {};
-  const userPresence: Record<string, string> = {}; // userId -> status
-  const screenSharers: Record<string, string> = {}; // userId -> channelId
+  const userPresence: Record<string, string> = {};
+  const screenSharers: Record<string, string> = {};
   const voiceStates: Record<string, { speaking: boolean, muted: boolean, deafened: boolean }> = {};
 
-  // Initialize voice channels from the loaded data
   channels.forEach(c => {
     if (c.type === 'voice') {
       voiceUsers[c.id] = new Set();
@@ -55,11 +82,9 @@ export async function configureSocket(io: SocketIoServer) {
     return map;
   };
 
-  // Now that all data is loaded, set up the connection listener
   io.on("connection", async (socket) => {
     console.log("User connected:", socket.id);
 
-    // Assign role if the user is new
     if (!userRoles[socket.id] || userRoles[socket.id].length === 0) {
       const adminRole = roles.find(r => r.name === 'Administrator');
       const memberRole = roles.find(r => r.name === 'Member');
@@ -67,17 +92,13 @@ export async function configureSocket(io: SocketIoServer) {
       if (adminRole && memberRole) {
         const hasAdmin = Object.values(userRoles).some(roleIds => roleIds.includes(adminRole.id));
         if (!hasAdmin) {
-          console.log(`No admin found. Assigning admin role to ${socket.id}`);
           userRoles[socket.id] = [adminRole.id];
           await setUserRole(socket.id, adminRole.id);
         } else {
-          console.log(`Assigning member role to ${socket.id}`);
           userRoles[socket.id] = [memberRole.id];
           await setUserRole(socket.id, memberRole.id);
         }
         io.emit("user-roles-update", userRoles);
-      } else {
-        console.error("Default 'Administrator' or 'Member' roles not found!");
       }
     }
 
@@ -99,23 +120,19 @@ export async function configureSocket(io: SocketIoServer) {
 
     socket.on("join-channel", (channelId) => {
       socket.join(channelId);
-      console.log(`User ${socket.id} joined ${channelId}`);
     });
 
     socket.on("leave-channel", (channelId) => {
       socket.leave(channelId);
-      console.log(`User ${socket.id} left ${channelId}`);
     });
 
-    socket.on("send-message", async ({ channelId, text, user, gifUrl }) => {
+    socket.on("send-message", async ({ channelId, text, user, gifUrl, file }) => {
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       const urls = text.match(urlRegex);
       let linkPreview = null;
 
       if (urls && urls.length > 0) {
-        console.log("Detected URLs:", urls);
         linkPreview = await getLinkPreview(urls[0]);
-        console.log("Generated Link Preview:", linkPreview);
       }
 
       const message = {
@@ -127,6 +144,7 @@ export async function configureSocket(io: SocketIoServer) {
         reactions: {},
         gifUrl,
         linkPreview,
+        file,
       };
       if (!messages[channelId]) messages[channelId] = [];
       messages[channelId].push(message);
@@ -312,7 +330,6 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
       delete userPresence[socket.id];
       delete voiceStates[socket.id];
       if (screenSharers[socket.id]) {

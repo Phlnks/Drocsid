@@ -1,43 +1,22 @@
 
-import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, loadEnv } from 'vite';
-import { fileURLToPath, URL } from 'url';
-import { Server as SocketIoServer } from 'socket.io';
-import { configureSocket } from './server';
+import { Server } from 'socket.io';
+import app, { configureSocket } from './server';
 
-export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
-  return {
-    plugins: [
-      react(), 
-      tailwindcss(),
-      {
-        name: 'socket-io-server',
-        configureServer: (server) => {
-          if (server.httpServer) {
-            const io = new SocketIoServer(server.httpServer, {
-              cors: { origin: '*' }
-            });
-            configureSocket(io).catch(err => {
-              console.error("Error configuring socket:", err);
-            });
-          } else {
-            console.error("HTTP server is not available.");
-          }
-        }
+export default defineConfig({
+  plugins: [
+    react(),
+    {
+      name: 'socket-io-and-express',
+      configureServer: (server) => {
+        // Attach Socket.IO to the HTTP server
+        const io = new Server(server.httpServer);
+        configureSocket(io);
+
+        // Use the full Express app as middleware
+        server.middlewares.use(app);
       }
-    ],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
-    resolve: {
-      alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url))
-      },
-    },
-    server: {
-      hmr: false,
-    },
-  };
+    }
+  ]
 });

@@ -1,7 +1,7 @@
 
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil } from 'lucide-react';
+import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil, Paperclip, File as FileIcon, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
@@ -66,6 +66,7 @@ export default function App() {
   const voiceSampleRateRef = useRef(voiceSampleRate);
   const isJoinedVoiceRef = useRef(isJoinedVoice);
   const currentVoiceChannelRef = useRef(currentVoiceChannel);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isDeafenedRef.current = isDeafened; }, [isDeafened]);
@@ -302,9 +303,33 @@ useEffect(() => {
     socket?.emit('join-channel', channel.id);
   };
 
-  const handleSendMessage = (e?: React.FormEvent, gifUrl?: string) => {
+  const handleSendMessage = async (e?: React.FormEvent, gifUrl?: string, file?: File) => {
     e?.preventDefault();
-    if ((!inputValue.trim() && !gifUrl) || !currentChannel || currentChannel.type !== 'text') return;
+    if ((!inputValue.trim() && !gifUrl && !file) || !currentChannel || currentChannel.type !== 'text') return;
+
+    let fileInfo = null;
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        alert('File is too large! Maximum size is 50MB.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        fileInfo = {
+          path: `/api${data.filePath}`,
+          name: file.name,
+          size: file.size,
+        };
+      } catch (error) {
+        console.error('File upload failed:', error);
+        alert('File upload failed!');
+        return;
+      }
+    }
 
     if (editingMessage) {
       socket?.emit('edit-message', {
@@ -319,6 +344,7 @@ useEffect(() => {
         text: inputValue,
         user: username,
         gifUrl,
+        file: fileInfo,
       });
     }
     
@@ -328,6 +354,9 @@ useEffect(() => {
     setInputValue('');
     setShowEmojiPicker(false);
     setShowGifPicker(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -837,6 +866,14 @@ useEffect(() => {
     });
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
       {/* Switch Voice Channel Confirmation Modal */}
@@ -1236,10 +1273,22 @@ useEffect(() => {
                         </span>
                         {msg.edited && <span className="text-[10px] text-discord-muted italic">(edited)</span>}
                       </div>
-                      {msg.text && !msg.file && <p className="text-discord-text leading-relaxed break-words">{renderMessage(msg.text)}</p>}
+                      {msg.text && <p className="text-discord-text leading-relaxed break-words">{renderMessage(msg.text)}</p>}
                       {msg.gifUrl && (
                         <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
                           <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
+                        </div>
+                      )}
+                      {msg.file && (
+                        <div className="mt-2 bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm flex items-center gap-3">
+                          <FileIcon size={40} className="text-discord-muted shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <a href={msg.file.path} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium truncate block">{msg.file.name}</a>
+                            <div className="text-xs text-discord-muted">{formatFileSize(msg.file.size)}</div>
+                          </div>
+                          <a href={msg.file.path} download={msg.file.name} className="p-2 text-discord-muted hover:text-white transition-colors">
+                            <Download size={18} />
+                          </a>
                         </div>
                       )}
                       {msg.linkPreview && (
@@ -1491,6 +1540,23 @@ useEffect(() => {
               <div className="absolute left-2 top-1/2 -translate-y-1/2 flex gap-1">
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 rounded transition-colors text-discord-muted hover:text-discord-text hover:bg-white/5"
+                >
+                  <Paperclip size={20} />
+                </button>
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleSendMessage(undefined, undefined, e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
                   onClick={() => {
                     setShowGifPicker(!showGifPicker);
                     setShowEmojiPicker(false);
@@ -1508,7 +1574,7 @@ useEffect(() => {
                 value={inputValue}
                 onChange={handleInputChange}
                 placeholder={editingMessage ? "Edit your message" : `Message #${currentChannel.name}`}
-                className="w-full bg-[#383a40] text-discord-text pl-12 pr-12 py-2.5 rounded-lg focus:outline-none placeholder:text-discord-muted"
+                className="w-full bg-[#383a40] text-discord-text pl-24 pr-12 py-2.5 rounded-lg focus:outline-none placeholder:text-discord-muted"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                  {editingMessage && (
