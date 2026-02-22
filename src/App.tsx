@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
 import { Channel, Message, User, Role, Permission, PresenceStatus } from './types';
@@ -86,183 +87,161 @@ export default function App() {
   const micTestAnimationRef = useRef<number | null>(null);
   const peerConnections = useRef<Record<string, RTCPeerConnection>>({});
 
-  useEffect(() => {
-    const newSocket = io(SOCKET_URL, {
-      transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+useEffect(() => {
+    const newSocket = io(SOCKET_URL, { autoConnect: false });
     setSocket(newSocket);
 
-    newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err);
-    });
+    const handleConnectError = (err: Error) => {
+        console.error('Socket connection error:', err);
+    };
 
-    newSocket.on('init', (data) => {
-      const { channels, messages, roles, userPresence, voiceStates, screenSharers, userRoles, usernames, voiceUsers } = data || {};
-      const initialChannels = channels || [];
-      setChannels(initialChannels);
-      setMessages(messages || {});
-      setRoles(roles || []);
-      setUserPresence(userPresence || {});
-      setVoiceStates(voiceStates || {});
-      setAllUserRoles(userRoles || {});
-      setUsernames(usernames || {});
-      setChannelVoiceUsers(voiceUsers || {});
-      if (initialChannels.length > 0) {
-        setCurrentChannel(initialChannels[0]);
-        newSocket.emit('join-channel', initialChannels[0].id);
-      }
-      newSocket.emit('set-username', username);
-    });
+    const handleInit = (data: any) => {
+        const { channels, messages, roles, userPresence, voiceStates, screenSharers, userRoles, usernames, voiceUsers } = data || {};
+        const initialChannels = channels || [];
+        setChannels(initialChannels);
+        setMessages(messages || {});
+        setRoles(roles || []);
+        setUserPresence(userPresence || {});
+        setVoiceStates(voiceStates || {});
+        setAllUserRoles(userRoles || {});
+        setUsernames(usernames || {});
+        setChannelVoiceUsers(voiceUsers || {});
+        if (initialChannels.length > 0) {
+            setCurrentChannel(initialChannels[0]);
+            newSocket.emit('join-channel', initialChannels[0].id);
+        }
+        newSocket.emit('set-username', username);
+    };
 
-    newSocket.on('user-roles-update', (userRoles) => {
-      setAllUserRoles(userRoles);
-    });
+    const handleUserRolesUpdate = (userRoles: Record<string, string[]>) => setAllUserRoles(userRoles);
+    const handleUsernamesUpdate = (names: Record<string, string>) => setUsernames(names);
+    const handleChannelsUpdated = (updatedChannels: Channel[]) => setChannels(updatedChannels);
+    const handleVoiceStateUpdate = ({ userId, state }: { userId: string, state: any }) => setVoiceStates(prev => ({ ...prev, [userId]: state }));
+    const handlePresenceUpdate = (presence: Record<string, PresenceStatus>) => setUserPresence(presence);
+    const handleRolesUpdated = (newRoles: Role[]) => setRoles(newRoles);
 
-    newSocket.on('usernames-update', (names) => {
-      setUsernames(names);
-    });
+    const handleNewMessage = ({ channelId, message }: { channelId: string, message: Message }) => {
+        soundService.playMessage();
+        setMessages((prev) => ({
+            ...prev,
+            [channelId]: [...(prev[channelId] || []), message],
+        }));
+    };
 
-    newSocket.on('channels-updated', (updatedChannels) => {
-      setChannels(updatedChannels);
-    });
+    const handleReactionUpdated = ({ channelId, messageId, reactions }: { channelId: string, messageId: string, reactions: any }) => {
+        setMessages((prev) => ({
+            ...prev,
+            [channelId]: prev[channelId].map((m) =>
+                m.id === messageId ? { ...m, reactions } : m
+            ),
+        }));
+    };
 
-    newSocket.on('voice-state-update', ({ userId, state }) => {
-      setVoiceStates(prev => ({ ...prev, [userId]: state }));
-    });
-
-    newSocket.on('presence-update', (presence) => {
-      setUserPresence(presence);
-    });
-
-    newSocket.on('roles-updated', (newRoles) => {
-      setRoles(newRoles);
-    });
-
-    newSocket.on('new-message', ({ channelId, message }) => {
-      soundService.playMessage();
-      setMessages((prev) => ({
-        ...prev,
-        [channelId]: [...(prev[channelId] || []), message],
-      }));
-    });
-
-    newSocket.on('reaction-updated', ({ channelId, messageId, reactions }) => {
-      setMessages((prev) => ({
-        ...prev,
-        [channelId]: prev[channelId].map((m) => 
-          m.id === messageId ? { ...m, reactions } : m
-        ),
-      }));
-    });
-
-    newSocket.on('voice-users-update', (usersMap) => {
-      setChannelVoiceUsers((prev) => {
-        if (isJoinedVoiceRef.current && currentVoiceChannelRef.current) {
-          const cid = currentVoiceChannelRef.current.id;
-          const prevUsers = prev[cid] || [];
-          const nextUsers = usersMap[cid] || [];
-          
-          if (nextUsers.length > prevUsers.length) {
-            soundService.playJoin();
-          } else if (nextUsers.length < prevUsers.length) {
-            if (nextUsers.includes(newSocket.id)) {
-              soundService.playLeave();
+    const handleVoiceUsersUpdate = (usersMap: Record<string, string[]>) => {
+        setChannelVoiceUsers((prev) => {
+            if (isJoinedVoiceRef.current && currentVoiceChannelRef.current) {
+                const cid = currentVoiceChannelRef.current.id;
+                const prevUsers = prev[cid] || [];
+                const nextUsers = usersMap[cid] || [];
+                if (nextUsers.length > prevUsers.length) soundService.playJoin();
+                else if (nextUsers.length < prevUsers.length && nextUsers.includes(newSocket.id)) soundService.playLeave();
             }
-          }
+            return usersMap;
+        });
+    };
+
+    const handleUserJoinedVoice = async ({ userId }: { userId: string }) => {
+        if (isJoinedVoiceRef.current && mediaStreamRef.current) {
+            const pc = createPeerConnection(userId, mediaStreamRef.current, newSocket);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            newSocket.emit('webrtc-offer', { targetUserId: userId, offer });
         }
-        return usersMap;
-      });
-    });
+    };
 
-    newSocket.on('user-joined-voice', async ({ userId }) => {
-      if (isJoinedVoiceRef.current && mediaStreamRef.current) {
-        // We are already in, someone else joined. They will send us an offer.
-        // Or we can send them an offer. Let's have the existing users send offers to the new user.
-        const pc = createPeerConnection(userId, mediaStreamRef.current);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        newSocket.emit('webrtc-offer', { targetUserId: userId, offer });
-      }
-    });
-
-    newSocket.on('user-left-voice', ({ userId }) => {
-      if (peerConnections.current[userId]) {
-        peerConnections.current[userId].close();
-        delete peerConnections.current[userId];
-      }
-    });
-
-    newSocket.on('webrtc-offer', async ({ sourceUserId, offer }) => {
-      if (isJoinedVoiceRef.current && mediaStreamRef.current) {
-        const pc = createPeerConnection(sourceUserId, mediaStreamRef.current);
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        newSocket.emit('webrtc-answer', { targetUserId: sourceUserId, answer });
-      }
-    });
-
-    newSocket.on('webrtc-answer', async ({ sourceUserId, answer }) => {
-      const pc = peerConnections.current[sourceUserId];
-      if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      }
-    });
-
-    newSocket.on('webrtc-ice-candidate', async ({ sourceUserId, candidate }) => {
-      const pc = peerConnections.current[sourceUserId];
-      if (pc) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
-
-    newSocket.on('screen-share-started', ({ userId, channelId }) => {
-      if (isJoinedVoiceRef.current && currentVoiceChannelRef.current?.id === channelId) {
-        soundService.playScreenShare();
-      }
-    });
-
-    newSocket.on('user-typing', ({ channelId, user, isTyping }) => {
-      setTypingUsers((prev) => {
-        const currentTyping = prev[channelId] || [];
-        if (isTyping) {
-          if (!currentTyping.includes(user)) {
-            return { ...prev, [channelId]: [...currentTyping, user] };
-          }
-        } else {
-          return { ...prev, [channelId]: currentTyping.filter((u) => u !== user) };
+    const handleUserLeftVoice = ({ userId }: { userId: string }) => {
+        if (peerConnections.current[userId]) {
+            peerConnections.current[userId].close();
+            delete peerConnections.current[userId];
         }
-        return prev;
-      });
-    });
+    };
 
-    newSocket.on('screen-share-started', ({ userId }) => {
-      // User started sharing screen
-    });
+    const handleWebRTCOffer = async ({ sourceUserId, offer }: { sourceUserId: string, offer: any }) => {
+        if (isJoinedVoiceRef.current && mediaStreamRef.current) {
+            const pc = createPeerConnection(sourceUserId, mediaStreamRef.current, newSocket);
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            newSocket.emit('webrtc-answer', { targetUserId: sourceUserId, answer });
+        }
+    };
 
-    newSocket.on('screen-share-stopped', ({ userId }) => {
-      setRemoteScreens(prev => {
-        const next = { ...prev };
-        delete next[userId];
-        return next;
-      });
-    });
+    const handleWebRTCAnswer = async ({ sourceUserId, answer }: { sourceUserId: string, answer: any }) => {
+        const pc = peerConnections.current[sourceUserId];
+        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    };
 
-    newSocket.on('screen-stream', ({ userId, data }) => {
-      setRemoteScreens(prev => ({ ...prev, [userId]: data }));
-    });
+    const handleWebRTCICE_Candidate = async ({ sourceUserId, candidate }: { sourceUserId: string, candidate: any }) => {
+        const pc = peerConnections.current[sourceUserId];
+        if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    };
+
+    const handleScreenShareStarted = ({ userId, channelId }: { userId: string, channelId: string }) => {
+        if (isJoinedVoiceRef.current && currentVoiceChannelRef.current?.id === channelId) {
+            soundService.playScreenShare();
+        }
+    };
+
+    const handleUserTyping = ({ channelId, user, isTyping }: { channelId: string, user: string, isTyping: boolean }) => {
+        setTypingUsers((prev) => {
+            const currentTyping = prev[channelId] || [];
+            if (isTyping && !currentTyping.includes(user)) return { ...prev, [channelId]: [...currentTyping, user] };
+            if (!isTyping) return { ...prev, [channelId]: currentTyping.filter((u) => u !== user) };
+            return prev;
+        });
+    };
+    
+    const handleScreenShareStopped = ({ userId }: { userId: string }) => {
+        setRemoteScreens(prev => {
+            const next = { ...prev };
+            delete next[userId];
+            return next;
+        });
+    };
+
+    const handleScreenStream = ({ userId, data }: { userId: string, data: string }) => {
+        setRemoteScreens(prev => ({ ...prev, [userId]: data }));
+    };
+
+    newSocket.on('connect_error', handleConnectError);
+    newSocket.on('init', handleInit);
+    newSocket.on('user-roles-update', handleUserRolesUpdate);
+    newSocket.on('usernames-update', handleUsernamesUpdate);
+    newSocket.on('channels-updated', handleChannelsUpdated);
+    newSocket.on('voice-state-update', handleVoiceStateUpdate);
+    newSocket.on('presence-update', handlePresenceUpdate);
+    newSocket.on('roles-updated', handleRolesUpdated);
+    newSocket.on('new-message', handleNewMessage);
+    newSocket.on('reaction-updated', handleReactionUpdated);
+    newSocket.on('voice-users-update', handleVoiceUsersUpdate);
+    newSocket.on('user-joined-voice', handleUserJoinedVoice);
+    newSocket.on('user-left-voice', handleUserLeftVoice);
+    newSocket.on('webrtc-offer', handleWebRTCOffer);
+    newSocket.on('webrtc-answer', handleWebRTCAnswer);
+    newSocket.on('webrtc-ice-candidate', handleWebRTCICE_Candidate);
+    newSocket.on('screen-share-started', handleScreenShareStarted);
+    newSocket.on('user-typing', handleUserTyping);
+    newSocket.on('screen-share-stopped', handleScreenShareStopped);
+    newSocket.on('screen-stream', handleScreenStream);
+
+    newSocket.connect();
 
     return () => {
-      if (newSocket.connected) {
         newSocket.close();
-      } else {
-        newSocket.disconnect();
-      }
-      stopVoice();
+        stopVoice();
     };
-  }, []);
+}, [username]);
+
 
   // Save settings to localStorage and apply dynamically
   useEffect(() => {
@@ -387,7 +366,7 @@ export default function App() {
     setGifs(mockGifs);
   };
 
-  const createPeerConnection = (targetUserId: string, stream: MediaStream) => {
+  const createPeerConnection = (targetUserId: string, stream: MediaStream, socket: Socket) => {
     if (peerConnections.current[targetUserId]) {
       peerConnections.current[targetUserId].close();
     }
@@ -423,7 +402,7 @@ export default function App() {
   };
 
   const startVoice = async () => {
-    if (!currentChannel || currentChannel.type !== 'voice') return;
+    if (!currentChannel || currentChannel.type !== 'voice' || !socket) return;
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -445,7 +424,7 @@ export default function App() {
       const existingUsers = channelVoiceUsers[currentChannel.id] || [];
       existingUsers.forEach(async (userId) => {
         if (userId !== socket?.id) {
-          const pc = createPeerConnection(userId, stream);
+          const pc = createPeerConnection(userId, stream, socket);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           socket?.emit('webrtc-offer', { targetUserId: userId, offer });
@@ -515,13 +494,6 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    if (!socket) return;
-
-    return () => {
-    };
-  }, [socket]);
-
   const stopVoice = () => {
     if (isJoinedVoice) {
       soundService.playLeave();
@@ -582,7 +554,7 @@ export default function App() {
       }
 
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 5 },
+        video: { frameRate: 30 },
         audio: false
       });
       
@@ -605,15 +577,15 @@ export default function App() {
         screenIntervalRef.current = setInterval(() => {
           if (!ctx || !video.videoWidth) return;
           
-          canvas.width = 480; // Low res for performance
-          canvas.height = (video.videoHeight / video.videoWidth) * 480;
+          canvas.width = 1280;
+          canvas.height = (video.videoHeight / video.videoWidth) * 1280;
           
           if (isNaN(canvas.height)) return;
           
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const data = canvas.toDataURL('image/jpeg', 0.5);
+          const data = canvas.toDataURL('image/jpeg', 0.9);
           socket?.emit('screen-data', { channelId: voiceChannelId, data });
-        }, 200); // 5 FPS
+        }, 1000 / 30); // 30 FPS
       };
 
       video.onloadedmetadata = () => {
@@ -1165,7 +1137,8 @@ export default function App() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-discord-dark">
+      <div className="flex-1 flex flex-col bg-discord-dark relative">
+        
         <div className="h-12 border-b border-black/20 flex items-center justify-between px-4 shadow-sm shrink-0">
           <div className="flex items-center">
             {currentChannel?.type === 'text' ? <Hash size={24} className="text-discord-muted mr-2" /> : <Volume2 size={24} className="text-discord-muted mr-2" />}
@@ -1233,7 +1206,7 @@ export default function App() {
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      {msg.text && <p className="text-discord-text leading-relaxed break-words">{msg.text}</p>}
+                      {msg.text && !msg.file && <p className="text-discord-text leading-relaxed break-words">{msg.text}</p>}
                       {msg.gifUrl && (
                         <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
                           <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
@@ -1291,8 +1264,7 @@ export default function App() {
                       </button>
                     </div>
                   </motion.div>
-                ))}
-              </AnimatePresence>
+                ))}</AnimatePresence>
               <div ref={messagesEndRef} />
             </>
           ) : (
