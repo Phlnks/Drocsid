@@ -7,8 +7,22 @@ import {
   getRoles, updateRoles, getUserRoles, setUserRole,
   getUsers, upsertUser, logLogin
 } from './db';
+import { getLinkPreview } from './src/previews';
 
 const app = express();
+
+app.get('/preview', async (req, res) => {
+  const url = req.query.url as string;
+  if (!url) {
+    return res.status(400).send('URL is required');
+  }
+  const preview = await getLinkPreview(url);
+  if (preview) {
+    res.json(preview);
+  } else {
+    res.status(404).send('Could not generate a preview for this URL.');
+  }
+});
 
 export async function configureSocket(io: SocketIoServer) {
   // Initialize the database and load all data first
@@ -94,6 +108,16 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("send-message", async ({ channelId, text, user, gifUrl }) => {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const urls = text.match(urlRegex);
+      let linkPreview = null;
+
+      if (urls && urls.length > 0) {
+        console.log("Detected URLs:", urls);
+        linkPreview = await getLinkPreview(urls[0]);
+        console.log("Generated Link Preview:", linkPreview);
+      }
+
       const message = {
         id: Math.random().toString(36).substr(2, 9),
         text,
@@ -102,6 +126,7 @@ export async function configureSocket(io: SocketIoServer) {
         timestamp: new Date().toISOString(),
         reactions: {},
         gifUrl,
+        linkPreview,
       };
       if (!messages[channelId]) messages[channelId] = [];
       messages[channelId].push(message);

@@ -792,6 +792,16 @@ useEffect(() => {
     'CONNECT_VOICE'
   ];
 
+  const renderMessage = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.split(urlRegex).map((part, i) => {
+      if (part.match(urlRegex)) {
+        return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{part}</a>;
+      }
+      return part;
+    });
+  };
+
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
       {/* Switch Voice Channel Confirmation Modal */}
@@ -1197,11 +1207,18 @@ useEffect(() => {
                           {new Date(msg.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      {msg.text && !msg.file && <p className="text-discord-text leading-relaxed break-words">{msg.text}</p>}
+                      {msg.text && !msg.file && <p className="text-discord-text leading-relaxed break-words">{renderMessage(msg.text)}</p>}
                       {msg.gifUrl && (
                         <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
                           <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
                         </div>
+                      )}
+                      {msg.linkPreview && (
+                        <a href={msg.linkPreview.url} target="_blank" rel="noopener noreferrer" className="mt-2 block bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm hover:bg-white/5 transition-colors">
+                          {msg.linkPreview.image && <img src={msg.linkPreview.image} alt={msg.linkPreview.title} className="w-full h-auto rounded-md mb-2" />}
+                          <h4 className="font-bold text-white text-sm">{msg.linkPreview.title}</h4>
+                          {msg.linkPreview.description && <p className="text-discord-muted text-xs mt-1">{msg.linkPreview.description}</p>}
+                        </a>
                       )}
                       
                       {/* Reactions Display */}

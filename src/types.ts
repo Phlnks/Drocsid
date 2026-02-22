@@ -1,8 +1,9 @@
-export interface Channel {
+
+export type Channel = {
   id: string;
   name: string;
   type: 'text' | 'voice';
-}
+};
 
 export interface Message {
   id: string;
@@ -10,16 +11,33 @@ export interface Message {
   user: string;
   userId?: string;
   timestamp: string;
-  reactions?: Record<string, string[]>; // emoji -> list of userIds
+  reactions?: Record<string, string[]>; // emoji -> userIds
   gifUrl?: string;
+  file?: {
+    name: string;
+    url: string;
+  };
+  linkPreview?: LinkPreview;
 }
 
-export type Permission = 
+export interface LinkPreview {
+  url: string;
+  title: string;
+  description?: string;
+  image?: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+}
+
+export type Permission =
+  | 'ADMINISTRATOR'
   | 'MANAGE_CHANNELS'
   | 'MANAGE_ROLES'
   | 'SEND_MESSAGES'
-  | 'CONNECT_VOICE'
-  | 'ADMINISTRATOR';
+  | 'CONNECT_VOICE';
 
 export interface Role {
   id: string;
@@ -29,11 +47,3 @@ export interface Role {
 }
 
 export type PresenceStatus = 'online' | 'idle' | 'dnd' | 'offline';
-
-export interface User {
-  id: string;
-  name: string;
-  avatar?: string;
-  roles?: string[]; // Role IDs
-  status?: PresenceStatus;
-}
