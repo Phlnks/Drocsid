@@ -63,22 +63,24 @@ export async function configureSocket(io: SocketIoServer) {
   let roles: Role[] = await getRoles();
   let userRoles = await getUserRoles();
 
-  // Add a Moderator role if it doesn't exist
+  // Ensure critical roles exist
+  if (!roles.find(r => r.name === 'Administrator')) {
+    roles.unshift({ // Add to the beginning
+      id: 'admin-role',
+      name: 'Administrator',
+      color: '#c93434',
+      permissions: ['ADMINISTRATOR']
+    });
+    await updateRoles(roles);
+  }
+
   if (!roles.find(r => r.name === 'Moderator')) {
-    const moderatorRole: Role = {
+    roles.push({
       id: 'mod-role',
       name: 'Moderator',
       color: '#206694',
       permissions: ['KICK_MEMBERS', 'DELETE_MESSAGES']
-    };
-    roles.push(moderatorRole);
-    await updateRoles(roles);
-  }
-
-  // Ensure Administrator has all permissions
-  const adminRole = roles.find(r => r.name === 'Administrator');
-  if (adminRole && !adminRole.permissions.includes('KICK_MEMBERS')) {
-    adminRole.permissions.push('KICK_MEMBERS');
+    });
     await updateRoles(roles);
   }
 
@@ -114,6 +116,12 @@ export async function configureSocket(io: SocketIoServer) {
     );
     
     return userPermissions.has('ADMINISTRATOR') || userPermissions.has(permission);
+  };
+
+  const countAdmins = () => {
+    const adminRole = roles.find(r => r.name === 'Administrator');
+    if (!adminRole) return 0;
+    return Object.values(userRoles).filter(r => r.includes(adminRole.id)).length;
   };
 
   io.on("connection", async (socket) => {
@@ -281,10 +289,19 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("update-roles", async (newRoles) => {
-      if (!hasPermission(socket, 'ADMINISTRATOR')) return;
-      roles = newRoles;
-      await updateRoles(newRoles);
-      io.emit("roles-updated", roles);
+        if (!hasPermission(socket, 'ADMINISTRATOR')) return;
+
+        const adminRole = roles.find(r => r.name === 'Administrator');
+        const adminRoleExistsInNew = newRoles.some(r => r.id === adminRole.id);
+
+        if (!adminRoleExistsInNew && countAdmins() <= 1) {
+            socket.emit('channel-error', { message: "Cannot delete the last Administrator role." });
+            return;
+        }
+
+        roles = newRoles;
+        await updateRoles(newRoles);
+        io.emit("roles-updated", roles);
     });
 
     socket.on("create-channel", async (channel) => {
@@ -378,10 +395,21 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("assign-role", async ({ username, roleIds }) => {
-      if (!hasPermission(socket, 'MANAGE_ROLES')) return;
-      userRoles[username] = roleIds;
-      await setUserRole(username, roleIds);
-      io.emit("user-roles-update", userRoles);
+        if (!hasPermission(socket, 'MANAGE_ROLES')) return;
+
+        const adminRole = roles.find(r => r.name === 'Administrator');
+        const currentRoles = userRoles[username] || [];
+        
+        if (adminRole && currentRoles.includes(adminRole.id) && !roleIds.includes(adminRole.id)) {
+            if (countAdmins() <= 1) {
+                socket.emit('channel-error', { message: "Cannot remove the last administrator." });
+                return; // Revert or simply don't update
+            }
+        }
+
+        userRoles[username] = roleIds;
+        await setUserRole(username, roleIds);
+        io.emit("user-roles-update", userRoles);
     });
     
     socket.on('kick-user', ({ userId, channelId }) => {
