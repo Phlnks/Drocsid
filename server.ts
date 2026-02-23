@@ -63,6 +63,25 @@ export async function configureSocket(io: SocketIoServer) {
   let roles: Role[] = await getRoles();
   let userRoles = await getUserRoles();
 
+  // Add a Moderator role if it doesn't exist
+  if (!roles.find(r => r.name === 'Moderator')) {
+    const moderatorRole: Role = {
+      id: 'mod-role',
+      name: 'Moderator',
+      color: '#206694',
+      permissions: ['KICK_MEMBERS', 'DELETE_MESSAGES']
+    };
+    roles.push(moderatorRole);
+    await updateRoles(roles);
+  }
+
+  // Ensure Administrator has all permissions
+  const adminRole = roles.find(r => r.name === 'Administrator');
+  if (adminRole && !adminRole.permissions.includes('KICK_MEMBERS')) {
+    adminRole.permissions.push('KICK_MEMBERS');
+    await updateRoles(roles);
+  }
+
   const voiceUsers: Record<string, Set<string>> = {};
   const userPresence: Record<string, string> = {};
   const screenSharers: Record<string, string> = {};
@@ -335,7 +354,7 @@ export async function configureSocket(io: SocketIoServer) {
     });
     
     socket.on('kick-user', ({ userId, channelId }) => {
-      if (!hasPermission(socket, 'ADMINISTRATOR')) return;
+      if (!hasPermission(socket, 'KICK_MEMBERS')) return;
   
       const targetSocket = io.sockets.sockets.get(userId);
       if (targetSocket && voiceUsers[channelId] && voiceUsers[channelId].has(userId)) {

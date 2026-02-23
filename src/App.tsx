@@ -790,7 +790,7 @@ export default function App() {
         .flatMap((r) => r.permissions)
     );
 
-    return userPermissions.has("ADMINISTRATOR") || userPermissions.has(permission);
+    return userPermissions.has('ADMINISTRATOR') || userPermissions.has(permission);
   }, [allUserRoles, username, roles]);
 
 
@@ -961,6 +961,7 @@ export default function App() {
     'ADMINISTRATOR',
     'MANAGE_CHANNELS',
     'MANAGE_ROLES',
+    'KICK_MEMBERS',
     'SEND_MESSAGES',
     'CONNECT_VOICE',
     'DELETE_MESSAGES',
@@ -1018,7 +1019,7 @@ export default function App() {
                   </button>
               ))}
             </div>
-            {hasPermission('ADMINISTRATOR') && (
+            {hasPermission('KICK_MEMBERS') && (
               <>
                 <div className="h-[1px] bg-white/10 my-1.5" />
                 <button
