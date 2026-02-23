@@ -94,7 +94,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showChannelModal, setShowChannelModal] = useState(false);
-  const [showRightPanel, setShowRightPanel] = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [newChannelType, setNewChannelType] = useState<'text' | 'voice'>('text');
   const [channelNameInput, setChannelNameInput] = useState('');
@@ -1190,30 +1190,60 @@ export default function App() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const RightPanel = () => (
-    <div className="w-60 bg-discord-sidebar flex flex-col">
+  const RightPanel = () => {
+    const groupedUsers = Object.entries(usernames).reduce((acc, [id, name]) => {
+      const userRoles = allUserRoles[name] || [];
+      
+      if (userRoles.length > 0) {
+        userRoles.forEach(roleId => {
+          const role = roles.find(r => r.id === roleId);
+          if (role) {
+            if (!acc[role.name]) {
+              acc[role.name] = [];
+            }
+            acc[role.name].push({ id, name });
+          }
+        });
+      } else {
+        if (!acc['Online']) {
+          acc['Online'] = [];
+        }
+        acc['Online'].push({ id, name });
+      }
+      
+      return acc;
+    }, {} as Record<string, { id: string, name: string }[]>);
+  
+    return (
+      <div className="w-60 bg-discord-sidebar flex flex-col flex-shrink-0">
         <div className="h-12 border-b border-black/20 flex items-center px-4 shadow-sm">
-            <h2 className="font-bold text-white">Users</h2>
+          <h2 className="font-bold text-white">Users</h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-1">
-            {Object.entries(usernames).map(([id, name]) => (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {Object.entries(groupedUsers).map(([roleName, users]) => (
+            <div key={roleName}>
+              <h3 className="text-xs font-bold text-discord-muted uppercase mb-2">{roleName} - {users.length}</h3>
+              {users.map(({ id, name }) => (
                 <div
-                    key={id}
-                    className="flex items-center gap-3 cursor-pointer rounded hover:bg-white/5 -mx-4 px-4 py-2"
-                    onContextMenu={(e) => handleUserContextMenu(e, id)}
+                  key={id}
+                  className="flex items-center gap-3 cursor-pointer rounded hover:bg-white/5 -mx-4 px-4 py-2"
+                  onContextMenu={(e) => handleUserContextMenu(e, id)}
                 >
-                    <div className="relative">
-                        <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
-                            {name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <StatusIndicator status={userPresence[id]} size={10} className="absolute -bottom-0.5 -right-0.5" />
+                  <div className="relative">
+                    <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
+                      {name.slice(0, 2).toUpperCase()}
                     </div>
-                    <span className="font-medium text-white">{name}</span>
+                    <StatusIndicator status={userPresence[id]} size={10} className="absolute -bottom-0.5 -right-0.5" />
+                  </div>
+                  <span className="font-medium" style={{ color: getUserColor(name) }}>{name}</span>
                 </div>
-            ))}
+              ))}
+            </div>
+          ))}
         </div>
-    </div>
-);
+      </div>
+    );
+  };
 
 
   return (
@@ -1711,15 +1741,15 @@ export default function App() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-discord-dark relative">
+      <div className="flex-1 flex flex-col bg-discord-dark relative min-w-0">
         
         <div className="h-12 border-b border-black/20 flex items-center justify-between px-4 shadow-sm shrink-0">
-          <div className="flex items-center">
-            {currentChannel?.type === 'text' ? <Hash size={24} className="text-discord-muted mr-2" /> : <Volume2 size={24} className="text-discord-muted mr-2" />}
-            <h2 className="font-bold text-white">{currentChannel?.name || 'Select a channel'}</h2>
+          <div className="flex items-center min-w-0">
+            {currentChannel?.type === 'text' ? <Hash size={24} className="text-discord-muted mr-2 shrink-0" /> : <Volume2 size={24} className="text-discord-muted mr-2 shrink-0" />}
+            <h2 className="font-bold text-white truncate">{currentChannel?.name || 'Select a channel'}</h2>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 shrink-0">
             {currentChannel?.type === 'text' && (
                 <div className="relative group">
                     <input
@@ -1738,14 +1768,14 @@ export default function App() {
                     </div>
                 </div>
             )}
-            <button onClick={() => setShowRightPanel(!showRightPanel)} className="text-discord-muted hover:text-white transition-colors">
+            <button onClick={() => setShowRightPanel(!showRightPanel)} className={cn("text-discord-muted hover:text-white transition-colors", showRightPanel && "text-white bg-white/5")}>
                 <Users size={20} />
             </button>
         </div>
         </div>
 
-        <div className="flex-1 flex overflow-y-auto">
-          <div className="flex-1 p-4 space-y-4">
+        <div className="flex-1 flex min-h-0">
+          <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
             {currentChannel?.type === 'text' ? (
               <>
                 <AnimatePresence initial={false}>
