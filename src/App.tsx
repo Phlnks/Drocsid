@@ -1,7 +1,6 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil, Paperclip, File as FileIcon, Download } from 'lucide-react';
+import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil, Paperclip, File as FileIcon, Download, UploadCloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
@@ -112,6 +111,7 @@ export default function App() {
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
   const [unreadMentions, setUnreadMentions] = useState<Record<string, boolean>>({});
+  const [isDragging, setIsDragging] = useState(false);
 
 
   const AUDIO_CONSTRAINTS = {
@@ -1117,6 +1117,40 @@ export default function App() {
       }
     }
   };
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+  
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Check if the leave target is outside the main app container
+    const relatedTarget = e.relatedTarget as Node;
+    if (!e.currentTarget.contains(relatedTarget)) {
+        setIsDragging(false);
+    }
+  };
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      handleSendMessage(undefined, undefined, file);
+      e.dataTransfer.clearData();
+    }
+  };
 
   const StatusIndicator = ({ status, size = 10, className }: { status?: PresenceStatus, size?: number, className?: string }) => {
     const colors = {
@@ -1247,7 +1281,32 @@ export default function App() {
 
 
   return (
-    <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
+    <div 
+      className="flex h-screen w-full bg-discord-dark overflow-hidden relative"
+      onDragEnter={handleDragEnter}
+    >
+      {/* Drag and Drop Overlay */}
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none"
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <div className='pointer-events-auto'>
+
+            <UploadCloud size={64} className="text-white/80 mb-4" />
+            <h2 className="text-2xl font-bold text-white">Drop to upload</h2>
+            <p className="text-discord-muted">Release your file to upload it to the current channel.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
        {/* Reaction Emoji Picker */}
       <AnimatePresence>
         {showReactionPicker.visible && (
