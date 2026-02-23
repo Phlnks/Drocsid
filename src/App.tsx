@@ -37,6 +37,7 @@ export default function App() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [previewImage, setPreviewImage] = useState<{ path: string; name: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; channel: Channel | null }>({ visible: false, x: 0, y: 0, channel: null });
+  const [userContextMenu, setUserContextMenu] = useState<{ visible: boolean; x: number; y: number; userId: string | null }>({ visible: false, x: 0, y: 0, userId: null });
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -334,6 +335,16 @@ const stopScreenShare = useCallback(() => {
       window.removeEventListener('click', handleClick);
     };
   }, [contextMenu.visible, contextMenu]);
+
+  useEffect(() => {
+    const handleClick = () => setUserContextMenu({ ...userContextMenu, visible: false });
+    if (userContextMenu.visible) {
+      window.addEventListener('click', handleClick);
+    }
+    return () => {
+      window.removeEventListener('click', handleClick);
+    };
+  }, [userContextMenu.visible, userContextMenu]);
 
   const handleChannelSelect = (channel: Channel) => {
     if (currentChannel?.id === channel.id) return;
@@ -849,6 +860,17 @@ const stopScreenShare = useCallback(() => {
     });
   };
 
+  const handleUserContextMenu = (e: React.MouseEvent, userId: string) => {
+    if (!hasPermission('MANAGE_ROLES')) return;
+    e.preventDefault();
+    setUserContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      userId: userId,
+    });
+  };
+
   const toggleMicTest = async () => {
     if (isMicTesting) {
       // Stop testing
@@ -955,6 +977,41 @@ const stopScreenShare = useCallback(() => {
 
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
+      {/* User Context Menu */}
+      <AnimatePresence>
+        {userContextMenu.visible && userContextMenu.userId && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            style={{ top: userContextMenu.y, left: userContextMenu.x }}
+            className="absolute z-[200] w-56 bg-discord-guilds rounded-md shadow-2xl p-2 border border-black/20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-2 py-1.5">
+              <div className="text-xs font-bold text-white uppercase">{usernames[userContextMenu.userId]}</div>
+              <div className="text-xs text-discord-muted">Roles</div>
+            </div>
+            <div className="h-[1px] bg-white/10 my-1.5" />
+            <div className="space-y-1">
+              {roles.map(role => (
+                  <button
+                    key={role.id}
+                    onClick={() => handleAssignRole(usernames[userContextMenu.userId!], role.id)}
+                    className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center justify-between"
+                  >
+                      <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: role.color }} />
+                          <span>{role.name}</span>
+                      </div>
+                      {(allUserRoles[usernames[userContextMenu.userId!]] || []).includes(role.id) && <Check size={16} />}
+                  </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Context Menu */}
       <AnimatePresence>
         {contextMenu.visible && (
@@ -1236,7 +1293,11 @@ const stopScreenShare = useCallback(() => {
                 {(currentChannel?.id === channel.id || currentVoiceChannel?.id === channel.id) && channel.type === 'voice' && (
                   <div className="pl-8 space-y-1">
                     {(channelVoiceUsers[channel.id] || []).map(userId => (
-                      <div key={userId} className="flex items-center gap-2 py-1">
+                      <div 
+                        key={userId} 
+                        className="flex items-center gap-2 py-1"
+                        onContextMenu={(e) => handleUserContextMenu(e, userId)}
+                      >
                         <div className="relative shrink-0">
                           <div className={cn(
                             "w-6 h-6 bg-discord-accent rounded-full flex items-center justify-center text-[10px] text-white transition-all duration-200",
