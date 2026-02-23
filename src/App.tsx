@@ -22,7 +22,9 @@ export default function App() {
   const [isJoinedVoice, setIsJoinedVoice] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
-  const [username] = useState(`User_${Math.floor(Math.random() * 1000)}`);
+  const [username, setUsername] = useState(localStorage.getItem('username') || `User_${Math.floor(Math.random() * 1000)}`);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState(username);
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
@@ -90,6 +92,10 @@ export default function App() {
   const micTestAnalyzerRef = useRef<AnalyserNode | null>(null);
   const micTestAnimationRef = useRef<number | null>(null);
   const peerConnections = useRef<Record<string, RTCPeerConnection>>({});
+
+  useEffect(() => {
+    localStorage.setItem('username', username);
+  }, [username]);
 
 useEffect(() => {
     const newSocket = io(SOCKET_URL, { autoConnect: false });
@@ -256,7 +262,7 @@ useEffect(() => {
         newSocket.close();
         stopVoice();
     };
-}, [username]);
+}, []);
 
 
   // Save settings to localStorage and apply dynamically
@@ -723,6 +729,15 @@ useEffect(() => {
     handleUpdateRoles(newRoles);
   };
 
+  const handleUsernameChange = () => {
+    const trimmedUsername = newUsername.trim();
+    if (trimmedUsername && trimmedUsername !== username) {
+      setUsername(trimmedUsername);
+      socket?.emit('set-username', trimmedUsername);
+    }
+    setIsEditingUsername(false);
+  };
+
   const hasPermission = (permission: Permission) => {
     const userRoleIds = allUserRoles[socket?.id || ''] || [];
     const userRoles = roles.filter(r => userRoleIds.includes(r.id));
@@ -1164,10 +1179,10 @@ useEffect(() => {
 
         {/* User Panel */}
         <div className="bg-[#232428] p-2 flex flex-col gap-2 relative">
-          <div className="flex items-center gap-2 min-w-0 group cursor-pointer" onClick={() => setShowStatusMenu(!showStatusMenu)}>
-            <div className="relative shrink-0">
+          <div className="flex items-center gap-2 min-w-0 group">
+            <div className="relative shrink-0 cursor-pointer" onClick={() => setShowStatusMenu(!showStatusMenu)}>
               <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
-                {username.slice(0, 2).toUpperCase()}
+                {(usernames[socket?.id || ''] || username).slice(0, 2).toUpperCase()}
               </div>
               <StatusIndicator 
                 status={userPresence[socket?.id || '']} 
@@ -1176,8 +1191,41 @@ useEffect(() => {
               />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-bold truncate" style={{ color: getUserColor(socket?.id || '') }}>{username}</div>
-              <div className="text-[10px] text-discord-muted truncate capitalize">{userPresence[socket?.id || ''] || 'online'}</div>
+              {isEditingUsername ? (
+                <form onSubmit={(e) => { e.preventDefault(); handleUsernameChange(); }}>
+                  <input
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    onBlur={handleUsernameChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setIsEditingUsername(false);
+                        setNewUsername(username);
+                      }
+                    }}
+                    className="bg-transparent text-sm font-bold text-white w-full focus:outline-none border-b border-discord-accent"
+                    autoFocus
+                  />
+                </form>
+              ) : (
+                <div
+                  className="text-sm font-bold truncate cursor-pointer"
+                  style={{ color: getUserColor(socket?.id || '') }}
+                  onClick={() => {
+                    setIsEditingUsername(true);
+                    setNewUsername(usernames[socket?.id || ''] || username);
+                  }}
+                >
+                  {usernames[socket?.id || ''] || username}
+                </div>
+              )}
+              <div
+                className="text-[10px] text-discord-muted truncate capitalize cursor-pointer"
+                onClick={() => setShowStatusMenu(!showStatusMenu)}
+              >
+                {userPresence[socket?.id || ''] || 'online'}
+              </div>
             </div>
           </div>
 
