@@ -1151,7 +1151,6 @@ export default function App() {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       handleSendMessage(undefined, undefined, file);
-      e.dataTransfer.clearData();
     }
   };
 
