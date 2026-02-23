@@ -1,6 +1,6 @@
 
 import express, { Router } from 'express';
-import type { Server as SocketIoServer } from 'socket.io';
+import type { Server as SocketIoServer, Socket } from 'socket.io';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -12,6 +12,7 @@ import {
   getUsers, upsertUser, logLogin
 } from './db';
 import { getLinkPreview } from './src/previews';
+import { Role } from './src/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +60,7 @@ export async function configureSocket(io: SocketIoServer) {
   
   let channels = await getChannels();
   let messages = await getMessages();
-  let roles = await getRoles();
+  let roles: Role[] = await getRoles();
   let userRoles = await getUserRoles();
 
   const voiceUsers: Record<string, Set<string>> = {};
@@ -80,6 +81,20 @@ export async function configureSocket(io: SocketIoServer) {
       map[id] = Array.from(voiceUsers[id]);
     });
     return map;
+  };
+  
+  const hasPermission = (socket: Socket, permission: string) => {
+    const username = onlineUsers[socket.id];
+    if (!username) return false;
+
+    const userRoleIds = userRoles[username] || [];
+    const userPermissions = new Set(
+      roles
+        .filter((r) => userRoleIds.includes(r.id))
+        .flatMap((r) => r.permissions)
+    );
+    
+    return userPermissions.has('ADMINISTRATOR') || userPermissions.has(permission);
   };
 
   io.on("connection", async (socket) => {
@@ -166,30 +181,17 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on('edit-message', async ({ channelId, messageId, newText }) => {
+      if (!hasPermission(socket, 'EDIT_MESSAGES')) return;
       const channelMessages = messages[channelId];
       if (!channelMessages) return;
 
       const message = channelMessages.find((m) => m.id === messageId);
       if (!message) return;
 
-      const currentUsername = onlineUsers[socket.id];
-      if (!currentUsername) return; 
-
-      const userRoleIds = userRoles[currentUsername] || [];
-      const userPermissions = roles
-        .filter(r => userRoleIds.includes(r.id))
-        .flatMap(r => r.permissions);
-        
-      const isAuthor = message.user === currentUsername;
-
-      const canEdit = userPermissions.includes('ADMINISTRATOR') || (userPermissions.includes('EDIT_MESSAGES') && isAuthor);
-
-      if (canEdit) {
-        const editedTimestamp = await updateMessage(messageId, newText);
-        message.text = newText;
-        message.edited = editedTimestamp;
-        io.emit('message-updated', { channelId, messageId, newText, editedTimestamp });
-      }
+      const editedTimestamp = await updateMessage(messageId, newText);
+      message.text = newText;
+      message.edited = editedTimestamp;
+      io.emit('message-updated', { channelId, messageId, newText, editedTimestamp });
     });
 
     socket.on("join-voice", (channelId) => {
@@ -202,11 +204,11 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("leave-voice", (channelId) => {
-      if (voiceUsers[channelId]) {
-        voiceUsers[channelId].delete(socket.id);
-        socket.leave(`voice-${channelId}`);
-        io.emit("voice-users-update", getVoiceUsersMap());
-        socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id });
+      if (voiceUsers[channelId] && voiceUsers[channelId].has(socket.id)) {
+          voiceUsers[channelId].delete(socket.id);
+          socket.leave(`voice-${channelId}`);
+          io.emit("voice-users-update", getVoiceUsersMap());
+          socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id });
       }
     });
 
@@ -241,12 +243,14 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("update-roles", async (newRoles) => {
+      if (!hasPermission(socket, 'ADMINISTRATOR')) return;
       roles = newRoles;
       await updateRoles(newRoles);
       io.emit("roles-updated", roles);
     });
 
     socket.on("create-channel", async (channel) => {
+      if (!hasPermission(socket, 'MANAGE_CHANNELS')) return;
       const newChannel = { ...channel, id: Math.random().toString(36).substr(2, 9) };
       channels.push(newChannel);
       if (newChannel.type === 'voice') {
@@ -259,6 +263,7 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("update-channel", async (updatedChannel) => {
+      if (!hasPermission(socket, 'MANAGE_CHANNELS')) return;
       const index = channels.findIndex(c => c.id === updatedChannel.id);
       if (index !== -1) {
         channels[index] = { ...channels[index], ...updatedChannel };
@@ -268,6 +273,7 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("delete-channel", async (channelId) => {
+      if (!hasPermission(socket, 'MANAGE_CHANNELS')) return;
       const index = channels.findIndex(c => c.id === channelId);
       if (index !== -1) {
         channels.splice(index, 1);
@@ -279,29 +285,16 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on('delete-message', async ({ channelId, messageId }) => {
+      if (!hasPermission(socket, 'DELETE_MESSAGES')) return;
       const channelMessages = messages[channelId];
       if (!channelMessages) return;
 
       const messageIndex = channelMessages.findIndex((m) => m.id === messageId);
       if (messageIndex === -1) return;
 
-      const message = channelMessages[messageIndex];
-      const currentUsername = onlineUsers[socket.id];
-      if (!currentUsername) return;
-
-      const userRoleIds = userRoles[currentUsername] || [];
-      const userPermissions = roles
-        .filter(r => userRoleIds.includes(r.id))
-        .flatMap(r => r.permissions);
-
-      const isAuthor = message.user === currentUsername;
-      const canDelete = userPermissions.includes('ADMINISTRATOR') || (userPermissions.includes('DELETE_MESSAGES') && isAuthor);
-
-      if (canDelete) {
-        messages[channelId].splice(messageIndex, 1);
-        await deleteMessage(messageId);
-        io.emit('messages-updated', messages);
-      }
+      messages[channelId].splice(messageIndex, 1);
+      await deleteMessage(messageId);
+      io.emit('messages-updated', messages);
     });
 
     socket.on("update-presence", (status) => {
@@ -314,42 +307,44 @@ export async function configureSocket(io: SocketIoServer) {
         await upsertUser(name);
         await logLogin(name, socket.handshake.address || 'unknown');
     
-        // Get the authoritative state from the DB
         const dbUserRoles = await getUserRoles();
     
-        // Check if the user has any roles IN THE DB
-        if (!dbUserRoles.hasOwnProperty(name)) {
+        if (!dbUserRoles[name]) {
             const adminRole = roles.find(r => r.name === 'Administrator');
             const memberRole = roles.find(r => r.name === 'Member');
     
             if (adminRole && memberRole) {
-                // Check for existing admin IN THE DB
                 const adminExists = Object.values(dbUserRoles).some(roleList => roleList.includes(adminRole.id));
-                let newRoleIds: string[];
-                if (!adminExists) {
-                    newRoleIds = [adminRole.id];
-                } else {
-                    newRoleIds = [memberRole.id];
-                }
-                // Update the DB
+                const newRoleIds = !adminExists ? [adminRole.id] : [memberRole.id];
                 await setUserRole(name, newRoleIds);
-                // Update the in-memory cache
                 userRoles[name] = newRoleIds;
             }
         } else {
-            // If user already exists in DB, ensure our in-memory cache is up-to-date.
             userRoles[name] = dbUserRoles[name];
         }
     
         io.emit("usernames-update", onlineUsers);
-        // Emit the now-correct cache
         io.emit("user-roles-update", userRoles);
     });
 
     socket.on("assign-role", async ({ username, roleIds }) => {
+      if (!hasPermission(socket, 'MANAGE_ROLES')) return;
       userRoles[username] = roleIds;
       await setUserRole(username, roleIds);
       io.emit("user-roles-update", userRoles);
+    });
+    
+    socket.on('kick-user', ({ userId, channelId }) => {
+      if (!hasPermission(socket, 'ADMINISTRATOR')) return;
+  
+      const targetSocket = io.sockets.sockets.get(userId);
+      if (targetSocket && voiceUsers[channelId] && voiceUsers[channelId].has(userId)) {
+        voiceUsers[channelId].delete(userId);
+        targetSocket.leave(`voice-${channelId}`);
+        io.to(userId).emit('force-disconnect-voice');
+        io.emit("voice-users-update", getVoiceUsersMap());
+        io.to(channelId).emit("user-left-voice", { userId });
+      }
     });
 
     socket.on("update-voice-state", (state) => {

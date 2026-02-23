@@ -99,7 +99,7 @@ export default function App() {
     localStorage.setItem('username', username);
   }, [username]);
 
-useEffect(() => {
+  useEffect(() => {
     const newSocket = io(SOCKET_URL, { autoConnect: false });
     setSocket(newSocket);
 
@@ -166,14 +166,14 @@ useEffect(() => {
                 const prevUsers = prev[cid] || [];
                 const nextUsers = usersMap[cid] || [];
                 if (nextUsers.length > prevUsers.length) soundService.playJoin();
-                else if (nextUsers.length < prevUsers.length && nextUsers.includes(newSocket.id)) soundService.playLeave();
+                else if (nextUsers.length < prevUsers.length && newSocket.id && nextUsers.includes(newSocket.id)) soundService.playLeave();
             }
             return usersMap;
         });
     };
 
     const handleUserJoinedVoice = async ({ userId }: { userId: string }) => {
-        if (isJoinedVoiceRef.current && mediaStreamRef.current) {
+        if (isJoinedVoiceRef.current && mediaStreamRef.current && newSocket) {
             const pc = createPeerConnection(userId, mediaStreamRef.current, newSocket);
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
@@ -189,7 +189,7 @@ useEffect(() => {
     };
 
     const handleWebRTCOffer = async ({ sourceUserId, offer }: { sourceUserId: string, offer: any }) => {
-        if (isJoinedVoiceRef.current && mediaStreamRef.current) {
+        if (isJoinedVoiceRef.current && mediaStreamRef.current && newSocket) {
             const pc = createPeerConnection(sourceUserId, mediaStreamRef.current, newSocket);
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await pc.createAnswer();
@@ -234,6 +234,11 @@ useEffect(() => {
     const handleScreenStream = ({ userId, data }: { userId: string, data: string }) => {
         setRemoteScreens(prev => ({ ...prev, [userId]: data }));
     };
+    
+    const handleForceDisconnect = () => {
+      stopVoice();
+      alert("You have been kicked from the voice channel.");
+    };
 
     newSocket.on('connect_error', handleConnectError);
     newSocket.on('init', handleInit);
@@ -257,16 +262,18 @@ useEffect(() => {
     newSocket.on('screen-stream', handleScreenStream);
     newSocket.on('messages-updated', handleMessagesUpdated);
     newSocket.on('message-updated', handleMessageUpdated);
+    newSocket.on('force-disconnect-voice', handleForceDisconnect);
 
     newSocket.connect();
 
     return () => {
+        newSocket.off('force-disconnect-voice', handleForceDisconnect);
         newSocket.close();
         stopVoice();
     };
-}, []);
+  }, [username]);
 
-const stopScreenShare = useCallback(() => {
+  const stopScreenShare = useCallback(() => {
     if (screenIntervalRef.current) {
       clearInterval(screenIntervalRef.current);
       screenIntervalRef.current = null;
@@ -275,11 +282,11 @@ const stopScreenShare = useCallback(() => {
       screenStreamRef.current.getTracks().forEach(track => track.stop());
       screenStreamRef.current = null;
     }
-    if (currentVoiceChannelRef.current) {
-      socket?.emit('screen-share-stop', currentVoiceChannelRef.current.id);
+    if (isSharingScreen && currentVoiceChannelRef.current && socket) {
+        socket.emit('screen-share-stop', currentVoiceChannelRef.current.id);
     }
     setIsSharingScreen(false);
-  }, [socket]);
+  }, [socket, isSharingScreen]);
 
   useEffect(() => {
     const stream = screenStreamRef.current;
@@ -334,7 +341,7 @@ const stopScreenShare = useCallback(() => {
     return () => {
       window.removeEventListener('click', handleClick);
     };
-  }, [contextMenu.visible, contextMenu]);
+  }, [contextMenu]);
 
   useEffect(() => {
     const handleClick = () => setUserContextMenu({ ...userContextMenu, visible: false });
@@ -344,7 +351,7 @@ const stopScreenShare = useCallback(() => {
     return () => {
       window.removeEventListener('click', handleClick);
     };
-  }, [userContextMenu.visible, userContextMenu]);
+  }, [userContextMenu]);
 
   const handleChannelSelect = (channel: Channel) => {
     if (currentChannel?.id === channel.id) return;
@@ -453,23 +460,23 @@ const stopScreenShare = useCallback(() => {
   };
 
   const handleAddReaction = (messageId: string, emoji: string) => {
-    if (!currentChannel) return;
+    if (!currentChannel || !socket) return;
     const message = messages[currentChannel.id]?.find(m => m.id === messageId);
-    const hasReacted = message?.reactions?.[emoji]?.includes(socket?.id || '');
+    const hasReacted = message?.reactions?.[emoji]?.includes(socket.id || '');
 
     if (hasReacted) {
-      socket?.emit('remove-reaction', {
+      socket.emit('remove-reaction', {
         channelId: currentChannel.id,
         messageId,
         emoji,
-        userId: socket?.id,
+        userId: socket.id,
       });
     } else {
-      socket?.emit('add-reaction', {
+      socket.emit('add-reaction', {
         channelId: currentChannel.id,
         messageId,
         emoji,
-        userId: socket?.id,
+        userId: socket.id,
       });
     }
   };
@@ -495,7 +502,7 @@ const stopScreenShare = useCallback(() => {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socket?.emit('webrtc-ice-candidate', { targetUserId, candidate: event.candidate });
+        socket.emit('webrtc-ice-candidate', { targetUserId, candidate: event.candidate });
       }
     };
 
@@ -531,17 +538,17 @@ const stopScreenShare = useCallback(() => {
       mediaStreamRef.current = stream;
       setIsJoinedVoice(true);
       setCurrentVoiceChannel(channel);
-      socket?.emit('join-voice', channel.id);
-      socket?.emit('update-voice-state', { muted: isMuted, deafened: isDeafened });
+      socket.emit('join-voice', channel.id);
+      socket.emit('update-voice-state', { muted: isMuted, deafened: isDeafened });
 
       // Initiate WebRTC with everyone already in the channel
       const existingUsers = channelVoiceUsers[channel.id] || [];
       existingUsers.forEach(async (userId) => {
-        if (userId !== socket?.id) {
+        if (userId !== socket.id) {
           const pc = createPeerConnection(userId, stream, socket);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          socket?.emit('webrtc-offer', { targetUserId: userId, offer });
+          socket.emit('webrtc-offer', { targetUserId: userId, offer });
         }
       });
 
@@ -589,7 +596,7 @@ const stopScreenShare = useCallback(() => {
 
         if (isSpeaking !== lastSpeakingState) {
           lastSpeakingState = isSpeaking;
-          socket?.emit('update-voice-state', { speaking: isSpeaking });
+          socket.emit('update-voice-state', { speaking: isSpeaking });
         }
       };
 
@@ -608,17 +615,16 @@ const stopScreenShare = useCallback(() => {
     }
   };
 
-  const stopVoice = () => {
-    if (isJoinedVoice) {
+  const stopVoice = useCallback(() => {
+    if (isJoinedVoiceRef.current) {
       soundService.playLeave();
     }
     
-    // Close all WebRTC connections
-    (Object.values(peerConnections.current) as RTCPeerConnection[]).forEach(pc => pc.close());
+    Object.values(peerConnections.current).forEach(pc => pc.close());
     peerConnections.current = {};
 
-    if (currentVoiceChannel) {
-      socket?.emit('leave-voice', currentVoiceChannel.id);
+    if (currentVoiceChannelRef.current && socket) {
+      socket.emit('leave-voice', currentVoiceChannelRef.current.id);
     }
     stopScreenShare();
     processorRef.current?.disconnect();
@@ -627,13 +633,15 @@ const stopScreenShare = useCallback(() => {
     outputGainRef.current?.disconnect();
     mediaStreamRef.current?.getTracks().forEach(track => track.stop());
     mediaStreamRef.current = null;
-    audioContextRef.current?.close();
+    if (audioContextRef.current?.state !== 'closed') {
+        audioContextRef.current?.close();
+    }
     audioContextRef.current = null;
     setIsJoinedVoice(false);
     setCurrentVoiceChannel(null);
     inputGainRef.current = null;
     outputGainRef.current = null;
-  };
+  }, [socket, stopScreenShare]);
 
   const handleToggleScreenShare = async () => {
     if (isSharingScreen) {
@@ -641,7 +649,7 @@ const stopScreenShare = useCallback(() => {
       return;
     }
 
-    if (!currentVoiceChannel) {
+    if (!currentVoiceChannel || !socket) {
       alert("You must be in a voice channel to share your screen.");
       return;
     }
@@ -659,7 +667,7 @@ const stopScreenShare = useCallback(() => {
       
       screenStreamRef.current = stream;
       setIsSharingScreen(true);
-      socket?.emit('screen-share-start', currentVoiceChannel.id);
+      socket.emit('screen-share-start', currentVoiceChannel.id);
       soundService.playScreenShare();
 
       const video = document.createElement('video');
@@ -674,7 +682,7 @@ const stopScreenShare = useCallback(() => {
         if (screenIntervalRef.current) clearInterval(screenIntervalRef.current);
         
         screenIntervalRef.current = setInterval(() => {
-          if (!ctx || !video.videoWidth) return;
+          if (!ctx || !video.videoWidth || !socket) return;
           
           canvas.width = 1280;
           canvas.height = (video.videoHeight / video.videoWidth) * 1280;
@@ -683,7 +691,7 @@ const stopScreenShare = useCallback(() => {
           
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const data = canvas.toDataURL('image/jpeg', 0.9);
-          socket?.emit('screen-data', { channelId: voiceChannelId, data });
+          socket.emit('screen-data', { channelId: voiceChannelId, data });
         }, 1000 / 30); // 30 FPS
       };
 
@@ -774,37 +782,28 @@ const stopScreenShare = useCallback(() => {
     setIsEditingUsername(false);
   };
 
-  const hasPermission = (permission: Permission, isAuthor: boolean = false) => {
+  const hasPermission = useCallback((permission: Permission) => {
     const userRoleIds = allUserRoles[username] || [];
-    const userPermissions = roles
-      .filter((r) => userRoleIds.includes(r.id))
-      .flatMap((r) => r.permissions);
+    const userPermissions = new Set(
+      roles
+        .filter((r) => userRoleIds.includes(r.id))
+        .flatMap((r) => r.permissions)
+    );
 
-    if (userPermissions.includes("ADMINISTRATOR")) {
-      return true;
-    }
+    return userPermissions.has("ADMINISTRATOR") || userPermissions.has(permission);
+  }, [allUserRoles, username, roles]);
 
-    if (isAuthor && permission === "EDIT_MESSAGES") {
-      return userPermissions.includes("EDIT_MESSAGES");
-    }
-
-    if (isAuthor && permission === "DELETE_MESSAGES") {
-      return userPermissions.includes("DELETE_MESSAGES");
-    }
-
-    return userPermissions.includes(permission);
-  };
 
   const handleCreateChannel = () => {
-    if (!channelNameInput.trim()) return;
-    socket?.emit('create-channel', { name: channelNameInput.trim(), type: newChannelType });
+    if (!channelNameInput.trim() || !socket) return;
+    socket.emit('create-channel', { name: channelNameInput.trim(), type: newChannelType });
     setShowChannelModal(false);
     setChannelNameInput('');
   };
 
   const handleUpdateChannel = () => {
-    if (!editingChannel || !channelNameInput.trim()) return;
-    socket?.emit('update-channel', { id: editingChannel.id, name: channelNameInput.trim() });
+    if (!editingChannel || !channelNameInput.trim() || !socket) return;
+    socket.emit('update-channel', { id: editingChannel.id, name: channelNameInput.trim() });
     setShowChannelModal(false);
     setEditingChannel(null);
     setChannelNameInput('');
@@ -838,8 +837,8 @@ const stopScreenShare = useCallback(() => {
 
   const getUserColor = (username: string) => {
     const userRoleIds = allUserRoles[username] || [];
-    const userRoles = roles.filter(r => userRoleIds.includes(r.id));
-    if (userRoles.length > 0) return userRoles[0].color;
+    const userRolesList = roles.filter(r => userRoleIds.includes(r.id));
+    if (userRolesList.length > 0) return userRolesList[0].color;
     return '#ffffff';
   };
 
@@ -852,6 +851,8 @@ const stopScreenShare = useCallback(() => {
     if (!hasPermission('MANAGE_CHANNELS')) return;
 
     e.preventDefault();
+    e.stopPropagation();
+    setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
     setContextMenu({
       visible: true,
       x: e.clientX,
@@ -863,12 +864,21 @@ const stopScreenShare = useCallback(() => {
   const handleUserContextMenu = (e: React.MouseEvent, userId: string) => {
     if (!hasPermission('MANAGE_ROLES')) return;
     e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ visible: false, x: 0, y: 0, channel: null });
     setUserContextMenu({
       visible: true,
       x: e.clientX,
       y: e.clientY,
       userId: userId,
     });
+  };
+  
+  const handleKickUser = (userId: string) => {
+    if (currentVoiceChannel) {
+      socket?.emit('kick-user', { userId, channelId: currentVoiceChannel.id });
+    }
+    setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
   };
 
   const toggleMicTest = async () => {
@@ -990,10 +1000,10 @@ const stopScreenShare = useCallback(() => {
           >
             <div className="px-2 py-1.5">
               <div className="text-xs font-bold text-white uppercase">{usernames[userContextMenu.userId]}</div>
-              <div className="text-xs text-discord-muted">Roles</div>
             </div>
             <div className="h-[1px] bg-white/10 my-1.5" />
             <div className="space-y-1">
+              <div className="px-2 py-1 text-xs text-discord-muted font-bold uppercase">Roles</div>
               {roles.map(role => (
                   <button
                     key={role.id}
@@ -1008,6 +1018,17 @@ const stopScreenShare = useCallback(() => {
                   </button>
               ))}
             </div>
+            {hasPermission('ADMINISTRATOR') && (
+              <>
+                <div className="h-[1px] bg-white/10 my-1.5" />
+                <button
+                  onClick={() => handleKickUser(userContextMenu.userId!)}
+                  className="w-full text-left px-2 py-1.5 rounded text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <LogOut size={14} /> Kick User
+                </button>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1032,13 +1053,17 @@ const stopScreenShare = useCallback(() => {
                     setChannelNameInput(contextMenu.channel.name);
                     setNewChannelType(contextMenu.channel.type);
                     setShowChannelModal(true);
+                    setContextMenu({ visible: false, x: 0, y: 0, channel: null });
                   }}
                   className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2"
                 >
                   <Pencil size={14} /> Edit Channel
                 </button>
                 <button
-                  onClick={() => contextMenu.channel && handleDeleteChannel(contextMenu.channel.id)}
+                  onClick={() => {
+                    if (contextMenu.channel) handleDeleteChannel(contextMenu.channel.id);
+                    setContextMenu({ visible: false, x: 0, y: 0, channel: null });
+                  }}
                   className="w-full text-left px-2 py-1.5 rounded text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"
                 >
                   <Trash2 size={14} /> Delete Channel
@@ -1052,6 +1077,7 @@ const stopScreenShare = useCallback(() => {
                 setEditingChannel(null);
                 setChannelNameInput('');
                 setShowChannelModal(true);
+                setContextMenu({ visible: false, x: 0, y: 0, channel: null });
               }}
               className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2"
             >
@@ -1063,6 +1089,7 @@ const stopScreenShare = useCallback(() => {
                 setEditingChannel(null);
                 setChannelNameInput('');
                 setShowChannelModal(true);
+                setContextMenu({ visible: false, x: 0, y: 0, channel: null });
               }}
               className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2"
             >
@@ -1169,13 +1196,14 @@ const stopScreenShare = useCallback(() => {
           <h1 className="font-bold text-white truncate">Drocsid Server</h1>
         </div>
         
-        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-4">
+        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-4" onContextMenu={(e) => handleChannelContextMenu(e, null as any)}>
           <div>
             <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-[11px] font-bold text-discord-muted uppercase tracking-wider">Text Channels</span>
-              {hasPermission('ADMINISTRATOR') && (
+              {hasPermission('MANAGE_CHANNELS') && (
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setNewChannelType('text');
                     setEditingChannel(null);
                     setChannelNameInput('');
@@ -1203,30 +1231,6 @@ const stopScreenShare = useCallback(() => {
                   <Hash size={20} className="text-discord-muted group-hover:text-discord-text" />
                   <span className="font-medium truncate">{channel.name}</span>
                 </button>
-                {hasPermission('ADMINISTRATOR') && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingChannel(channel);
-                        setChannelNameInput(channel.name);
-                        setShowChannelModal(true);
-                      }}
-                      className="text-discord-muted hover:text-discord-text p-0.5"
-                    >
-                      <Settings size={14} />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteChannel(channel.id);
-                      }}
-                      className="text-discord-muted hover:text-red-400 p-0.5"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -1234,9 +1238,10 @@ const stopScreenShare = useCallback(() => {
           <div>
             <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-[11px] font-bold text-discord-muted uppercase tracking-wider">Voice Channels</span>
-              {hasPermission('ADMINISTRATOR') && (
+              {hasPermission('MANAGE_CHANNELS') && (
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                     e.stopPropagation();
                     setNewChannelType('voice');
                     setEditingChannel(null);
                     setChannelNameInput('');
@@ -1265,37 +1270,13 @@ const stopScreenShare = useCallback(() => {
                     <Volume2 size={20} className="text-discord-muted group-hover:text-discord-text" />
                     <span className="font-medium truncate">{channel.name}</span>
                   </button>
-                  {hasPermission('ADMINISTRATOR') && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingChannel(channel);
-                          setChannelNameInput(channel.name);
-                          setShowChannelModal(true);
-                        }}
-                        className="text-discord-muted hover:text-discord-text p-0.5"
-                      >
-                        <Settings size={14} />
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteChannel(channel.id);
-                        }}
-                        className="text-discord-muted hover:text-red-400 p-0.5"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
                 </div>
-                {(currentChannel?.id === channel.id || currentVoiceChannel?.id === channel.id) && channel.type === 'voice' && (
+                {(isJoinedVoice && currentVoiceChannel?.id === channel.id) && (
                   <div className="pl-8 space-y-1">
                     {(channelVoiceUsers[channel.id] || []).map(userId => (
                       <div 
                         key={userId} 
-                        className="flex items-center gap-2 py-1"
+                        className="flex items-center gap-2 py-1 cursor-pointer rounded hover:bg-white/5 mx-[-8px] px-2"
                         onContextMenu={(e) => handleUserContextMenu(e, userId)}
                       >
                         <div className="relative shrink-0">
@@ -1303,7 +1284,7 @@ const stopScreenShare = useCallback(() => {
                             "w-6 h-6 bg-discord-accent rounded-full flex items-center justify-center text-[10px] text-white transition-all duration-200",
                             voiceStates[userId]?.speaking && "ring-2 ring-green-500 ring-offset-1 ring-offset-discord-sidebar"
                           )}>
-                            {(usernames[userId] || userId).slice(0, 2).toUpperCase()}
+                            {(usernames[userId] || '??').slice(0, 2).toUpperCase()}
                           </div>
                           <StatusIndicator 
                             status={userPresence[userId]} 
@@ -1506,20 +1487,21 @@ const stopScreenShare = useCallback(() => {
                   .filter(msg => 
                     !searchQuery || 
                     msg.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    msg.user.toLowerCase().includes(searchQuery.toLowerCase())
+                    (msg.user && msg.user.toLowerCase().includes(searchQuery.toLowerCase()))
                   )
                   .map((msg) => {
                     const isAuthor = msg.user === username;
                     return (
                   <motion.div
                     key={msg.id}
+                    layout
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="flex gap-4 group hover:bg-black/5 -mx-4 px-4 py-1 relative"
                   >
                     <div className="relative shrink-0 mt-1">
                       <div className="w-10 h-10 bg-discord-sidebar rounded-full flex items-center justify-center text-discord-muted">
-                        {msg.user.slice(0, 2).toUpperCase()}
+                        {msg.user?.slice(0, 2).toUpperCase()}
                       </div>
                       {msg.userId && (
                         <StatusIndicator 
@@ -1542,20 +1524,34 @@ const stopScreenShare = useCallback(() => {
                         </span>
                         {msg.edited && <span className="text-[10px] text-discord-muted italic">(edited)</span>}
                       </div>
-                      {msg.text && <p className="text-discord-text leading-relaxed break-words">{renderMessage(msg.text)}</p>}
+                      {editingMessage?.id === msg.id ? (
+                          <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(e);}} className="relative">
+                              <input 
+                                  type="text"
+                                  value={inputValue}
+                                  onChange={handleInputChange}
+                                  className="w-full bg-[#383a40] text-discord-text px-2 py-1 rounded-md focus:outline-none text-sm"
+                                  autoFocus
+                              />
+                              <div className="text-xs text-discord-muted mt-1">Press <span className="font-semibold text-discord-accent">Enter</span> to save, <span className="font-semibold text-discord-accent">Esc</span> to cancel</div>
+                          </form>
+                      ) : (
+                        <p className="text-discord-text leading-relaxed break-words whitespace-pre-wrap">{renderMessage(msg.text)}</p>
+                      )}
+                      
                       {msg.gifUrl && (
                         <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
                           <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
                         </div>
                       )}
                      {msg.file && (() => {
-                        const isImage = /\.png|\.jpg|\.jpeg|\.gif|\.webp$/i.test(msg.file.name);
+                        const isImage = msg.file.name && /\.png|\.jpg|\.jpeg|\.gif|\.webp$/i.test(msg.file.name);
                         if (isImage) {
                           return (
                             <div className="mt-2 relative max-w-xs rounded-lg overflow-hidden">
                                 <img 
                                   src={msg.file.path} 
-                                  alt={msg.file.name} 
+                                  alt={msg.file.name}
                                   className="max-w-full h-auto max-h-80 object-contain rounded-md cursor-pointer" 
                                   onClick={() => setPreviewImage(msg.file)}
                                 />
@@ -1567,7 +1563,7 @@ const stopScreenShare = useCallback(() => {
                               <FileIcon size={40} className="text-discord-muted shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <a href={msg.file.path} download={msg.file.name} className="text-blue-400 hover:underline font-medium truncate block">{msg.file.name}</a>
-                                <div className="text-xs text-discord-muted">{formatFileSize(msg.file.size)}</div>
+                                <div className="text-xs text-discord-muted">{msg.file.size ? formatFileSize(msg.file.size) : ''}</div>
                               </div>
                               <a href={msg.file.path} download={msg.file.name} className="p-2 text-discord-muted hover:text-white transition-colors">
                                 <Download size={18} />
@@ -1595,7 +1591,7 @@ const stopScreenShare = useCallback(() => {
                                 onClick={() => handleAddReaction(msg.id, emoji)}
                                 className={cn(
                                   "flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition-colors",
-                                  ids.includes(socket?.id || '') 
+                                  socket && ids.includes(socket.id) 
                                     ? "bg-discord-accent/20 border-discord-accent text-discord-accent" 
                                     : "bg-discord-sidebar border-transparent text-discord-muted hover:border-white/20"
                                 )}
@@ -1611,7 +1607,7 @@ const stopScreenShare = useCallback(() => {
 
                     {/* Message Actions (Hover) */}
                     <div className="absolute right-4 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-discord-sidebar border border-black/20 rounded-md shadow-lg p-1">
-                    {hasPermission('EDIT_MESSAGES', isAuthor) && (
+                    {hasPermission('EDIT_MESSAGES') && (
                         <button 
                           onClick={() => handleEditMessage(msg)}
                           className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
@@ -1641,7 +1637,7 @@ const stopScreenShare = useCallback(() => {
                       <button className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text">
                         <Plus size={16} />
                       </button>
-                      {hasPermission('DELETE_MESSAGES', isAuthor) && (
+                      {hasPermission('DELETE_MESSAGES') && (
                         <button 
                           onClick={() => handleDeleteMessage(msg.id)}
                           className="p-1 hover:bg-red-500/20 rounded text-discord-muted hover:text-red-400"
@@ -1859,8 +1855,15 @@ const stopScreenShare = useCallback(() => {
                 type="text"
                 value={inputValue}
                 onPaste={handlePaste}
+                onKeyDown={(e) => {
+                    if (editingMessage && e.key === 'Escape') {
+                        e.preventDefault();
+                        setEditingMessage(null);
+                        setInputValue('');
+                    }
+                }}
                 onChange={handleInputChange}
-                placeholder={editingMessage ? "Edit your message" : `Message #${currentChannel.name}`}
+                placeholder={editingMessage ? `Editing message...` : `Message #${currentChannel.name}`}
                 className="w-full bg-[#383a40] text-discord-text pl-24 pr-12 py-2.5 rounded-lg focus:outline-none placeholder:text-discord-muted"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
@@ -1872,6 +1875,7 @@ const stopScreenShare = useCallback(() => {
                       setInputValue('');
                     }}
                     className="p-1.5 rounded transition-colors text-discord-muted hover:text-discord-text hover:bg-white/5"
+                    title="Cancel edit"
                   >
                     <X size={20} />
                   </button>
@@ -1891,7 +1895,8 @@ const stopScreenShare = useCallback(() => {
                 </button>
                 <button
                   type="submit"
-                  className="p-1.5 text-discord-muted hover:text-discord-text transition-colors"
+                  className="p-1.5 text-discord-muted hover:text-discord-text transition-colors disabled:opacity-50"
+                  disabled={!inputValue.trim() && !editingMessage}
                 >
                   <Send size={20} />
                 </button>
@@ -2149,8 +2154,8 @@ const stopScreenShare = useCallback(() => {
                       <section className="space-y-4">
                         <h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Members</h3>
                         <div className="space-y-2">
-                          {Object.entries(usernames).map(([id, name]) => (
-                            <div key={id} className="bg-discord-sidebar rounded-lg p-3 border border-black/10 flex items-center justify-between">
+                          {Object.values(usernames).filter(Boolean).map((name) => (
+                            <div key={name} className="bg-discord-sidebar rounded-lg p-3 border border-black/10 flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
                                   {name.slice(0, 2).toUpperCase()}
