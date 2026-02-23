@@ -36,6 +36,7 @@ export default function App() {
   const [remoteScreens, setRemoteScreens] = useState<Record<string, string>>({});
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [previewImage, setPreviewImage] = useState<{ path: string; name: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; channel: Channel | null }>({ visible: false, x: 0, y: 0, channel: null });
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -323,6 +324,16 @@ const stopScreenShare = useCallback(() => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentChannel]);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu({ ...contextMenu, visible: false });
+    if (contextMenu.visible) {
+      window.addEventListener('click', handleClick);
+    }
+    return () => {
+      window.removeEventListener('click', handleClick);
+    };
+  }, [contextMenu.visible, contextMenu]);
 
   const handleChannelSelect = (channel: Channel) => {
     if (currentChannel?.id === channel.id) return;
@@ -826,6 +837,18 @@ const stopScreenShare = useCallback(() => {
     setShowStatusMenu(false);
   };
 
+  const handleChannelContextMenu = (e: React.MouseEvent, channel: Channel) => {
+    if (!hasPermission('MANAGE_CHANNELS')) return;
+
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      channel: channel,
+    });
+  };
+
   const toggleMicTest = async () => {
     if (isMicTesting) {
       // Stop testing
@@ -932,6 +955,66 @@ const stopScreenShare = useCallback(() => {
 
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu.visible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            className="absolute z-[200] w-48 bg-discord-guilds rounded-md shadow-2xl p-1.5 border border-black/20"
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+          >
+            {contextMenu.channel && (
+              <>
+                <button
+                  onClick={() => {
+                    if (!contextMenu.channel) return;
+                    setEditingChannel(contextMenu.channel);
+                    setChannelNameInput(contextMenu.channel.name);
+                    setNewChannelType(contextMenu.channel.type);
+                    setShowChannelModal(true);
+                  }}
+                  className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Pencil size={14} /> Edit Channel
+                </button>
+                <button
+                  onClick={() => contextMenu.channel && handleDeleteChannel(contextMenu.channel.id)}
+                  className="w-full text-left px-2 py-1.5 rounded text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <Trash2 size={14} /> Delete Channel
+                </button>
+                <div className="h-[1px] bg-white/10 my-1" />
+              </>
+            )}
+            <button
+              onClick={() => {
+                setNewChannelType('text');
+                setEditingChannel(null);
+                setChannelNameInput('');
+                setShowChannelModal(true);
+              }}
+              className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2"
+            >
+              <Plus size={14} /> Create Text Channel
+            </button>
+            <button
+              onClick={() => {
+                setNewChannelType('voice');
+                setEditingChannel(null);
+                setChannelNameInput('');
+                setShowChannelModal(true);
+              }}
+              className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2"
+            >
+              <Plus size={14} /> Create Voice Channel
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Switch Voice Channel Confirmation Modal */}
       <AnimatePresence>
         {showSwitchConfirm && (
@@ -1048,7 +1131,11 @@ const stopScreenShare = useCallback(() => {
               )}
             </div>
             {channels.filter(c => c.type === 'text').map(channel => (
-              <div key={channel.id} className="group relative">
+              <div 
+                key={channel.id} 
+                className="group relative"
+                onContextMenu={(e) => handleChannelContextMenu(e, channel)}
+              >
                 <button
                   onClick={() => handleChannelSelect(channel)}
                   className={cn(
@@ -1106,7 +1193,10 @@ const stopScreenShare = useCallback(() => {
             </div>
             {channels.filter(c => c.type === 'voice').map(channel => (
               <div key={channel.id} className="space-y-1">
-                <div className="group relative">
+                <div 
+                  className="group relative"
+                  onContextMenu={(e) => handleChannelContextMenu(e, channel)}
+                >
                   <button
                     onClick={() => handleChannelSelect(channel)}
                     onDoubleClick={() => channel.type === 'voice' && startVoice(channel)}
