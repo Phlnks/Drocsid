@@ -738,11 +738,26 @@ useEffect(() => {
     setIsEditingUsername(false);
   };
 
-  const hasPermission = (permission: Permission) => {
-    const userRoleIds = allUserRoles[socket?.id || ''] || [];
-    const userRoles = roles.filter(r => userRoleIds.includes(r.id));
-    return userRoles.some(r => r.permissions.includes('ADMINISTRATOR') || r.permissions.includes(permission));
-  };
+    const hasPermission = (permission: Permission, isAuthor: boolean = false) => {
+        const userRoleIds = allUserRoles[socket?.id || ''] || [];
+        const userPermissions = roles
+            .filter(r => userRoleIds.includes(r.id))
+            .flatMap(r => r.permissions);
+
+        if (userPermissions.includes('ADMINISTRATOR')) {
+            return true;
+        }
+
+        if (isAuthor && permission === 'EDIT_MESSAGES') {
+            return userPermissions.includes('EDIT_MESSAGES');
+        }
+
+        if (isAuthor && permission === 'DELETE_MESSAGES') {
+            return userPermissions.includes('DELETE_MESSAGES');
+        }
+
+        return userPermissions.includes(permission);
+    };
 
   const handleCreateChannel = () => {
     if (!channelNameInput.trim()) return;
@@ -1328,7 +1343,9 @@ useEffect(() => {
                     msg.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     msg.user.toLowerCase().includes(searchQuery.toLowerCase())
                   )
-                  .map((msg) => (
+                  .map((msg) => {
+                    const isAuthor = msg.user === username;
+                    return (
                   <motion.div
                     key={msg.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -1429,7 +1446,7 @@ useEffect(() => {
 
                     {/* Message Actions (Hover) */}
                     <div className="absolute right-4 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-discord-sidebar border border-black/20 rounded-md shadow-lg p-1">
-                      {hasPermission('EDIT_MESSAGES') && (
+                    {hasPermission('EDIT_MESSAGES', isAuthor) && (
                         <button 
                           onClick={() => handleEditMessage(msg)}
                           className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
@@ -1459,7 +1476,7 @@ useEffect(() => {
                       <button className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text">
                         <Plus size={16} />
                       </button>
-                       {hasPermission('DELETE_MESSAGES') && (
+                      {hasPermission('DELETE_MESSAGES', isAuthor) && (
                         <button 
                           onClick={() => handleDeleteMessage(msg.id)}
                           className="p-1 hover:bg-red-500/20 rounded text-discord-muted hover:text-red-400"
@@ -1469,7 +1486,8 @@ useEffect(() => {
                       )}
                     </div>
                   </motion.div>
-                ))}</AnimatePresence>
+                    )
+                  })}</AnimatePresence>
               <div ref={messagesEndRef} />
             </>
           ) : (

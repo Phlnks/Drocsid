@@ -184,24 +184,27 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on('edit-message', async ({ channelId, messageId, newText }) => {
+      const channelMessages = messages[channelId];
+      if (!channelMessages) return;
+
+      const message = channelMessages.find((m) => m.id === messageId);
+      if (!message) return;
+
       const userRoleIds = userRoles[socket.id] || [];
       const userPermissions = roles
         .filter(r => userRoleIds.includes(r.id))
         .flatMap(r => r.permissions);
+        
+      const currentUsername = usernames[socket.id];
+      const isAuthor = message.user === currentUsername;
 
-      const canEdit = userPermissions.includes('ADMINISTRATOR') || userPermissions.includes('EDIT_MESSAGES');
+      const canEdit = userPermissions.includes('ADMINISTRATOR') || (userPermissions.includes('EDIT_MESSAGES') && isAuthor);
 
       if (canEdit) {
         const editedTimestamp = await updateMessage(messageId, newText);
-        const channelMessages = messages[channelId];
-        if (channelMessages) {
-          const message = channelMessages.find((m) => m.id === messageId);
-          if (message) {
-            message.text = newText;
-            message.edited = editedTimestamp;
-            io.emit('message-updated', { channelId, messageId, newText, editedTimestamp });
-          }
-        }
+        message.text = newText;
+        message.edited = editedTimestamp;
+        io.emit('message-updated', { channelId, messageId, newText, editedTimestamp });
       }
     });
 
@@ -292,15 +295,24 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on('delete-message', async ({ channelId, messageId }) => {
+      const channelMessages = messages[channelId];
+      if (!channelMessages) return;
+
+      const messageIndex = channelMessages.findIndex((m) => m.id === messageId);
+      if (messageIndex === -1) return;
+
+      const message = channelMessages[messageIndex];
       const userRoleIds = userRoles[socket.id] || [];
       const userPermissions = roles
         .filter(r => userRoleIds.includes(r.id))
         .flatMap(r => r.permissions);
 
-      const canDelete = userPermissions.includes('ADMINISTRATOR') || userPermissions.includes('DELETE_MESSAGES');
+      const currentUsername = usernames[socket.id];
+      const isAuthor = message.user === currentUsername;
+      const canDelete = userPermissions.includes('ADMINISTRATOR') || (userPermissions.includes('DELETE_MESSAGES') && isAuthor);
 
       if (canDelete) {
-        messages[channelId] = messages[channelId].filter(m => m.id !== messageId);
+        messages[channelId].splice(messageIndex, 1);
         await deleteMessage(messageId);
         io.emit('messages-updated', messages);
       }
