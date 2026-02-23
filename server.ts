@@ -162,6 +162,25 @@ export async function configureSocket(io: SocketIoServer) {
         linkPreview,
         file,
       };
+
+      const mentionRegex = /@(\w+)/g;
+      let match;
+      const mentionedUsernames = new Set<string>();
+      while ((match = mentionRegex.exec(text)) !== null) {
+        mentionedUsernames.add(match[1]);
+      }
+
+      if (mentionedUsernames.size > 0) {
+        const onlineUserEntries = Object.entries(onlineUsers);
+        mentionedUsernames.forEach(mentionedUsername => {
+          const mentionedUserEntry = onlineUserEntries.find(([id, name]) => name === mentionedUsername);
+          if (mentionedUserEntry) {
+            const targetSocketId = mentionedUserEntry[0];
+            io.to(targetSocketId).emit("mention", { channelId, mentionedBy: user });
+          }
+        });
+      }
+
       if (!messages[channelId]) messages[channelId] = [];
       messages[channelId].push(message);
       await addMessage(message, channelId);

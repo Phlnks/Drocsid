@@ -56,6 +56,12 @@ export default function App() {
   const [gifs, setGifs] = useState<string[]>([]);
   const [isMicTesting, setIsMicTesting] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [mentionSuggestions, setMentionSuggestions] = useState<string[]>([]);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
+  const [unreadMentions, setUnreadMentions] = useState<Record<string, boolean>>({});
+
 
   const AUDIO_CONSTRAINTS = {
     echoCancellation: { ideal: true },
@@ -72,6 +78,7 @@ export default function App() {
   const isJoinedVoiceRef = useRef(isJoinedVoice);
   const currentVoiceChannelRef = useRef(currentVoiceChannel);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isDeafenedRef.current = isDeafened; }, [isDeafened]);
@@ -240,6 +247,13 @@ export default function App() {
       alert("You have been kicked from the voice channel.");
     };
 
+    const handleMention = ({ channelId, mentionedBy }: { channelId: string, mentionedBy: string }) => {
+        if (username !== mentionedBy) { // Don't notify for self-mentions
+            soundService.playMention();
+            setUnreadMentions(prev => ({ ...prev, [channelId]: true }));
+        }
+    };
+
     newSocket.on('connect_error', handleConnectError);
     newSocket.on('init', handleInit);
     newSocket.on('user-roles-update', handleUserRolesUpdate);
@@ -263,11 +277,13 @@ export default function App() {
     newSocket.on('messages-updated', handleMessagesUpdated);
     newSocket.on('message-updated', handleMessageUpdated);
     newSocket.on('force-disconnect-voice', handleForceDisconnect);
+    newSocket.on('mention', handleMention);
 
     newSocket.connect();
 
     return () => {
         newSocket.off('force-disconnect-voice', handleForceDisconnect);
+        newSocket.off('mention', handleMention);
         newSocket.close();
         stopVoice();
     };
@@ -362,6 +378,10 @@ export default function App() {
       return;
     }
 
+    if (unreadMentions[channel.id]) {
+      setUnreadMentions(prev => ({ ...prev, [channel.id]: false }));
+    }
+
     setSearchQuery('');
     if (currentChannel) {
       socket?.emit('leave-channel', currentChannel.id);
@@ -422,6 +442,7 @@ export default function App() {
     setInputValue('');
     setShowEmojiPicker(false);
     setShowGifPicker(false);
+    setShowMentionSuggestions(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -439,17 +460,36 @@ export default function App() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
+    const { value, selectionStart } = e.target;
+    setInputValue(value);
+
+    const textBeforeCursor = value.substring(0, selectionStart || 0);
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (mentionMatch) {
+      const query = mentionMatch[1].toLowerCase();
+      setMentionQuery(query);
+      const suggestions = Object.values(usernames)
+        .filter(name => name.toLowerCase().includes(query))
+        .slice(0, 5);
+      
+      if (suggestions.length > 0) {
+        setMentionSuggestions(suggestions);
+        setShowMentionSuggestions(true);
+        setMentionHighlightIndex(0);
+      } else {
+        setShowMentionSuggestions(false);
+      }
+    } else {
+      setShowMentionSuggestions(false);
+    }
     
     if (!currentChannel || currentChannel.type !== 'text') return;
 
-    // Emit typing event
     socket?.emit('typing', { channelId: currentChannel.id, user: username, isTyping: true });
 
-    // Clear existing timeout
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
-    // Set timeout to stop typing
     typingTimeoutRef.current = setTimeout(() => {
       socket?.emit('typing', { channelId: currentChannel.id, user: username, isTyping: false });
     }, 2000);
@@ -881,6 +921,48 @@ export default function App() {
     setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
   };
 
+  const handleMentionSelect = (selectedUsername: string) => {
+    if (!inputRef.current) return;
+    const { value, selectionStart } = inputRef.current;
+    
+    const textBeforeCursor = value.substring(0, selectionStart || 0);
+    const textAfterCursor = value.substring(selectionStart || 0);
+
+    const updatedTextBefore = textBeforeCursor.replace(/@\w*$/, `@${selectedUsername} `);
+    
+    setInputValue(updatedTextBefore + textAfterCursor);
+    setShowMentionSuggestions(false);
+
+    // Focus the input after selection
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (showMentionSuggestions && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionHighlightIndex((prevIndex) => (prevIndex + 1) % mentionSuggestions.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionHighlightIndex((prevIndex) => (prevIndex - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleMentionSelect(mentionSuggestions[mentionHighlightIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionSuggestions(false);
+      }
+    }
+    
+    if (editingMessage && e.key === 'Escape') {
+      e.preventDefault();
+      setEditingMessage(null);
+      setInputValue('');
+    }
+  };
+
   const toggleMicTest = async () => {
     if (isMicTesting) {
       // Stop testing
@@ -969,12 +1051,39 @@ export default function App() {
   ];
 
   const renderMessage = (text: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, i) => {
-      if (part.match(urlRegex)) {
-        return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{part}</a>;
+    const mentionRegex = /@(\w+)/g;
+    const parts = text.split(mentionRegex);
+
+    return parts.map((part, i) => {
+      if (i % 2 === 1) { // This is a potential username
+        const mentionedUser = Object.values(usernames).find(u => u.toLowerCase() === part.toLowerCase());
+        if (mentionedUser) {
+          const isMe = mentionedUser === username;
+          return (
+            <span
+              key={i}
+              className={cn(
+                "font-semibold rounded px-1 transition-colors",
+                isMe
+                  ? "bg-yellow-500/30 text-yellow-300 hover:bg-yellow-500/50"
+                  : "text-discord-accent hover:bg-discord-accent/20"
+              )}
+            >
+              @{mentionedUser}
+            </span>
+          );
+        } else {
+          return `@${part}`;
+        }
       }
-      return part;
+      // This is a regular text part
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      return part.split(urlRegex).map((subPart, j) => {
+        if (subPart.match(urlRegex)) {
+          return <a key={`${i}-${j}`} href={subPart} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{subPart}</a>;
+        }
+        return subPart;
+      });
     });
   };
 
@@ -1231,6 +1340,9 @@ export default function App() {
                 >
                   <Hash size={20} className="text-discord-muted group-hover:text-discord-text" />
                   <span className="font-medium truncate">{channel.name}</span>
+                  {unreadMentions[channel.id] && (
+                    <div className="w-2 h-2 bg-red-500 rounded-full ml-auto animate-pulse" />
+                  )}
                 </button>
               </div>
             ))}
@@ -1742,6 +1854,34 @@ export default function App() {
 
         {currentChannel?.type === 'text' && (
           <div className="p-4 shrink-0 relative">
+            <AnimatePresence>
+              {showMentionSuggestions && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute bottom-20 left-4 z-50 w-64 bg-discord-guilds border border-black/20 rounded-lg shadow-2xl p-2"
+                >
+                  <div className="text-sm font-bold text-white mb-2 px-2">Mention a user</div>
+                  {mentionSuggestions.map((user, index) => (
+                    <button
+                      key={user}
+                      onClick={() => handleMentionSelect(user)}
+                      onMouseOver={() => setMentionHighlightIndex(index)}
+                      className={cn(
+                        "w-full text-left px-2 py-1.5 rounded text-sm text-discord-text flex items-center gap-2",
+                        index === mentionHighlightIndex ? "bg-discord-accent text-white" : "hover:bg-white/5"
+                      )}
+                    >
+                      <div className="w-6 h-6 bg-discord-accent rounded-full flex items-center justify-center text-xs">
+                        {user.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span style={{ color: getUserColor(user) }}>{user}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
             {/* Emoji Picker Popover */}
             <AnimatePresence>
               {showEmojiPicker && (
@@ -1853,16 +1993,12 @@ export default function App() {
                 </button>
               </div>
               <input
+                ref={inputRef}
+                id="message-input"
                 type="text"
                 value={inputValue}
                 onPaste={handlePaste}
-                onKeyDown={(e) => {
-                    if (editingMessage && e.key === 'Escape') {
-                        e.preventDefault();
-                        setEditingMessage(null);
-                        setInputValue('');
-                    }
-                }}
+                onKeyDown={handleInputKeyDown}
                 onChange={handleInputChange}
                 placeholder={editingMessage ? `Editing message...` : `Message #${currentChannel.name}`}
                 className="w-full bg-[#383a40] text-discord-text pl-24 pr-12 py-2.5 rounded-lg focus:outline-none placeholder:text-discord-muted"
