@@ -11,6 +11,21 @@ import { searchGifs as giphySearch } from './giphy';
 
 const SOCKET_URL = window.location.origin;
 
+// Debounce function
+function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced = (...args: Parameters<F>) => {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    timeout = setTimeout(() => func(...args), waitFor);
+  };
+
+  return debounced as (...args: Parameters<F>) => void;
+}
+
 export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -521,10 +536,21 @@ export default function App() {
     }
   };
 
-  const searchGifs = async (query: string) => {
+  const debouncedSearchGifs = useCallback(
+    debounce(async (query: string) => {
+      if (query.trim() === '') {
+        setGifs([]);
+        return;
+      }
+      const results = await giphySearch(query);
+      setGifs(results);
+    }, 300), // 300ms debounce delay
+    []
+  );
+
+  const searchGifs = (query: string) => {
     setGifSearch(query);
-    const results = await giphySearch(query);
-    setGifs(results);
+    debouncedSearchGifs(query);
   };
 
   const createPeerConnection = (targetUserId: string, stream: MediaStream, socket: Socket) => {
@@ -1303,7 +1329,7 @@ export default function App() {
       {/* Channels Sidebar */}
       <div className="w-60 bg-discord-sidebar flex flex-col">
         <div className="h-12 border-b border-black/20 flex items-center px-4 shadow-sm">
-          <h1 className="font-bold text-white truncate">Drocsid Server</h1>
+          <h1 className="font-bold text-white truncate">Drocsid</h1>
         </div>
         
         <div className="flex-1 overflow-y-auto py-4 px-2 space-y-4" onContextMenu={(e) => handleChannelContextMenu(e, null as any)}>

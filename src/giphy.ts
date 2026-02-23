@@ -1,18 +1,19 @@
 
-const API_KEY = 'LRhUjXzkIsE0oQUHSbjrY6Rur6uqsK3J'; // Replace with your Giphy API key
-const API_URL = 'https://api.giphy.com/v1/gifs/search';
+const API_KEY = 'LRhUjXzkIsE0oQUHSbjrY6Rur6uqsK3J';
 
 export const searchGifs = async (query: string): Promise<string[]> => {
-  if (!query) {
-    return [];
-  }
+  if (!query) return [];
 
   try {
-    const response = await fetch(`${API_URL}?api_key=${API_KEY}&q=${query}&limit=20`);
+    const response = await fetch(
+      `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${encodeURIComponent(
+        query
+      )}&limit=50&offset=0&rating=g&lang=en`
+    );
     const { data } = await response.json();
-    return data.map((gif: any) => gif.images.fixed_height.url);
+    return data.map((gif: any) => gif.images.fixed_width.url);
   } catch (error) {
-    console.error('Error fetching GIFs from Giphy:', error);
+    console.error("Error fetching GIFs:", error);
     return [];
   }
 };
