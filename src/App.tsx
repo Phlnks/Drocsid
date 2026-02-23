@@ -94,6 +94,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showChannelModal, setShowChannelModal] = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [newChannelType, setNewChannelType] = useState<'text' | 'voice'>('text');
   const [channelNameInput, setChannelNameInput] = useState('');
@@ -1175,6 +1176,28 @@ export default function App() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const RightPanel = () => (
+    <div className="w-60 bg-discord-sidebar flex flex-col">
+        <div className="h-12 border-b border-black/20 flex items-center px-4 shadow-sm">
+            <h2 className="font-bold text-white">Users</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {Object.entries(usernames).map(([id, name]) => (
+                <div key={id} className="flex items-center gap-3">
+                    <div className="relative">
+                        <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
+                            {name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <StatusIndicator status={userPresence[id]} size={10} className="absolute -bottom-0.5 -right-0.5" />
+                    </div>
+                    <span className="font-medium text-white">{name}</span>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
        {/* Reaction Emoji Picker */}
@@ -1678,296 +1701,305 @@ export default function App() {
             <h2 className="font-bold text-white">{currentChannel?.name || 'Select a channel'}</h2>
           </div>
 
-          {currentChannel?.type === 'text' && (
-            <div className="relative group">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search"
-                className="bg-discord-guilds text-discord-text text-sm px-2 py-1 rounded w-36 focus:w-64 transition-all duration-200 focus:outline-none placeholder:text-discord-muted"
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 text-discord-muted">
-                {searchQuery ? (
-                  <X size={14} className="cursor-pointer hover:text-discord-text" onClick={() => setSearchQuery('')} />
-                ) : (
-                  <Search size={14} />
-                )}
-              </div>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {currentChannel?.type === 'text' && (
+                <div className="relative group">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search"
+                        className="bg-discord-guilds text-discord-text text-sm px-2 py-1 rounded w-36 focus:w-64 transition-all duration-200 focus:outline-none placeholder:text-discord-muted"
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-discord-muted">
+                        {searchQuery ? (
+                            <X size={14} className="cursor-pointer hover:text-discord-text" onClick={() => setSearchQuery('')} />
+                        ) : (
+                            <Search size={14} />
+                        )}
+                    </div>
+                </div>
+            )}
+            <button onClick={() => setShowRightPanel(!showRightPanel)} className="text-discord-muted hover:text-white transition-colors">
+                <Users size={20} />
+            </button>
+        </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {currentChannel?.type === 'text' ? (
-            <>
-              <AnimatePresence initial={false}>
-                {(messages[currentChannel.id] || [])
-                  .filter(msg => 
-                    !searchQuery || 
-                    msg.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (msg.user && msg.user.toLowerCase().includes(searchQuery.toLowerCase()))
-                  )
-                  .map((msg) => {
-                    const isAuthor = msg.user === username;
-                    return (
-                  <motion.div
-                    key={msg.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-4 group hover:bg-black/5 -mx-4 px-4 py-1 relative"
-                  >
-                    <div className="relative shrink-0 mt-1">
-                      <div className="w-10 h-10 bg-discord-sidebar rounded-full flex items-center justify-center text-discord-muted">
-                        {msg.user?.slice(0, 2).toUpperCase()}
-                      </div>
-                      {msg.userId && (
-                        <StatusIndicator 
-                          status={userPresence[msg.userId]} 
-                          size={12} 
-                          className="absolute -bottom-0.5 -right-0.5" 
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span 
-                          className="font-bold hover:underline cursor-pointer"
-                          style={{ color: getUserColor(msg.user) }}
-                        >
-                          {msg.user}
-                        </span>
-                        <span className="text-[10px] text-discord-muted">
-                          {new Date(msg.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {msg.edited && <span className="text-[10px] text-discord-muted italic">(edited)</span>}
-                      </div>
-                      {editingMessage?.id === msg.id ? (
-                          <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(e);}} className="relative">
-                              <input 
-                                  type="text"
-                                  value={inputValue}
-                                  onChange={handleInputChange}
-                                  className="w-full bg-[#383a40] text-discord-text px-2 py-1 rounded-md focus:outline-none text-sm"
-                                  autoFocus
-                              />
-                              <div className="text-xs text-discord-muted mt-1">Press <span className="font-semibold text-discord-accent">Enter</span> to save, <span className="font-semibold text-discord-accent">Esc</span> to cancel</div>
-                          </form>
-                      ) : (
-                        <p className="text-discord-text leading-relaxed break-words whitespace-pre-wrap">{renderMessage(msg.text)}</p>
-                      )}
-                      
-                      {msg.gifUrl && (
-                        <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
-                          <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
+        <div className="flex-1 flex overflow-y-auto">
+          <div className="flex-1 p-4 space-y-4">
+            {currentChannel?.type === 'text' ? (
+              <>
+                <AnimatePresence initial={false}>
+                  {(messages[currentChannel.id] || [])
+                    .filter(msg => 
+                      !searchQuery || 
+                      msg.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (msg.user && msg.user.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map((msg) => {
+                      const isAuthor = msg.user === username;
+                      return (
+                    <motion.div
+                      key={msg.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-4 group hover:bg-black/5 -mx-4 px-4 py-1 relative"
+                    >
+                      <div className="relative shrink-0 mt-1">
+                        <div className="w-10 h-10 bg-discord-sidebar rounded-full flex items-center justify-center text-discord-muted">
+                          {msg.user?.slice(0, 2).toUpperCase()}
                         </div>
-                      )}
-                     {msg.file && (() => {
-                        const isImage = msg.file.name && /\.png|\.jpg|\.jpeg|\.gif|\.webp$/i.test(msg.file.name);
-                        if (isImage) {
-                          return (
-                            <div className="mt-2 relative max-w-xs rounded-lg overflow-hidden">
-                                <img 
-                                  src={msg.file.path} 
-                                  alt={msg.file.name}
-                                  className="max-w-full h-auto max-h-80 object-contain rounded-md cursor-pointer" 
-                                  onClick={() => setPreviewImage(msg.file)}
+                        {msg.userId && (
+                          <StatusIndicator 
+                            status={userPresence[msg.userId]} 
+                            size={12} 
+                            className="absolute -bottom-0.5 -right-0.5" 
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span 
+                            className="font-bold hover:underline cursor-pointer"
+                            style={{ color: getUserColor(msg.user) }}
+                          >
+                            {msg.user}
+                          </span>
+                          <span className="text-[10px] text-discord-muted">
+                            {new Date(msg.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {msg.edited && <span className="text-[10px] text-discord-muted italic">(edited)</span>}
+                        </div>
+                        {editingMessage?.id === msg.id ? (
+                            <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(e);}} className="relative">
+                                <input 
+                                    type="text"
+                                    value={inputValue}
+                                    onChange={handleInputChange}
+                                    className="w-full bg-[#383a40] text-discord-text px-2 py-1 rounded-md focus:outline-none text-sm"
+                                    autoFocus
                                 />
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div className="mt-2 bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm flex items-center gap-3">
-                              <FileIcon size={40} className="text-discord-muted shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <a href={msg.file.path} download={msg.file.name} className="text-blue-400 hover:underline font-medium truncate block">{msg.file.name}</a>
-                                <div className="text-xs text-discord-muted">{msg.file.size ? formatFileSize(msg.file.size) : ''}</div>
-                              </div>
-                              <a href={msg.file.path} download={msg.file.name} className="p-2 text-discord-muted hover:text-white transition-colors">
-                                <Download size={18} />
-                              </a>
-                            </div>
-                          );
-                        }
-                      })()}
-                      {msg.linkPreview && (
-                        <a href={msg.linkPreview.url} target="_blank" rel="noopener noreferrer" className="mt-2 block bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm hover:bg-white/5 transition-colors">
-                          {msg.linkPreview.image && <img src={msg.linkPreview.image} alt={msg.linkPreview.title} className="w-full h-auto rounded-md mb-2" />}
-                          <h4 className="font-bold text-white text-sm">{msg.linkPreview.title}</h4>
-                          {msg.linkPreview.description && <p className="text-discord-muted text-xs mt-1">{msg.linkPreview.description}</p>}
-                        </a>
-                      )}
-                      
-                      {/* Reactions Display */}
-                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {Object.entries(msg.reactions).map(([emoji, userIds]) => {
-                            const ids = userIds as string[];
+                                <div className="text-xs text-discord-muted mt-1">Press <span className="font-semibold text-discord-accent">Enter</span> to save, <span className="font-semibold text-discord-accent">Esc</span> to cancel</div>
+                            </form>
+                        ) : (
+                          <p className="text-discord-text leading-relaxed break-words whitespace-pre-wrap">{renderMessage(msg.text)}</p>
+                        )}
+                        
+                        {msg.gifUrl && (
+                          <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
+                            <img src={msg.gifUrl} alt="GIF" className="w-full h-auto" />
+                          </div>
+                        )}
+                       {msg.file && (() => {
+                          const isImage = msg.file.name && /\.png|\.jpg|\.jpeg|\.gif|\.webp$/i.test(msg.file.name);
+                          if (isImage) {
                             return (
-                              <button
-                                key={emoji}
-                                onClick={() => handleAddReaction(msg.id, emoji)}
-                                className={cn(
-                                  "flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition-colors",
-                                  socket && ids.includes(socket.id) 
-                                    ? "bg-discord-accent/20 border-discord-accent text-discord-accent" 
-                                    : "bg-discord-sidebar border-transparent text-discord-muted hover:border-white/20"
-                                )}
-                              >
-                                <span>{emoji}</span>
-                                <span className="font-bold">{ids.length}</span>
-                              </button>
+                              <div className="mt-2 relative max-w-xs rounded-lg overflow-hidden">
+                                  <img 
+                                    src={msg.file.path} 
+                                    alt={msg.file.name}
+                                    className="max-w-full h-auto max-h-80 object-contain rounded-md cursor-pointer" 
+                                    onClick={() => setPreviewImage(msg.file)}
+                                  />
+                              </div>
                             );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                          } else {
+                            return (
+                              <div className="mt-2 bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm flex items-center gap-3">
+                                <FileIcon size={40} className="text-discord-muted shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <a href={msg.file.path} download={msg.file.name} className="text-blue-400 hover:underline font-medium truncate block">{msg.file.name}</a>
+                                  <div className="text-xs text-discord-muted">{msg.file.size ? formatFileSize(msg.file.size) : ''}</div>
+                                </div>
+                                <a href={msg.file.path} download={msg.file.name} className="p-2 text-discord-muted hover:text-white transition-colors">
+                                  <Download size={18} />
+                                </a>
+                              </div>
+                            );
+                          }
+                        })()}
+                        {msg.linkPreview && (
+                          <a href={msg.linkPreview.url} target="_blank" rel="noopener noreferrer" className="mt-2 block bg-discord-sidebar p-3 rounded-lg border border-black/20 max-w-sm hover:bg-white/5 transition-colors">
+                            {msg.linkPreview.image && <img src={msg.linkPreview.image} alt={msg.linkPreview.title} className="w-full h-auto rounded-md mb-2" />}
+                            <h4 className="font-bold text-white text-sm">{msg.linkPreview.title}</h4>
+                            {msg.linkPreview.description && <p className="text-discord-muted text-xs mt-1">{msg.linkPreview.description}</p>}
+                          </a>
+                        )}
+                        
+                        {/* Reactions Display */}
+                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {Object.entries(msg.reactions).map(([emoji, userIds]) => {
+                              const ids = userIds as string[];
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleAddReaction(msg.id, emoji)}
+                                  className={cn(
+                                    "flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition-colors",
+                                    socket && ids.includes(socket.id) 
+                                      ? "bg-discord-accent/20 border-discord-accent text-discord-accent" 
+                                      : "bg-discord-sidebar border-transparent text-discord-muted hover:border-white/20"
+                                  )}
+                                >
+                                  <span>{emoji}</span>
+                                  <span className="font-bold">{ids.length}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Message Actions (Hover) */}
-                    <div className="absolute right-4 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-discord-sidebar border border-black/20 rounded-md shadow-lg p-1">
-                    {hasPermission('EDIT_MESSAGES') && (
+                      {/* Message Actions (Hover) */}
+                      <div className="absolute right-4 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-discord-sidebar border border-black/20 rounded-md shadow-lg p-1">
+                      {hasPermission('EDIT_MESSAGES') && (
+                          <button 
+                            onClick={() => handleEditMessage(msg)}
+                            className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        )}
                         <button 
-                          onClick={() => handleEditMessage(msg)}
+                          onClick={() => handleAddReaction(msg.id, '👍')}
                           className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
                         >
-                          <Pencil size={16} />
+                          👍
                         </button>
-                      )}
-                      <button 
-                        onClick={() => handleAddReaction(msg.id, '👍')}
-                        className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
-                      >
-                        👍
-                      </button>
-                      <button 
-                        onClick={() => handleAddReaction(msg.id, '❤️')}
-                        className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
-                      >
-                        ❤️
-                      </button>
-                      <button 
-                        onClick={() => handleAddReaction(msg.id, '😂')}
-                        className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
-                      >
-                        😂
-                      </button>
-                      <div className="w-[1px] bg-white/10 mx-1" />
-                      <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setShowReactionPicker({
-                                visible: true,
-                                x: e.clientX - 350, // Adjust position to appear left of the button
-                                y: e.clientY - 400, // Adjust position to appear above the button
-                                messageId: msg.id,
-                            });
-                        }}
-                        className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
-                      >
-                        <Plus size={16} />
-                      </button>
-                      {hasPermission('DELETE_MESSAGES') && (
                         <button 
-                          onClick={() => handleDeleteMessage(msg.id)}
-                          className="p-1 hover:bg-red-500/20 rounded text-discord-muted hover:text-red-400"
+                          onClick={() => handleAddReaction(msg.id, '❤️')}
+                          className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
                         >
-                          <Trash2 size={16} />
+                          ❤️
                         </button>
-                      )}
-                    </div>
-                  </motion.div>
-                    )
-                  })}</AnimatePresence>
-              <div ref={messagesEndRef} />
-            </>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center space-y-8 p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
-                {/* Local Screen Share Preview */}
-                {isSharingScreen && (
-                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden border-2 border-discord-accent shadow-2xl">
-                    <div className="absolute top-2 left-2 z-10 bg-discord-accent text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Your Stream</div>
-                    <video 
-                      autoPlay 
-                      muted 
-                      ref={(el) => { if (el) el.srcObject = screenStreamRef.current; }}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                )}
-
-                {/* Remote Screen Shares */}
-                {Object.entries(remoteScreens).map(([userId, data]) => (
-                  <div key={userId} className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-xl">
-                    <div className="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                      {usernames[userId] || userId}'s Stream
-                    </div>
-                    <img src={data} alt="Screen Share" className="w-full h-full object-contain" />
-                  </div>
-                ))}
-              </div>
-
-              {!isSharingScreen && Object.keys(remoteScreens).length === 0 && (
-                <div className="text-center space-y-4">
-                  <div className="w-20 h-20 bg-discord-sidebar rounded-full flex items-center justify-center mx-auto text-discord-muted">
-                    <Monitor size={40} />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">No one is sharing their screen</h3>
-                  <p className="text-discord-muted max-w-xs mx-auto">Click the screen share icon in the bottom panel to start sharing your screen with everyone in this voice channel.</p>
-                </div>
-              )}
-
-              <div className="max-w-md w-full">
-                <h3 className="text-2xl font-bold text-white mb-2 text-center">Voice Channel: {currentChannel?.name}</h3>
-                
-                {(!isJoinedVoice || (currentVoiceChannel && currentVoiceChannel.id !== currentChannel?.id)) ? (
-                  <div className="space-y-4">
-                    <p className="text-discord-muted mb-8 text-center">
-                      {isJoinedVoice ? `You are currently in ${currentVoiceChannel?.name}. Join this channel instead?` : 'Connect to start talking with others in this channel.'}
-                    </p>
-                    <button
-                      onClick={async () => {
-                        if (isJoinedVoice && currentVoiceChannel?.id !== currentChannel?.id) {
-                          setPendingVoiceChannel(currentChannel);
-                          setShowSwitchConfirm(true);
-                        } else {
-                          startVoice(currentChannel);
-                        }
-                      }}
-                      className="px-8 py-3 bg-discord-accent text-white font-bold rounded hover:bg-indigo-500 transition-colors flex items-center gap-2 mx-auto"
-                    >
-                      <Mic size={20} />
-                      {isJoinedVoice ? 'Switch to this Channel' : 'Join Voice Channel'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-discord-muted mb-8 text-center">You are connected to this voice channel.</p>
-                    <div className="flex items-center justify-center gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={cn(
-                          "w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
-                          isMuted ? "bg-red-500/20 text-red-500" : "bg-green-500/20 text-green-500 animate-pulse"
-                        )}>
-                          {isMuted ? <MicOff size={32} /> : <Mic size={32} />}
-                        </div>
-                        <span className="text-sm font-medium text-discord-text">{isMuted ? 'Muted' : 'Speaking...'}</span>
+                        <button 
+                          onClick={() => handleAddReaction(msg.id, '😂')}
+                          className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
+                        >
+                          😂
+                        </button>
+                        <div className="w-[1px] bg-white/10 mx-1" />
+                        <button 
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              setShowReactionPicker({
+                                  visible: true,
+                                  x: e.clientX - 350, // Adjust position to appear left of the button
+                                  y: e.clientY - 400, // Adjust position to appear above the button
+                                  messageId: msg.id,
+                              });
+                          }}
+                          className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
+                        >
+                          <Plus size={16} />
+                        </button>
+                        {hasPermission('DELETE_MESSAGES') && (
+                          <button 
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="p-1 hover:bg-red-500/20 rounded text-discord-muted hover:text-red-400"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
+                    </motion.div>
+                      )
+                    })}</AnimatePresence>
+                <div ref={messagesEndRef} />
+              </>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center space-y-8 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl">
+                  {/* Local Screen Share Preview */}
+                  {isSharingScreen && (
+                    <div className="relative aspect-video bg-black rounded-xl overflow-hidden border-2 border-discord-accent shadow-2xl">
+                      <div className="absolute top-2 left-2 z-10 bg-discord-accent text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Your Stream</div>
+                      <video 
+                        autoPlay 
+                        muted 
+                        ref={(el) => { if (el) el.srcObject = screenStreamRef.current; }}
+                        className="w-full h-full object-contain"
+                      />
                     </div>
-                    <button
-                      onClick={stopVoice}
-                      className="px-8 py-3 bg-red-500 text-white font-bold rounded hover:bg-red-600 transition-colors flex items-center gap-2 mx-auto"
-                    >
-                      <LogOut size={20} />
-                      Leave Voice
-                    </button>
+                  )}
+
+                  {/* Remote Screen Shares */}
+                  {Object.entries(remoteScreens).map(([userId, data]) => (
+                    <div key={userId} className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-xl">
+                      <div className="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                        {usernames[userId] || userId}'s Stream
+                      </div>
+                      <img src={data} alt="Screen Share" className="w-full h-full object-contain" />
+                    </div>
+                  ))}
+                </div>
+
+                {!isSharingScreen && Object.keys(remoteScreens).length === 0 && (
+                  <div className="text-center space-y-4">
+                    <div className="w-20 h-20 bg-discord-sidebar rounded-full flex items-center justify-center mx-auto text-discord-muted">
+                      <Monitor size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">No one is sharing their screen</h3>
+                    <p className="text-discord-muted max-w-xs mx-auto">Click the screen share icon in the bottom panel to start sharing your screen with everyone in this voice channel.</p>
                   </div>
                 )}
+
+                <div className="max-w-md w-full">
+                  <h3 className="text-2xl font-bold text-white mb-2 text-center">Voice Channel: {currentChannel?.name}</h3>
+                  
+                  {(!isJoinedVoice || (currentVoiceChannel && currentVoiceChannel.id !== currentChannel?.id)) ? (
+                    <div className="space-y-4">
+                      <p className="text-discord-muted mb-8 text-center">
+                        {isJoinedVoice ? `You are currently in ${currentVoiceChannel?.name}. Join this channel instead?` : 'Connect to start talking with others in this channel.'}
+                      </p>
+                      <button
+                        onClick={async () => {
+                          if (isJoinedVoice && currentVoiceChannel?.id !== currentChannel?.id) {
+                            setPendingVoiceChannel(currentChannel);
+                            setShowSwitchConfirm(true);
+                          } else {
+                            startVoice(currentChannel);
+                          }
+                        }}
+                        className="px-8 py-3 bg-discord-accent text-white font-bold rounded hover:bg-indigo-500 transition-colors flex items-center gap-2 mx-auto"
+                      >
+                        <Mic size={20} />
+                        {isJoinedVoice ? 'Switch to this Channel' : 'Join Voice Channel'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-discord-muted mb-8 text-center">You are connected to this voice channel.</p>
+                      <div className="flex items-center justify-center gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={cn(
+                            "w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300",
+                            isMuted ? "bg-red-500/20 text-red-500" : "bg-green-500/20 text-green-500 animate-pulse"
+                          )}>
+                            {isMuted ? <MicOff size={32} /> : <Mic size={32} />}
+                          </div>
+                          <span className="text-sm font-medium text-discord-text">{isMuted ? 'Muted' : 'Speaking...'}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={stopVoice}
+                        className="px-8 py-3 bg-red-500 text-white font-bold rounded hover:bg-red-600 transition-colors flex items-center gap-2 mx-auto"
+                      >
+                        <LogOut size={20} />
+                        Leave Voice
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+          {showRightPanel && <RightPanel />}
         </div>
+
 
         {currentChannel?.type === 'text' && (
           <div className="p-4 shrink-0 relative">
