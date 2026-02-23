@@ -738,26 +738,26 @@ useEffect(() => {
     setIsEditingUsername(false);
   };
 
-    const hasPermission = (permission: Permission, isAuthor: boolean = false) => {
-        const userRoleIds = allUserRoles[socket?.id || ''] || [];
-        const userPermissions = roles
-            .filter(r => userRoleIds.includes(r.id))
-            .flatMap(r => r.permissions);
+  const hasPermission = (permission: Permission, isAuthor: boolean = false) => {
+    const userRoleIds = allUserRoles[username] || [];
+    const userPermissions = roles
+      .filter((r) => userRoleIds.includes(r.id))
+      .flatMap((r) => r.permissions);
 
-        if (userPermissions.includes('ADMINISTRATOR')) {
-            return true;
-        }
+    if (userPermissions.includes("ADMINISTRATOR")) {
+      return true;
+    }
 
-        if (isAuthor && permission === 'EDIT_MESSAGES') {
-            return userPermissions.includes('EDIT_MESSAGES');
-        }
+    if (isAuthor && permission === "EDIT_MESSAGES") {
+      return userPermissions.includes("EDIT_MESSAGES");
+    }
 
-        if (isAuthor && permission === 'DELETE_MESSAGES') {
-            return userPermissions.includes('DELETE_MESSAGES');
-        }
+    if (isAuthor && permission === "DELETE_MESSAGES") {
+      return userPermissions.includes("DELETE_MESSAGES");
+    }
 
-        return userPermissions.includes(permission);
-    };
+    return userPermissions.includes(permission);
+  };
 
   const handleCreateChannel = () => {
     if (!channelNameInput.trim()) return;
@@ -791,17 +791,17 @@ useEffect(() => {
     setInputValue(message.text);
   };
 
-  const handleAssignRole = (userId: string, roleId: string) => {
-    const currentRoles = allUserRoles[userId] || [];
+  const handleAssignRole = (username: string, roleId: string) => {
+    const currentRoles = allUserRoles[username] || [];
     const newRoles = currentRoles.includes(roleId)
-      ? currentRoles.filter(id => id !== roleId)
+      ? currentRoles.filter((id) => id !== roleId)
       : [...currentRoles, roleId];
-    
-    socket?.emit('assign-role', { userId, roleIds: newRoles });
+
+    socket?.emit("assign-role", { username, roleIds: newRoles });
   };
 
-  const getUserColor = (userId: string) => {
-    const userRoleIds = allUserRoles[userId] || [];
+  const getUserColor = (username: string) => {
+    const userRoleIds = allUserRoles[username] || [];
     const userRoles = roles.filter(r => userRoleIds.includes(r.id));
     if (userRoles.length > 0) return userRoles[0].color;
     return '#ffffff';
@@ -1138,7 +1138,7 @@ useEffect(() => {
                             "w-6 h-6 bg-discord-accent rounded-full flex items-center justify-center text-[10px] text-white transition-all duration-200",
                             voiceStates[userId]?.speaking && "ring-2 ring-green-500 ring-offset-1 ring-offset-discord-sidebar"
                           )}>
-                            {userId.slice(0, 2).toUpperCase()}
+                            {(usernames[userId] || userId).slice(0, 2).toUpperCase()}
                           </div>
                           <StatusIndicator 
                             status={userPresence[userId]} 
@@ -1152,7 +1152,7 @@ useEffect(() => {
                               "text-sm truncate transition-colors",
                               voiceStates[userId]?.speaking ? "font-medium" : ""
                             )}
-                            style={{ color: getUserColor(userId) }}
+                            style={{ color: getUserColor(usernames[userId]) }}
                           >
                             {usernames[userId] || userId}
                           </span>
@@ -1197,7 +1197,7 @@ useEffect(() => {
           <div className="flex items-center gap-2 min-w-0 group">
             <div className="relative shrink-0 cursor-pointer" onClick={() => setShowStatusMenu(!showStatusMenu)}>
               <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
-                {(usernames[socket?.id || ''] || username).slice(0, 2).toUpperCase()}
+                {username.slice(0, 2).toUpperCase()}
               </div>
               <StatusIndicator 
                 status={userPresence[socket?.id || '']} 
@@ -1226,13 +1226,13 @@ useEffect(() => {
               ) : (
                 <div
                   className="text-sm font-bold truncate cursor-pointer"
-                  style={{ color: getUserColor(socket?.id || '') }}
+                  style={{ color: getUserColor(username) }}
                   onClick={() => {
                     setIsEditingUsername(true);
-                    setNewUsername(usernames[socket?.id || ''] || username);
+                    setNewUsername(username);
                   }}
                 >
-                  {usernames[socket?.id || ''] || username}
+                  {username}
                 </div>
               )}
               <div
@@ -1354,7 +1354,7 @@ useEffect(() => {
                   >
                     <div className="relative shrink-0 mt-1">
                       <div className="w-10 h-10 bg-discord-sidebar rounded-full flex items-center justify-center text-discord-muted">
-                        {(usernames[msg.userId || ''] || msg.user).slice(0, 2).toUpperCase()}
+                        {msg.user.slice(0, 2).toUpperCase()}
                       </div>
                       {msg.userId && (
                         <StatusIndicator 
@@ -1368,9 +1368,9 @@ useEffect(() => {
                       <div className="flex items-baseline gap-2">
                         <span 
                           className="font-bold hover:underline cursor-pointer"
-                          style={{ color: getUserColor(msg.userId || '') }}
+                          style={{ color: getUserColor(msg.user) }}
                         >
-                          {usernames[msg.userId || ''] || msg.user}
+                          {msg.user}
                         </span>
                         <span className="text-[10px] text-discord-muted">
                           {new Date(msg.timestamp).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -1510,7 +1510,7 @@ useEffect(() => {
                 {Object.entries(remoteScreens).map(([userId, data]) => (
                   <div key={userId} className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-xl">
                     <div className="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                      {userId === socket?.id ? 'You' : userId.slice(0, 8)}'s Stream
+                      {usernames[userId] || userId}'s Stream
                     </div>
                     <img src={data} alt="Screen Share" className="w-full h-full object-contain" />
                   </div>
@@ -1984,16 +1984,16 @@ useEffect(() => {
                       <section className="space-y-4">
                         <h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Members</h3>
                         <div className="space-y-2">
-                          {Object.keys(userPresence).map(userId => (
-                            <div key={userId} className="bg-discord-sidebar rounded-lg p-3 border border-black/10 flex items-center justify-between">
+                          {Object.entries(usernames).map(([id, name]) => (
+                            <div key={id} className="bg-discord-sidebar rounded-lg p-3 border border-black/10 flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">
-                                  {(usernames[userId] || '??').slice(0, 2).toUpperCase()}
+                                  {name.slice(0, 2).toUpperCase()}
                                 </div>
                                 <div>
-                                  <div className="text-sm font-bold text-white">{usernames[userId] || userId}</div>
+                                  <div className="text-sm font-bold text-white">{name}</div>
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {(allUserRoles[userId] || []).map(roleId => {
+                                    {(allUserRoles[name] || []).map(roleId => {
                                       const role = roles.find(r => r.id === roleId);
                                       if (!role) return null;
                                       return (
@@ -2004,7 +2004,7 @@ useEffect(() => {
                                         >
                                           {role.name}
                                           <button 
-                                            onClick={() => handleAssignRole(userId, roleId)}
+                                            onClick={() => handleAssignRole(name, roleId)}
                                             className="hover:text-white transition-colors"
                                           >
                                             <X size={10} />
@@ -2019,14 +2019,14 @@ useEffect(() => {
                                 <select 
                                   className="bg-discord-guilds text-discord-text text-xs px-2 py-1 rounded border border-black/20 focus:outline-none"
                                   onChange={(e) => {
-                                    if (e.target.value) handleAssignRole(userId, e.target.value);
+                                    if (e.target.value) handleAssignRole(name, e.target.value);
                                     e.target.value = "";
                                   }}
                                   value=""
                                 >
                                   <option value="" disabled>Add Role...</option>
                                   {roles.map(role => (
-                                    <option key={role.id} value={role.id} disabled={(allUserRoles[userId] || []).includes(role.id)}>
+                                    <option key={role.id} value={role.id} disabled={(allUserRoles[name] || []).includes(role.id)}>
                                       {role.name}
                                     </option>
                                   ))}

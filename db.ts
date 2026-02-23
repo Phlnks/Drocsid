@@ -26,14 +26,12 @@ export async function initDb() {
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      username TEXT,
+      username TEXT PRIMARY KEY,
       last_login DATETIME
     );
 
     CREATE TABLE IF NOT EXISTS login_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
       username TEXT,
       login_time DATETIME,
       ip_address TEXT
@@ -47,9 +45,10 @@ export async function initDb() {
     );
 
     CREATE TABLE IF NOT EXISTS user_roles (
-      user_id TEXT,
+      username TEXT,
       role_id TEXT,
-      PRIMARY KEY (user_id, role_id)
+      PRIMARY KEY (username, role_id),
+      FOREIGN KEY (username) REFERENCES users(username)
     );
 
     CREATE TABLE IF NOT EXISTS channels (
@@ -170,35 +169,38 @@ export async function getUserRoles() {
   const rows = await db.all('SELECT * FROM user_roles');
   const userRoles: Record<string, string[]> = {};
   for (const row of rows) {
-    if (!userRoles[row.user_id]) userRoles[row.user_id] = [];
-    userRoles[row.user_id].push(row.role_id);
+    if (!userRoles[row.username]) userRoles[row.username] = [];
+    userRoles[row.username].push(row.role_id);
   }
   return userRoles;
 }
 
-export async function setUserRole(userId: string, roleId: string) {
-  await db.run('INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)', [userId, roleId]);
+export async function setUserRole(username: string, roleIds: string[]) {
+  await db.run('DELETE FROM user_roles WHERE username = ?', [username]);
+  for (const roleId of roleIds) {
+    await db.run('INSERT INTO user_roles (username, role_id) VALUES (?, ?)', [username, roleId]);
+  }
 }
 
 export async function getUsers() {
   const rows = await db.all('SELECT * FROM users');
   const usernames: Record<string, string> = {};
   for (const row of rows) {
-    usernames[row.id] = row.username;
+    usernames[row.username] = row.username;
   }
   return usernames;
 }
 
-export async function upsertUser(userId: string, username: string) {
+export async function upsertUser(username: string) {
   await db.run(
-    'INSERT INTO users (id, username, last_login) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET username = excluded.username, last_login = excluded.last_login',
-    [userId, username, new Date().toISOString()]
+    'INSERT INTO users (username, last_login) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET last_login = excluded.last_login',
+    [username, new Date().toISOString()]
   );
 }
 
-export async function logLogin(userId: string, username: string, ipAddress: string) {
+export async function logLogin(username: string, ipAddress: string) {
   await db.run(
-    'INSERT INTO login_logs (user_id, username, login_time, ip_address) VALUES (?, ?, ?, ?)',
-    [userId, username, new Date().toISOString(), ipAddress]
+    'INSERT INTO login_logs (username, login_time, ip_address) VALUES (?, ?, ?)',
+    [username, new Date().toISOString(), ipAddress]
   );
 }
