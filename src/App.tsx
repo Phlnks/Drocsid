@@ -264,6 +264,38 @@ useEffect(() => {
     };
 }, []);
 
+const stopScreenShare = useCallback(() => {
+    if (screenIntervalRef.current) {
+      clearInterval(screenIntervalRef.current);
+      screenIntervalRef.current = null;
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+    if (currentVoiceChannelRef.current) {
+      socket?.emit('screen-share-stop', currentVoiceChannelRef.current.id);
+    }
+    setIsSharingScreen(false);
+  }, [socket]);
+
+  useEffect(() => {
+    const stream = screenStreamRef.current;
+    if (isSharingScreen && stream) {
+      const track = stream.getVideoTracks()[0];
+      if (!track) return;
+
+      const handleOnEnded = () => {
+        stopScreenShare();
+      };
+
+      track.addEventListener('ended', handleOnEnded);
+
+      return () => {
+        track.removeEventListener('ended', handleOnEnded);
+      };
+    }
+  }, [isSharingScreen, stopScreenShare]);
 
   // Save settings to localStorage and apply dynamically
   useEffect(() => {
@@ -581,21 +613,6 @@ useEffect(() => {
     outputGainRef.current = null;
   };
 
-  const stopScreenShare = () => {
-    if (screenIntervalRef.current) {
-      clearInterval(screenIntervalRef.current);
-      screenIntervalRef.current = null;
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(track => track.stop());
-      screenStreamRef.current = null;
-    }
-    if (isSharingScreen && currentVoiceChannel) {
-      socket?.emit('screen-share-stop', currentVoiceChannel.id);
-    }
-    setIsSharingScreen(false);
-  };
-
   const handleToggleScreenShare = async () => {
     if (isSharingScreen) {
       stopScreenShare();
@@ -652,9 +669,6 @@ useEffect(() => {
         video.play().then(startStreaming).catch(console.error);
       };
 
-      stream.getVideoTracks()[0].onended = () => {
-        stopScreenShare();
-      };
     } catch (err) {
       console.error('Error sharing screen:', err);
       setIsSharingScreen(false);
