@@ -55,6 +55,7 @@ export default function App() {
   const [userContextMenu, setUserContextMenu] = useState<{ visible: boolean; x: number; y: number; userId: string | null }>({ visible: false, x: 0, y: 0, userId: null });
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState<{ visible: boolean; x: number; y: number; messageId: string | null }>({ visible: false, x: 0, y: 0, messageId: null });
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -371,14 +372,17 @@ export default function App() {
   }, [messages, currentChannel]);
 
   useEffect(() => {
-    const handleClick = () => setContextMenu({ ...contextMenu, visible: false });
-    if (contextMenu.visible) {
+    const handleClick = () => {
+      setContextMenu({ ...contextMenu, visible: false });
+      setShowReactionPicker({ ...showReactionPicker, visible: false });
+    }
+    if (contextMenu.visible || showReactionPicker.visible) {
       window.addEventListener('click', handleClick);
     }
     return () => {
       window.removeEventListener('click', handleClick);
     };
-  }, [contextMenu]);
+  }, [contextMenu, showReactionPicker]);
 
   useEffect(() => {
     const handleClick = () => setUserContextMenu({ ...userContextMenu, visible: false });
@@ -1129,6 +1133,32 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden">
+       {/* Reaction Emoji Picker */}
+      <AnimatePresence>
+        {showReactionPicker.visible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            style={{ top: showReactionPicker.y, left: showReactionPicker.x }}
+            className="absolute z-[200]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EmojiPicker
+              theme={Theme.DARK}
+              onEmojiClick={(emojiData) => {
+                if (showReactionPicker.messageId) {
+                  handleAddReaction(showReactionPicker.messageId, emojiData.emoji);
+                }
+                setShowReactionPicker({ visible: false, x: 0, y: 0, messageId: null });
+              }}
+              width={350}
+              height={400}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* User Context Menu */}
       <AnimatePresence>
         {userContextMenu.visible && userContextMenu.userId && (
@@ -1779,7 +1809,18 @@ export default function App() {
                         😂
                       </button>
                       <div className="w-[1px] bg-white/10 mx-1" />
-                      <button className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text">
+                      <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowReactionPicker({
+                                visible: true,
+                                x: e.clientX - 350, // Adjust position to appear left of the button
+                                y: e.clientY - 400, // Adjust position to appear above the button
+                                messageId: msg.id,
+                            });
+                        }}
+                        className="p-1 hover:bg-white/10 rounded text-discord-muted hover:text-discord-text"
+                      >
                         <Plus size={16} />
                       </button>
                       {hasPermission('DELETE_MESSAGES') && (
