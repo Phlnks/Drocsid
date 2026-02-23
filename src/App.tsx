@@ -26,6 +26,40 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   return debounced as (...args: Parameters<F>) => void;
 }
 
+function setOpusPriority(sdp: string, codec: 'opus' | 'pcm' | 'aac'): string {
+    if (codec !== 'opus') return sdp;
+
+    const lines = sdp.split('\r\n');
+    let mLineIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('m=audio')) {
+            mLineIndex = i;
+            break;
+        }
+    }
+
+    if (mLineIndex === -1) return sdp;
+
+    let opusPayloadType = '';
+    const rtpmapRegex = /a=rtpmap:(\d+) opus\/48000\/2/;
+    for (let i = 0; i < lines.length; i++) {
+        const match = lines[i].match(rtpmapRegex);
+        if (match) {
+            opusPayloadType = match[1];
+            break;
+        }
+    }
+
+    if (!opusPayloadType) return sdp;
+
+    const mLineParts = lines[mLineIndex].split(' ');
+    const otherPayloads = mLineParts.slice(3).filter(p => p !== opusPayloadType);
+    lines[mLineIndex] = [...mLineParts.slice(0, 3), opusPayloadType, ...otherPayloads].join(' ');
+
+    return lines.join('\r\n');
+}
+
 export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -66,8 +100,8 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<'voice' | 'roles'>('voice');
   const [inputVolume, setInputVolume] = useState(() => Number(localStorage.getItem('inputVolume')) || 100);
   const [outputVolume, setOutputVolume] = useState(() => Number(localStorage.getItem('outputVolume')) || 100);
-  const [audioCodec, setAudioCodec] = useState<'pcm' | 'opus' | 'aac'>(() => (localStorage.getItem('audioCodec') as any) || 'pcm');
-  const [voiceSampleRate, setVoiceSampleRate] = useState<number>(() => Number(localStorage.getItem('voiceSampleRate')) || 44100);
+  const [audioCodec, setAudioCodec] = useState<'pcm' | 'opus' | 'aac'>(() => (localStorage.getItem('audioCodec') as any) || 'opus');
+  const [voiceSampleRate, setVoiceSampleRate] = useState<number>(() => Number(localStorage.getItem('voiceSampleRate')) || 24000);
   const [gifSearch, setGifSearch] = useState('');
   const [gifs, setGifs] = useState<string[]>([]);
   const [isMicTesting, setIsMicTesting] = useState(false);
@@ -199,6 +233,9 @@ export default function App() {
         if (isJoinedVoiceRef.current && mediaStreamRef.current && newSocket) {
             const pc = createPeerConnection(userId, mediaStreamRef.current, newSocket);
             const offer = await pc.createOffer();
+            if (audioCodec === 'opus') {
+                offer.sdp = setOpusPriority(offer.sdp, audioCodec);
+            }
             await pc.setLocalDescription(offer);
             newSocket.emit('webrtc-offer', { targetUserId: userId, offer });
         }
@@ -216,6 +253,9 @@ export default function App() {
             const pc = createPeerConnection(sourceUserId, mediaStreamRef.current, newSocket);
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await pc.createAnswer();
+            if (audioCodec === 'opus') {
+                answer.sdp = setOpusPriority(answer.sdp, audioCodec);
+            }
             await pc.setLocalDescription(answer);
             newSocket.emit('webrtc-answer', { targetUserId: sourceUserId, answer });
         }
@@ -602,15 +642,16 @@ export default function App() {
     if (!channel || channel.type !== 'voice' || !socket) return;
     
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          ...AUDIO_CONSTRAINTS,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                ...AUDIO_CONSTRAINTS,
+                sampleRate: voiceSampleRateRef.current,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
       mediaStreamRef.current = stream;
       setIsJoinedVoice(true);
       setCurrentVoiceChannel(channel);
@@ -623,6 +664,9 @@ export default function App() {
         if (userId !== socket.id) {
           const pc = createPeerConnection(userId, stream, socket);
           const offer = await pc.createOffer();
+          if (audioCodec === 'opus') {
+            offer.sdp = setOpusPriority(offer.sdp, audioCodec);
+          }
           await pc.setLocalDescription(offer);
           socket.emit('webrtc-offer', { targetUserId: userId, offer });
         }
@@ -1017,7 +1061,7 @@ export default function App() {
       // Start testing
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: AUDIO_CONSTRAINTS 
+          audio: { ...AUDIO_CONSTRAINTS, sampleRate: voiceSampleRateRef.current }
         });
         micTestStreamRef.current = stream;
         
