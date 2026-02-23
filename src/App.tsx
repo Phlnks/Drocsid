@@ -974,9 +974,16 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
     setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
+
+    const menuWidth = 192; // w-48
+    let x = e.clientX;
+    if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 8; 
+    }
+
     setContextMenu({
       visible: true,
-      x: e.clientX,
+      x,
       y: e.clientY,
       channel: channel,
     });
@@ -987,9 +994,16 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ visible: false, x: 0, y: 0, channel: null });
+
+    const menuWidth = 224; // w-56
+    let x = e.clientX;
+    if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 8;
+    }
+
     setUserContextMenu({
       visible: true,
-      x: e.clientX,
+      x: x,
       y: e.clientY,
       userId: userId,
     });
