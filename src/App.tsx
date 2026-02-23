@@ -112,6 +112,8 @@ export default function App() {
   const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
   const [unreadMentions, setUnreadMentions] = useState<Record<string, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
 
 
   const AUDIO_CONSTRAINTS = {
@@ -1120,6 +1122,7 @@ export default function App() {
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounter.current++;
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       setIsDragging(true);
     }
@@ -1128,10 +1131,9 @@ export default function App() {
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Check if the leave target is outside the main app container
-    const relatedTarget = e.relatedTarget as Node;
-    if (!e.currentTarget.contains(relatedTarget)) {
-        setIsDragging(false);
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
     }
   };
   
@@ -1144,6 +1146,7 @@ export default function App() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    dragCounter.current = 0;
   
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
@@ -1284,6 +1287,9 @@ export default function App() {
     <div 
       className="flex h-screen w-full bg-discord-dark overflow-hidden relative"
       onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {/* Drag and Drop Overlay */}
       <AnimatePresence>
@@ -1293,16 +1299,10 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-[999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none"
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
           >
-            <div className='pointer-events-auto'>
-
             <UploadCloud size={64} className="text-white/80 mb-4" />
             <h2 className="text-2xl font-bold text-white">Drop to upload</h2>
             <p className="text-discord-muted">Release your file to upload it to the current channel.</p>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
