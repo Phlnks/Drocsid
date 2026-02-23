@@ -269,6 +269,10 @@ export default function App() {
         }
     };
 
+    const handleChannelError = ({ message }: { message: string }) => {
+        alert(message);
+    };
+
     newSocket.on('connect_error', handleConnectError);
     newSocket.on('init', handleInit);
     newSocket.on('user-roles-update', handleUserRolesUpdate);
@@ -293,12 +297,14 @@ export default function App() {
     newSocket.on('message-updated', handleMessageUpdated);
     newSocket.on('force-disconnect-voice', handleForceDisconnect);
     newSocket.on('mention', handleMention);
+    newSocket.on('channel-error', handleChannelError);
 
     newSocket.connect();
 
     return () => {
         newSocket.off('force-disconnect-voice', handleForceDisconnect);
         newSocket.off('mention', handleMention);
+        newSocket.off('channel-error', handleChannelError);
         newSocket.close();
         stopVoice();
     };

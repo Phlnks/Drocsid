@@ -289,6 +289,12 @@ export async function configureSocket(io: SocketIoServer) {
 
     socket.on("create-channel", async (channel) => {
       if (!hasPermission(socket, 'MANAGE_CHANNELS')) return;
+
+      if (channels.some(c => c.name === channel.name)) {
+        socket.emit('channel-error', { message: 'A channel with this name already exists.' });
+        return;
+      }
+
       const newChannel = { ...channel, id: Math.random().toString(36).substr(2, 9) };
       channels.push(newChannel);
       if (newChannel.type === 'voice') {
@@ -302,6 +308,12 @@ export async function configureSocket(io: SocketIoServer) {
 
     socket.on("update-channel", async (updatedChannel) => {
       if (!hasPermission(socket, 'MANAGE_CHANNELS')) return;
+
+      if (channels.some(c => c.name === updatedChannel.name && c.id !== updatedChannel.id)) {
+        socket.emit('channel-error', { message: 'A channel with this name already exists.' });
+        return;
+      }
+
       const index = channels.findIndex(c => c.id === updatedChannel.id);
       if (index !== -1) {
         channels[index] = { ...channels[index], ...updatedChannel };
