@@ -1621,46 +1621,44 @@ export default function App() {
                     <span className="font-medium truncate">{channel.name}</span>
                   </button>
                 </div>
-                {(isJoinedVoice && currentVoiceChannel?.id === channel.id) && (
-                  <div className="pl-8 space-y-1">
-                    {(channelVoiceUsers[channel.id] || []).map(userId => (
-                      <div 
-                        key={userId} 
-                        className="flex items-center gap-2 py-1 cursor-pointer rounded hover:bg-white/5 mx-[-8px] px-2"
-                        onContextMenu={(e) => handleUserContextMenu(e, userId)}
-                      >
-                        <div className="relative shrink-0">
-                          <div className={cn(
-                            "w-6 h-6 bg-discord-accent rounded-full flex items-center justify-center text-[10px] text-white transition-all duration-200",
-                            voiceStates[userId]?.speaking && "ring-2 ring-green-500 ring-offset-1 ring-offset-discord-sidebar"
-                          )}>
-                            {(usernames[userId] || '??').slice(0, 2).toUpperCase()}
-                          </div>
-                          <StatusIndicator 
-                            status={userPresence[userId]} 
-                            size={10} 
-                            className="absolute -bottom-0.5 -right-0.5" 
-                          />
+                <div className="pl-8 space-y-1">
+                  {(channelVoiceUsers[channel.id] || []).map(userId => (
+                    <div 
+                      key={userId} 
+                      className="flex items-center gap-2 py-1 cursor-pointer rounded hover:bg-white/5 mx-[-8px] px-2"
+                      onContextMenu={(e) => handleUserContextMenu(e, userId)}
+                    >
+                      <div className="relative shrink-0">
+                        <div className={cn(
+                          "w-6 h-6 bg-discord-accent rounded-full flex items-center justify-center text-[10px] text-white transition-all duration-200",
+                          voiceStates[userId]?.speaking && "ring-2 ring-green-500 ring-offset-1 ring-offset-discord-sidebar"
+                        )}>
+                          {(usernames[userId] || '??').slice(0, 2).toUpperCase()}
                         </div>
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span 
-                            className={cn(
-                              "text-sm truncate transition-colors",
-                              voiceStates[userId]?.speaking ? "font-medium" : ""
-                            )}
-                            style={{ color: getUserColor(usernames[userId]) }}
-                          >
-                            {usernames[userId] || userId}
-                          </span>
-                          <div className="flex items-center gap-0.5 shrink-0">
-                            {voiceStates[userId]?.muted && <MicOff size={12} className="text-red-500" />}
-                            {voiceStates[userId]?.deafened && <HeadphoneOff size={12} className="text-red-500" />}
-                          </div>
+                        <StatusIndicator 
+                          status={userPresence[userId]} 
+                          size={10} 
+                          className="absolute -bottom-0.5 -right-0.5" 
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span 
+                          className={cn(
+                            "text-sm truncate transition-colors",
+                            voiceStates[userId]?.speaking ? "font-medium" : ""
+                          )}
+                          style={{ color: getUserColor(usernames[userId]) }}
+                        >
+                          {usernames[userId] || userId}
+                        </span>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {voiceStates[userId]?.muted && <MicOff size={12} className="text-red-500" />}
+                          {voiceStates[userId]?.deafened && <HeadphoneOff size={12} className="text-red-500" />}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
