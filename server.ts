@@ -42,6 +42,12 @@ api.post('/upload', upload.single('file'), (req, res) => {
 
 app.use('/api', api);
 
+function getYouTubeVideoId(url: string): string | null {
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const match = url.match(youtubeRegex);
+    return match ? match[1] : null;
+}
+
 export async function configureSocket(io: SocketIoServer) {
   await initDb();
   
@@ -143,20 +149,25 @@ export async function configureSocket(io: SocketIoServer) {
       let linkPreview = null;
 
       if (urls && urls.length > 0) {
+        let urlToScrape = urls[0];
+        const videoId = getYouTubeVideoId(urlToScrape);
+        if (videoId) {
+            urlToScrape = `https://www.youtube.com/watch?v=${videoId}`;
+        }
         try {
-            const options = { url: urls[0] };
+            const options = { url: urlToScrape };
             const { result } = await ogs(options);
 
             if (result && result.success && result.ogTitle && result.ogImage) {
                 linkPreview = {
-                    url: result.ogUrl || urls[0],
+                    url: result.ogUrl || urlToScrape,
                     title: result.ogTitle,
                     description: result.ogDescription,
                     image: Array.isArray(result.ogImage) ? result.ogImage[0].url : result.ogImage.url,
                 };
             }
         } catch (error) {
-            console.log("Error getting link preview for ", urls[0], error.message);
+            console.log("Error getting link preview for ", urlToScrape, error.message);
         }
       }
 
