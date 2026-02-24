@@ -5,13 +5,13 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ogs from 'open-graph-scraper';
 import { 
   initDb, getChannels, addChannel, updateChannel, deleteChannel, 
   getMessages, addMessage, updateMessageReactions, deleteMessage, updateMessage,
   getRoles, updateRoles, getUserRoles, setUserRole,
   getUsers, upsertUser, logLogin
 } from './db';
-import { getLinkPreview } from './src/previews';
 import { Role } from './src/types';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,19 +37,6 @@ api.post('/upload', upload.single('file'), (req, res) => {
     res.json({ filePath: `/api/uploads/${req.file.filename}` });
   } else {
     res.status(400).send('No file uploaded.');
-  }
-});
-
-api.get('/preview', async (req, res) => {
-  const url = req.query.url as string;
-  if (!url) {
-    return res.status(400).send('URL is required');
-  }
-  const preview = await getLinkPreview(url);
-  if (preview) {
-    res.json(preview);
-  } else {
-    res.status(404).send('Could not generate a preview for this URL.');
   }
 });
 
@@ -156,7 +143,21 @@ export async function configureSocket(io: SocketIoServer) {
       let linkPreview = null;
 
       if (urls && urls.length > 0) {
-        linkPreview = await getLinkPreview(urls[0]);
+        try {
+            const options = { url: urls[0] };
+            const { result } = await ogs(options);
+
+            if (result && result.success && result.ogTitle && result.ogImage) {
+                linkPreview = {
+                    url: result.ogUrl || urls[0],
+                    title: result.ogTitle,
+                    description: result.ogDescription,
+                    image: Array.isArray(result.ogImage) ? result.ogImage[0].url : result.ogImage.url,
+                };
+            }
+        } catch (error) {
+            console.log("Error getting link preview for ", urls[0], error.message);
+        }
       }
 
       const message = {
