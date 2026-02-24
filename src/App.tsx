@@ -635,7 +635,7 @@ export default function App() {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 10 }, audio: false });
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 20 }, audio: true });
       screenStreamRef.current = stream;
       setIsSharingScreen(true);
       socket.emit('screen-share-start', { channelId: currentVoiceChannel.id });
@@ -650,13 +650,13 @@ export default function App() {
         if (screenIntervalRef.current) clearInterval(screenIntervalRef.current);
         screenIntervalRef.current = setInterval(() => {
           if (!ctx || !video.videoWidth || !socket) return;
-          canvas.width = 800;
-          canvas.height = (video.videoHeight / video.videoWidth) * 800;
+          canvas.width = 1280;
+          canvas.height = (video.videoHeight / video.videoWidth) * 1280;
           if (isNaN(canvas.height)) return;
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const data = canvas.toDataURL('image/jpeg', 0.5);
           socket.emit('screen-data', { channelId: voiceChannelId, data });
-        }, 1000 / 10);
+        }, 1000 / 20);
       };
       video.onloadedmetadata = () => video.play().then(startStreaming).catch(console.error);
     } catch (err) {
