@@ -7,6 +7,7 @@ import { cn } from './lib/utils';
 import { Channel, Message, User, Role, Permission, PresenceStatus } from './types';
 import { soundService } from './services/soundService';
 import { searchGifs as giphySearch } from './giphy';
+import { logo } from './logo';
 
 const SOCKET_URL = window.location.origin;
 
@@ -1525,7 +1526,7 @@ export default function App() {
       {/* Guilds Sidebar (Mock) */}
       <div className="w-18 bg-discord-guilds flex flex-col items-center py-3 gap-2 overflow-y-auto no-scrollbar">
         <div className="w-12 h-12 bg-discord-accent rounded-2xl flex items-center justify-center text-white cursor-pointer hover:rounded-xl transition-all duration-200">
-          <Users size={28} />
+        <img src={logo} alt="Drocsid Logo" className="w-8 h-8" />
         </div>
         <div className="w-8 h-[2px] bg-white/10 rounded-full my-1" />
         {[1, 2, 3].map((i) => (
@@ -1538,6 +1539,7 @@ export default function App() {
       {/* Channels Sidebar */}
       <div className="w-60 bg-discord-sidebar flex flex-col">
         <div className="h-12 border-b border-black/20 flex items-center px-4 shadow-sm">
+        <img src={logo} alt="Drocsid Logo" className="w-8 h-8 mr-2" />
           <h1 className="font-bold text-white truncate">Drocsid</h1>
         </div>
         
