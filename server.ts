@@ -302,14 +302,18 @@ export async function configureSocket(io: SocketIoServer) {
       io.to(targetUserId).emit("webrtc-ice-candidate", { sourceUserId: socket.id, candidate });
     });
 
-    socket.on("screen-share-start", (channelId) => {
-      screenSharers[socket.id] = channelId;
-      io.to(`voice-${channelId}`).emit("screen-share-started", { userId: socket.id, channelId });
+    socket.on("screen-share-start", ({ channelId }) => {
+        if (channelId) {
+            screenSharers[channelId] = socket.id;
+            io.emit("screen-share-started", { userId: socket.id, channelId });
+        }
     });
 
-    socket.on("screen-share-stop", (channelId) => {
-      delete screenSharers[socket.id];
-      io.to(`voice-${channelId}`).emit("screen-share-stopped", { userId: socket.id, channelId });
+    socket.on("screen-share-stop", ({ channelId }) => {
+        if (channelId && screenSharers[channelId] === socket.id) {
+            delete screenSharers[channelId];
+            io.emit("screen-share-stopped", { userId: socket.id, channelId });
+        }
     });
 
     socket.on("screen-data", ({ channelId, data }) => {
@@ -468,11 +472,12 @@ export async function configureSocket(io: SocketIoServer) {
       delete voiceStates[socket.id];
       delete onlineUsers[socket.id];
 
-      if (screenSharers[socket.id]) {
-        const channelId = screenSharers[socket.id];
-        delete screenSharers[socket.id];
-        io.to(`voice-${channelId}`).emit("screen-share-stopped", { userId: socket.id, channelId });
+      const sharedChannelId = Object.keys(screenSharers).find(channelId => screenSharers[channelId] === socket.id);
+      if (sharedChannelId) {
+          delete screenSharers[sharedChannelId];
+          io.emit("screen-share-stopped", { userId: socket.id, channelId: sharedChannelId });
       }
+
       io.emit("presence-update", userPresence);
       io.emit("usernames-update", onlineUsers);
 

@@ -87,6 +87,8 @@ export default function App() {
   const [previewImage, setPreviewImage] = useState<{ path: string; name: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; channel: Channel | null }>({ visible: false, x: 0, y: 0, channel: null });
   const [userContextMenu, setUserContextMenu] = useState<{ visible: boolean; x: number; y: number; userId: string | null }>({ visible: false, x: 0, y: 0, userId: null });
+  const [screenSharers, setScreenSharers] = useState<Record<string, string>>({});
+  const [fullscreenUserId, setFullscreenUserId] = useState<string | null>(null);
   
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState<{ visible: boolean; x: number; y: number; messageId: string | null }>({ visible: false, x: 0, y: 0, messageId: null });
@@ -276,10 +278,26 @@ export default function App() {
     };
 
     const handleScreenShareStarted = ({ userId, channelId }: { userId: string, channelId: string }) => {
-        if (isJoinedVoiceRef.current && currentVoiceChannelRef.current?.id === channelId) {
-            soundService.playScreenShare();
-        }
-    };
+      setScreenSharers(prev => ({ ...prev, [channelId]: userId }));
+      if (isJoinedVoiceRef.current && currentVoiceChannelRef.current?.id === channelId) {
+          soundService.playScreenShare();
+      }
+  };
+  
+  const handleScreenShareStopped = ({ userId, channelId }: { userId: string, channelId: string }) => {
+      setScreenSharers(prev => {
+          const next = { ...prev };
+          if (next[channelId] === userId) {
+              delete next[channelId];
+          }
+          return next;
+      });
+      setRemoteScreens(prev => {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+      });
+  };
 
     const handleUserTyping = ({ channelId, user, isTyping }: { channelId: string, user: string, isTyping: boolean }) => {
         setTypingUsers((prev) => {
@@ -290,14 +308,6 @@ export default function App() {
         });
     };
     
-    const handleScreenShareStopped = ({ userId }: { userId: string }) => {
-        setRemoteScreens(prev => {
-            const next = { ...prev };
-            delete next[userId];
-            return next;
-        });
-    };
-
     const handleScreenStream = ({ userId, data }: { userId: string, data: string }) => {
         setRemoteScreens(prev => ({ ...prev, [userId]: data }));
     };
@@ -365,7 +375,7 @@ export default function App() {
       screenStreamRef.current = null;
     }
     if (isSharingScreen && currentVoiceChannelRef.current && socket) {
-        socket.emit('screen-share-stop', currentVoiceChannelRef.current.id);
+        socket.emit('screen-share-stop', { channelId: currentVoiceChannelRef.current.id });
     }
     setIsSharingScreen(false);
   }, [socket, isSharingScreen]);
@@ -613,7 +623,14 @@ export default function App() {
     }
 
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            {
+              urls: 'turn:openrelay.metered.ca:80',
+              username: 'openrelayproject',
+              credential: 'openrelayproject',
+            },
+        ],
     });
 
     peerConnections.current[targetUserId] = pc;
@@ -785,13 +802,13 @@ export default function App() {
       }
 
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 30 },
+        video: { frameRate: 10 },
         audio: false
       });
       
       screenStreamRef.current = stream;
       setIsSharingScreen(true);
-      socket.emit('screen-share-start', currentVoiceChannel.id);
+      socket.emit('screen-share-start', { channelId: currentVoiceChannel.id });
       soundService.playScreenShare();
 
       const video = document.createElement('video');
@@ -808,15 +825,15 @@ export default function App() {
         screenIntervalRef.current = setInterval(() => {
           if (!ctx || !video.videoWidth || !socket) return;
           
-          canvas.width = 1280;
-          canvas.height = (video.videoHeight / video.videoWidth) * 1280;
+          canvas.width = 800;
+          canvas.height = (video.videoHeight / video.videoWidth) * 800;
           
           if (isNaN(canvas.height)) return;
           
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const data = canvas.toDataURL('image/jpeg', 0.9);
+          const data = canvas.toDataURL('image/jpeg', 0.5);
           socket.emit('screen-data', { channelId: voiceChannelId, data });
-        }, 1000 / 30); // 30 FPS
+        }, 1000 / 10);
       };
 
       video.onloadedmetadata = () => {
@@ -1291,6 +1308,22 @@ export default function App() {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      <AnimatePresence>
+        {fullscreenUserId && remoteScreens[fullscreenUserId] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center"
+            onClick={() => setFullscreenUserId(null)}
+          >
+            <img src={remoteScreens[fullscreenUserId]} alt="Fullscreen Stream" className="max-h-full max-w-full object-contain" />
+            <button onClick={() => setFullscreenUserId(null)} className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors">
+              <X size={32} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Drag and Drop Overlay */}
       <AnimatePresence>
         {isDragging && (
@@ -1619,6 +1652,9 @@ export default function App() {
                   >
                     <Volume2 size={20} className="text-discord-muted group-hover:text-discord-text" />
                     <span className="font-medium truncate">{channel.name}</span>
+                    {screenSharers[channel.id] && (
+                        <Monitor size={16} className="text-discord-accent ml-auto" />
+                    )}
                   </button>
                 </div>
                 <div className="pl-8 space-y-1">
@@ -2048,7 +2084,7 @@ export default function App() {
 
                   {/* Remote Screen Shares */}
                   {Object.entries(remoteScreens).map(([userId, data]) => (
-                    <div key={userId} className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-xl">
+                    <div key={userId} className="relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 shadow-xl cursor-pointer" onClick={() => setFullscreenUserId(userId)}>
                       <div className="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">
                         {usernames[userId] || userId}'s Stream
                       </div>
