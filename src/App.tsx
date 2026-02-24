@@ -1900,6 +1900,8 @@ export default function App() {
                         )}
                        {msg.file && (() => {
                           const isImage = msg.file.name && /\.png|\.jpg|\.jpeg|\.gif|\.webp$/i.test(msg.file.name);
+                          const isAudio = msg.file.name && /\.mp3|\.wav|\.ogg|\.flac$/i.test(msg.file.name);
+                          const isVideo = msg.file.name && /\.mp4|\.webm|\.mov$/i.test(msg.file.name);
                           if (isImage) {
                             return (
                               <div className="mt-2 relative max-w-xs rounded-lg overflow-hidden">
@@ -1909,6 +1911,18 @@ export default function App() {
                                     className="max-w-full h-auto max-h-80 object-contain rounded-md cursor-pointer" 
                                     onClick={() => setPreviewImage(msg.file)}
                                   />
+                              </div>
+                            );
+                          } else if (isAudio) {
+                            return (
+                              <div className="mt-2 w-full max-w-sm">
+                                <audio controls src={msg.file.path} className="w-full rounded-lg" />
+                              </div>
+                            );
+                          } else if (isVideo) {
+                            return (
+                              <div className="mt-2 relative max-w-sm rounded-lg overflow-hidden">
+                                <video controls src={msg.file.path} className="w-full h-auto rounded-lg" />
                               </div>
                             );
                           } else {
