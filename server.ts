@@ -48,6 +48,18 @@ function getYouTubeVideoId(url: string): string | null {
     return match ? match[1] : null;
 }
 
+function getTikTokVideoId(url: string): string | null {
+    const tiktokRegex = /(?:https?:\/\/)?(?:www\.)?tiktok\.com\/.*\/video\/(\d+)/;
+    const match = url.match(tiktokRegex);
+    return match ? match[1] : null;
+}
+
+function getXStatusId(url: string): string | null {
+    const xRegex = /(?:https?:\/\/)?(?:www\.)?(?:x|twitter)\.com\/.*\/status\/(\d+)/;
+    const match = url.match(xRegex);
+    return match ? match[1] : null;
+}
+
 export async function configureSocket(io: SocketIoServer) {
   await initDb();
   
@@ -150,10 +162,18 @@ export async function configureSocket(io: SocketIoServer) {
 
       if (urls && urls.length > 0) {
         let urlToScrape = urls[0];
-        const videoId = getYouTubeVideoId(urlToScrape);
-        if (videoId) {
-            urlToScrape = `https://www.youtube.com/watch?v=${videoId}`;
+        const youtubeId = getYouTubeVideoId(urlToScrape);
+        const tiktokId = getTikTokVideoId(urlToScrape);
+        const xId = getXStatusId(urlToScrape);
+
+        if (youtubeId) {
+            urlToScrape = `https://www.youtube.com/watch?v=${youtubeId}`;
+        } else if (tiktokId) {
+            urlToScrape = `https://www.tiktok.com/oembed?url=https://www.tiktok.com/video/${tiktokId}`;
+        } else if (xId) {
+            urlToScrape = `https://publish.x.com/oembed?url=https://x.com/user/status/${xId}`;
         }
+
         try {
             const options = { url: urlToScrape };
             const { result } = await ogs(options);

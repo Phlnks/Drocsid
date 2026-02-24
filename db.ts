@@ -16,6 +16,11 @@ async function runMigrations() {
     console.log("Running migration: Adding 'file' column to messages table.");
     await db.exec('ALTER TABLE messages ADD COLUMN file TEXT');
   }
+
+  if (!columns.some(c => c.name === 'link_preview')) {
+    console.log("Running migration: Adding 'link_preview' column to messages table.");
+    await db.exec('ALTER TABLE messages ADD COLUMN link_preview TEXT');
+  }
 }
 
 export async function initDb() {
@@ -126,7 +131,8 @@ export async function getMessages() {
       gifUrl: row.gif_url,
       reactions: row.reactions ? JSON.parse(row.reactions) : {},
       edited: row.edited,
-      file: row.file ? JSON.parse(row.file) : null
+      file: row.file ? JSON.parse(row.file) : null,
+      linkPreview: row.link_preview ? JSON.parse(row.link_preview) : null
     });
   }
   return messages;
@@ -134,8 +140,8 @@ export async function getMessages() {
 
 export async function addMessage(message: any, channelId: string) {
   await db.run(
-    'INSERT INTO messages (id, channel_id, user_id, username, text, gif_url, timestamp, reactions, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [message.id, channelId, message.userId, message.user, message.text, message.gifUrl, message.timestamp, JSON.stringify(message.reactions || {}), JSON.stringify(message.file || null)]
+    'INSERT INTO messages (id, channel_id, user_id, username, text, gif_url, timestamp, reactions, file, link_preview) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [message.id, channelId, message.userId, message.user, message.text, message.gifUrl, message.timestamp, JSON.stringify(message.reactions || {}), JSON.stringify(message.file || null), JSON.stringify(message.linkPreview || null)]
   );
 }
 
