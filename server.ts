@@ -10,7 +10,7 @@ import {
   initDb, getChannels, addChannel, updateChannel, deleteChannel, 
   getMessages, addMessage, updateMessageReactions, deleteMessage, updateMessage,
   getRoles, updateRoles, getUserRoles, setUserRole,
-  getUsers, upsertUser, logLogin
+  getUsers, upsertUser, logLogin, deleteUser
 } from './db';
 import { Role } from './src/types';
 
@@ -448,6 +448,46 @@ export async function configureSocket(io: SocketIoServer) {
         io.emit("user-roles-update", userRoles);
     });
     
+    socket.on('delete-user', async (usernameToDelete: string) => {
+      if (!hasPermission(socket, 'ADMINISTRATOR')) {
+        socket.emit('channel-error', { message: "You don't have permission to delete users." });
+        return;
+      }
+    
+      const currentUsername = onlineUsers[socket.id];
+      if (currentUsername === usernameToDelete) {
+        socket.emit('channel-error', { message: "You cannot delete yourself." });
+        return;
+      }
+    
+      const adminRole = roles.find(r => r.name === 'Administrator');
+      if (adminRole) {
+        const rolesOfUserToDelete = userRoles[usernameToDelete] || [];
+        if (rolesOfUserToDelete.includes(adminRole.id)) {
+          if (countAdmins() <= 1) {
+            socket.emit('channel-error', { message: "Cannot delete the last administrator." });
+            return;
+          }
+        }
+      }
+    
+      await deleteUser(usernameToDelete);
+    
+      delete userRoles[usernameToDelete];
+    
+      const targetSocketId = Object.keys(onlineUsers).find(id => onlineUsers[id] === usernameToDelete);
+      if (targetSocketId) {
+        delete onlineUsers[targetSocketId];
+        const targetSocket = io.sockets.sockets.get(targetSocketId);
+        if (targetSocket) {
+          targetSocket.disconnect(true);
+        }
+      }
+    
+      io.emit("usernames-update", onlineUsers);
+      io.emit("user-roles-update", userRoles);
+    });
+
     socket.on('kick-user', ({ userId, channelId }) => {
       if (!hasPermission(socket, 'KICK_MEMBERS')) return;
   

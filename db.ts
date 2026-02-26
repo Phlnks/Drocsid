@@ -53,7 +53,7 @@ export async function initDb() {
       username TEXT,
       role_id TEXT,
       PRIMARY KEY (username, role_id),
-      FOREIGN KEY (username) REFERENCES users(username)
+      FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS channels (
@@ -202,6 +202,11 @@ export async function upsertUser(username: string) {
     'INSERT INTO users (username, last_login) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET last_login = excluded.last_login',
     [username, new Date().toISOString()]
   );
+}
+
+export async function deleteUser(username: string) {
+  await db.run('DELETE FROM users WHERE username = ?', [username]);
+  await db.run('DELETE FROM user_roles WHERE username = ?', [username]);
 }
 
 export async function logLogin(username: string, ipAddress: string) {

@@ -90,7 +90,7 @@ export default function App() {
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [newChannelType, setNewChannelType] = useState<'text' | 'voice'>('text');
   const [channelNameInput, setChannelNameInput] = useState('');
-  const [settingsTab, setSettingsTab] = useState<'voice' | 'roles'>('voice');
+  const [settingsTab, setSettingsTab] = useState<'voice' | 'roles' | 'users'>('voice');
   const [inputVolume, setInputVolume] = useState(() => Number(localStorage.getItem('inputVolume')) || 100);
   const [outputVolume, setOutputVolume] = useState(() => Number(localStorage.getItem('outputVolume')) || 100);
   const [audioCodec, setAudioCodec] = useState<'pcm' | 'opus' | 'aac'>(() => (localStorage.getItem('audioCodec') as any) || 'opus');
@@ -796,6 +796,12 @@ export default function App() {
     setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
   };
 
+  const handleDeleteUser = (userToDelete: string) => {
+    if (confirm(`Are you sure you want to delete the user "${userToDelete}"? This action cannot be undone.`)) {
+      socket?.emit('delete-user', userToDelete);
+    }
+  };
+
   const handleMentionSelect = (selectedUsername: string) => {
     if (!inputRef.current) return;
     const { value, selectionStart } = inputRef.current;
@@ -1344,6 +1350,7 @@ export default function App() {
             <div className="w-64 bg-discord-sidebar flex flex-col pt-16 px-6 items-end">
               <div className="w-full max-w-[180px] space-y-1">
                 <div className="text-[12px] font-bold text-discord-muted uppercase tracking-wider px-2 mb-2">Server Settings</div>
+                {hasPermission('ADMINISTRATOR') && <button onClick={() => setSettingsTab('users')} className={cn("w-full text-left px-2 py-1.5 rounded font-medium transition-colors", settingsTab === 'users' ? "bg-white/10 text-white" : "text-discord-muted hover:bg-white/5 hover:text-discord-text")}>Users</button>}
                 <button onClick={() => setSettingsTab('roles')} className={cn("w-full text-left px-2 py-1.5 rounded font-medium transition-colors", settingsTab === 'roles' ? "bg-white/10 text-white" : "text-discord-muted hover:bg-white/5 hover:text-discord-text")}>Roles</button>
                 <div className="h-[1px] bg-white/10 my-2" />
                 <div className="text-[12px] font-bold text-discord-muted uppercase tracking-wider px-2 mb-2">User Settings</div>
@@ -1357,7 +1364,7 @@ export default function App() {
             <div className="flex-1 bg-discord-dark pt-16 px-10 overflow-y-auto">
               <div className="max-w-2xl">
                 <div className="flex justify-between items-start mb-8">
-                  <h2 className="text-xl font-bold text-white uppercase tracking-tight">{settingsTab === 'voice' ? 'Voice & Video' : 'Roles'}</h2>
+                <h2 className="text-xl font-bold text-white uppercase tracking-tight">{settingsTab === 'voice' ? 'Voice & Video' : settingsTab === 'roles' ? 'Roles' : 'User Management'}</h2>
                   <button onClick={() => setShowSettings(false)} className="flex flex-col items-center gap-1 group"><div className="w-9 h-9 rounded-full border-2 border-discord-muted flex items-center justify-center group-hover:bg-white/10 group-hover:border-white transition-all"><Plus size={24} className="text-discord-muted group-hover:text-white rotate-45" /></div><span className="text-[12px] font-bold text-discord-muted group-hover:text-white uppercase">Esc</span></button>
                 </div>
                 {settingsTab === 'voice' ? (
@@ -1367,8 +1374,45 @@ export default function App() {
                     <section className="space-y-6"><h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Voice Quality</h3><div className="grid grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[12px] font-bold text-discord-muted uppercase">Audio Codec</label><select value={audioCodec} onChange={(e) => setAudioCodec(e.target.value as any)} className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20"><option value="pcm">PCM</option><option value="opus">Opus</option><option value="aac">AAC</option></select><p className="text-[11px] text-discord-muted">Opus is recommended.</p></div><div className="space-y-2"><label className="text-[12px] font-bold text-discord-muted uppercase">Sample Rate</label><select value={voiceSampleRate} onChange={(e) => setVoiceSampleRate(parseInt(e.target.value))} className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20"><option value={16000}>16kHz</option><option value={24000}>24kHz</option><option value={44100}>44.1kHz</option><option value={48000}>48kHz</option></select><p className="text-[11px] text-discord-muted">Higher is better.</p></div></div></section>
                     <section className="bg-discord-sidebar p-4 rounded-lg border border-black/10"><h4 className="text-sm font-bold text-white mb-2">Mic Test</h4><p className="text-sm text-discord-muted mb-4">Check your mic. You'll hear yourself back.</p>{isMicTesting && <div className="mb-4 space-y-2"><div className="flex justify-between text-[10px] font-bold text-discord-muted uppercase"><span>Input Level</span><span>{Math.round(micLevel)}%</span></div><div className="h-2 bg-discord-guilds rounded-full overflow-hidden"><motion.div className="h-full bg-green-500" animate={{ width: `${micLevel}%` }} transition={{ type: 'spring', bounce: 0, duration: 0.1 }} /></div></div>}<button onClick={toggleMicTest} className={cn("w-full py-2 font-bold rounded transition-colors", isMicTesting ? "bg-red-500 hover:bg-red-600 text-white" : "bg-discord-accent hover:bg-indigo-500 text-white")}>{isMicTesting ? "Stop Test" : "Let's Check"}</button></section>
                   </div>
-                ) : (
+                ) : settingsTab === 'roles' ? (
                   <div className="space-y-6"><div className="flex justify-between items-center"><p className="text-sm text-discord-muted">Use roles to group members and assign permissions.</p><button onClick={handleAddRole} className="px-4 py-1.5 bg-discord-accent text-white text-sm font-medium rounded hover:bg-indigo-500 transition-colors flex items-center gap-2"><Plus size={16} />Create Role</button></div><div className="space-y-4"><section className="space-y-4"><h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Members</h3><div className="space-y-2">{Object.values(usernames).filter(Boolean).map((name) => <div key={name} className="bg-discord-sidebar rounded-lg p-3 border border-black/10 flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">{name.slice(0, 2).toUpperCase()}</div><div><div className="text-sm font-bold text-white">{name}</div><div className="flex flex-wrap gap-1 mt-1">{(allUserRoles[name] || []).map(roleId => { const role = roles.find(r => r.id === roleId); if (!role) return null; return <span key={roleId} className="text-[10px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 group/tag" style={{ borderColor: role.color, color: role.color }}>{role.name}<button onClick={() => handleAssignRole(name, roleId)} className="hover:text-white transition-colors"><X size={10} /></button></span>; })}</div></div></div><div className="flex items-center gap-2"><select className="bg-discord-guilds text-discord-text text-xs px-2 py-1 rounded border border-black/20" onChange={(e) => { if (e.target.value) handleAssignRole(name, e.target.value); e.target.value = ""; }} value=""><option value="" disabled>Add Role...</option>{roles.map(role => <option key={role.id} value={role.id} disabled={(allUserRoles[name] || []).includes(role.id)}>{role.name}</option>)}</select></div></div>)}</div></section><div className="h-[1px] bg-white/10 my-6" /><section className="space-y-4"><h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Roles</h3>{roles.map((role) => <div key={role.id} className="bg-discord-sidebar rounded-lg p-4 border border-black/10 space-y-4"><div className="flex items-center justify-between"><div className="flex items-center gap-4 flex-1"><div className="w-6 h-6 rounded-full shrink-0" style={{ backgroundColor: role.color }} /><input type="text" value={role.name} onChange={(e) => handleUpdateRoleName(role.id, e.target.value)} className="bg-transparent text-white font-bold focus:outline-none border-b border-transparent focus:border-discord-accent px-1" /><input type="color" value={role.color} onChange={(e) => handleUpdateRoleColor(role.id, e.target.value)} className="w-8 h-8 bg-transparent border-none cursor-pointer" /></div><button onClick={() => handleDeleteRole(role.id)} className="p-2 text-discord-muted hover:text-red-400 transition-colors"><Trash2 size={18} /></button></div><div className="space-y-3"><h4 className="text-[11px] font-bold text-discord-muted uppercase tracking-wider">Permissions</h4><div className="grid grid-cols-2 gap-2">{PERMISSIONS.map((perm) => <button key={perm} onClick={() => handleTogglePermission(role.id, perm)} className={cn("flex items-center justify-between px-3 py-2 rounded text-sm transition-colors", role.permissions.includes(perm) ? "bg-discord-accent/20 text-discord-accent" : "bg-discord-guilds text-discord-muted hover:bg-white/5")}><span className="truncate">{perm.replace(/_/g, ' ')}</span>{role.permissions.includes(perm) && <Check size={14} />}</button>)}</div></div></div>)}</section></div></div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-discord-muted">Manage server members.</p>
+                    </div>
+                    <div className="space-y-4">
+                      <section className="space-y-4">
+                        <h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Members</h3>
+                        <div className="space-y-2">
+                          {Object.values(usernames).filter(Boolean).map((name) => (
+                            <div key={name} className="bg-discord-sidebar rounded-lg p-3 border border-black/10 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-discord-accent rounded-full flex items-center justify-center text-white text-xs">{name.slice(0, 2).toUpperCase()}</div>
+                                <div>
+                                  <div className="text-sm font-bold text-white">{name}</div>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {(allUserRoles[name] || []).map(roleId => {
+                                      const role = roles.find(r => r.id === roleId);
+                                      if (!role) return null;
+                                      return <span key={roleId} className="text-[10px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 group/tag" style={{ borderColor: role.color, color: role.color }}>{role.name}</span>;
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                              {name !== username && (
+                                <button
+                                  onClick={() => handleDeleteUser(name)}
+                                  className="px-4 py-1.5 bg-red-500 text-white text-sm font-medium rounded hover:bg-red-600 transition-colors flex items-center gap-2">
+                                  <Trash2 size={16} />Delete User
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
