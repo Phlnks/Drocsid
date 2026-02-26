@@ -79,6 +79,9 @@ export default function App() {
   const [userContextMenu, setUserContextMenu] = useState<{ visible: boolean; x: number; y: number; userId: string | null }>({ visible: false, x: 0, y: 0, userId: null });
   const [screenSharers, setScreenSharers] = useState<Record<string, string>>({});
   const [windowedStreamUserId, setWindowedStreamUserId] = useState<string | null>(null);
+  const [audioDevices, setAudioDevices] = useState<{ input: MediaDeviceInfo[], output: MediaDeviceInfo[] }>({ input: [], output: [] });
+  const [selectedAudioInput, setSelectedAudioInput] = useState<string | undefined>(undefined);
+  const [selectedAudioOutput, setSelectedAudioOutput] = useState<string | undefined>(undefined);
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState<{ visible: boolean; x: number; y: number; messageId: string | null }>({ visible: false, x: 0, y: 0, messageId: null });
@@ -143,6 +146,31 @@ export default function App() {
   const micTestAnalyzerRef = useRef<AnalyserNode | null>(null);
   const micTestAnimationRef = useRef<number | null>(null);
   const peerConnections = useRef<Record<string, RTCPeerConnection>>({});
+
+  const getAudioDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      console.warn("enumerateDevices() not supported.");
+      return;
+    }
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+      const audioOutputDevices = devices.filter(device => device.kind === 'audiooutput');
+      setAudioDevices({ input: audioInputDevices, output: audioOutputDevices });
+    } catch (err) {
+      console.error("Error enumerating audio devices: ", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    navigator.mediaDevices.addEventListener('devicechange', getAudioDevices);
+    getAudioDevices();
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', getAudioDevices);
+    };
+  }, [getAudioDevices]);
+
 
   const closeStreamWindow = useCallback(() => {
     if (streamWindowRef.current && !streamWindowRef.current.closed) {
@@ -309,7 +337,7 @@ export default function App() {
         newSocket.disconnect();
         stopVoice();
     };
-  }, [username, closeStreamWindow, audioCodec]);
+  }, [username, closeStreamWindow, audioCodec, getAudioDevices]);
 
   const stopScreenShare = useCallback(() => {
     if (screenIntervalRef.current) {
@@ -547,14 +575,12 @@ export default function App() {
     };
     pc.ontrack = (event) => {
       const remoteStream = event.streams[0];
-      if (audioContextRef.current && outputGainRef.current) {
-        const source = audioContextRef.current.createMediaStreamSource(remoteStream);
-        source.connect(outputGainRef.current);
-      } else {
-        const audio = new Audio();
-        audio.srcObject = remoteStream;
-        audio.play().catch(console.error);
+      const audio = new Audio();
+      audio.srcObject = remoteStream;
+      if(selectedAudioOutput) {
+        (audio as any).setSinkId(selectedAudioOutput)
       }
+      audio.play().catch(console.error);
     };
     return pc;
   };
@@ -562,8 +588,9 @@ export default function App() {
   const startVoice = async (channel: Channel | null) => {
     if (!channel || channel.type !== 'voice' || !socket) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { ...AUDIO_CONSTRAINTS, sampleRate: voiceSampleRateRef.current, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedAudioInput ? { exact: selectedAudioInput } : undefined, ...AUDIO_CONSTRAINTS, sampleRate: voiceSampleRateRef.current, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       mediaStreamRef.current = stream;
+      getAudioDevices();
       setIsJoinedVoice(true);
       setCurrentVoiceChannel(channel);
       socket.emit('join-voice', channel.id);
@@ -851,6 +878,7 @@ export default function App() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: { ...AUDIO_CONSTRAINTS, sampleRate: voiceSampleRateRef.current } });
         micTestStreamRef.current = stream;
+        getAudioDevices();
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'interactive' });
         if (audioContext.state === 'suspended') await audioContext.resume();
         micTestAudioContextRef.current = audioContext;
@@ -1370,8 +1398,24 @@ export default function App() {
                   <button onClick={() => setShowSettings(false)} className="flex flex-col items-center gap-1 group"><div className="w-9 h-9 rounded-full border-2 border-discord-muted flex items-center justify-center group-hover:bg-white/10 group-hover:border-white transition-all"><Plus size={24} className="text-discord-muted group-hover:text-white rotate-45" /></div><span className="text-[12px] font-bold text-discord-muted group-hover:text-white uppercase">Esc</span></button>
                 </div>
                 {settingsTab === 'voice' ? (
-                  <div className="space-y-8">
-                    <section><h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider mb-4">Voice Settings</h3><div className="grid grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[12px] font-bold text-discord-muted uppercase">Input Device</label><select className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20"><option>Default</option></select></div><div className="space-y-2"><label className="text-[12px] font-bold text-discord-muted uppercase">Output Device</label><select className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20"><option>Default</option></select></div></div></section>
+                   <div className="space-y-8">
+                   <section>
+                     <h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider mb-4">Voice Settings</h3>
+                     <div className="grid grid-cols-2 gap-6">
+                       <div className="space-y-2">
+                         <label className="text-[12px] font-bold text-discord-muted uppercase">Input Device</label>
+                         <select value={selectedAudioInput} onChange={(e) => setSelectedAudioInput(e.target.value)} className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20">
+                           {audioDevices.input.map(device => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
+                         </select>
+                       </div>
+                       <div className="space-y-2">
+                         <label className="text-[12px] font-bold text-discord-muted uppercase">Output Device</label>
+                         <select value={selectedAudioOutput} onChange={(e) => setSelectedAudioOutput(e.target.value)} className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20">
+                           {audioDevices.output.map(device => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
+                         </select>
+                       </div>
+                     </div>
+                   </section>
                     <section className="space-y-6"><div className="space-y-3"><div className="flex justify-between items-center"><label className="text-[12px] font-bold text-discord-muted uppercase">Input Volume</label><span className="text-sm text-discord-text">{inputVolume}%</span></div><input type="range" min="0" max="100" value={inputVolume} onChange={(e) => setInputVolume(parseInt(e.target.value))} className="w-full h-2 bg-discord-guilds rounded-lg appearance-none cursor-pointer accent-discord-accent" /></div><div className="space-y-3"><div className="flex justify-between items-center"><label className="text-[12px] font-bold text-discord-muted uppercase">Output Volume</label><span className="text-sm text-discord-text">{outputVolume}%</span></div><input type="range" min="0" max="200" value={outputVolume} onChange={(e) => setOutputVolume(parseInt(e.target.value))} className="w-full h-2 bg-discord-guilds rounded-lg appearance-none cursor-pointer accent-discord-accent" /></div></section>
                     <section className="space-y-6"><h3 className="text-[12px] font-bold text-discord-muted uppercase tracking-wider">Voice Quality</h3><div className="grid grid-cols-2 gap-6"><div className="space-y-2"><label className="text-[12px] font-bold text-discord-muted uppercase">Audio Codec</label><select value={audioCodec} onChange={(e) => setAudioCodec(e.target.value as any)} className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20"><option value="pcm">PCM</option><option value="opus">Opus</option><option value="aac">AAC</option></select><p className="text-[11px] text-discord-muted">Opus is recommended.</p></div><div className="space-y-2"><label className="text-[12px] font-bold text-discord-muted uppercase">Sample Rate</label><select value={voiceSampleRate} onChange={(e) => setVoiceSampleRate(parseInt(e.target.value))} className="w-full bg-discord-guilds text-discord-text px-3 py-2 rounded border border-black/20"><option value={16000}>16kHz</option><option value={24000}>24kHz</option><option value={44100}>44.1kHz</option><option value={48000}>48kHz</option></select><p className="text-[11px] text-discord-muted">Higher is better.</p></div></div></section>
                     <section className="bg-discord-sidebar p-4 rounded-lg border border-black/10"><h4 className="text-sm font-bold text-white mb-2">Mic Test</h4><p className="text-sm text-discord-muted mb-4">Check your mic. You'll hear yourself back.</p>{isMicTesting && <div className="mb-4 space-y-2"><div className="flex justify-between text-[10px] font-bold text-discord-muted uppercase"><span>Input Level</span><span>{Math.round(micLevel)}%</span></div><div className="h-2 bg-discord-guilds rounded-full overflow-hidden"><motion.div className="h-full bg-green-500" animate={{ width: `${micLevel}%` }} transition={{ type: 'spring', bounce: 0, duration: 0.1 }} /></div></div>}<button onClick={toggleMicTest} className={cn("w-full py-2 font-bold rounded transition-colors", isMicTesting ? "bg-red-500 hover:bg-red-600 text-white" : "bg-discord-accent hover:bg-indigo-500 text-white")}>{isMicTesting ? "Stop Test" : "Let's Check"}</button></section>
