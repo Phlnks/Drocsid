@@ -389,8 +389,10 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('outputVolume', outputVolume.toString());
-    if (outputGainRef.current) outputGainRef.current.gain.value = outputVolume / 100;
-  }, [outputVolume]);
+    if (outputGainRef.current) {
+      outputGainRef.current.gain.value = isDeafened ? 0 : outputVolume / 100;
+    }
+  }, [outputVolume, isDeafened]);
 
   useEffect(() => { localStorage.setItem('audioCodec', audioCodec); }, [audioCodec]);
   useEffect(() => { localStorage.setItem('voiceSampleRate', voiceSampleRate.toString()); }, [voiceSampleRate]);
@@ -583,7 +585,7 @@ export default function App() {
       audioContextRef.current = audioContext;
 
       const outputGain = audioContext.createGain();
-      outputGain.gain.value = outputVolume / 100;
+      outputGain.gain.value = isDeafened ? 0 : outputVolume / 100;
       outputGain.connect(audioContext.destination);
       outputGainRef.current = outputGain;
 
