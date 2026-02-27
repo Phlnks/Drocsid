@@ -406,28 +406,66 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("set-username", async (name) => {
-        onlineUsers[socket.id] = name;
-        await upsertUser(name);
-        await logLogin(name, socket.handshake.address || 'unknown');
-    
-        const dbUserRoles = await getUserRoles();
-    
-        if (!dbUserRoles[name]) {
-            const adminRole = roles.find(r => r.name === 'Administrator');
-            const memberRole = roles.find(r => r.name === 'Member');
-    
-            if (adminRole && memberRole) {
-                const adminExists = Object.values(dbUserRoles).some(roleList => roleList.includes(adminRole.id));
-                const newRoleIds = !adminExists ? [adminRole.id] : [memberRole.id];
-                await setUserRole(name, newRoleIds);
-                userRoles[name] = newRoleIds;
-            }
-        } else {
-            userRoles[name] = dbUserRoles[name];
+        const currentUsername = onlineUsers[socket.id];
+        if (currentUsername === name) {
+            return; // No change
         }
-    
-        io.emit("usernames-update", onlineUsers);
-        io.emit("user-roles-update", userRoles);
+
+        const newName = name;
+        const targetNameLower = newName.toLowerCase();
+        let error = null;
+
+        const adminRole = roles.find(r => r.name === 'Administrator');
+
+        // This check should only run on modification, not on initial login
+        if (currentUsername && adminRole) {
+            const dbUserWithTargetName = Object.keys(userRoles).find(dbUser => dbUser.toLowerCase() === targetNameLower);
+            if (dbUserWithTargetName && userRoles[dbUserWithTargetName].includes(adminRole.id)) {
+                const isSameUser = currentUsername.toLowerCase() === targetNameLower;
+                if (!isSameUser) {
+                    error = 'This username belongs to an administrator and cannot be used.';
+                }
+            }
+        }
+
+        if (!error) {
+            const isOtherUserOnline = Object.entries(onlineUsers).some(([id, onlineName]) => 
+                id !== socket.id && onlineName.toLowerCase() === targetNameLower
+            );
+            if (isOtherUserOnline) {
+                error = 'This user is already logged in.';
+            }
+        }
+
+        if (error) {
+            socket.emit('channel-error', { message: error });
+            io.emit("usernames-update", onlineUsers); // Revert client UI
+        } else {
+            onlineUsers[socket.id] = newName;
+            
+            await upsertUser(newName);
+            await logLogin(newName, socket.handshake.address || 'unknown');
+
+            const dbUserRoles = await getUserRoles();
+            if (!dbUserRoles[newName]) { // New user to the system
+                const memberRole = roles.find(r => r.name === 'Member');
+                const adminExists = Object.values(dbUserRoles).some(r => adminRole && r.includes(adminRole.id));
+                if (adminRole && memberRole) {
+                    const newRoleIds = !adminExists ? [adminRole.id] : [memberRole.id];
+                    await setUserRole(newName, newRoleIds);
+                    userRoles[newName] = newRoleIds;
+                }
+            } else { // Existing user
+                userRoles[newName] = dbUserRoles[newName];
+            }
+            
+            if (currentUsername && currentUsername.toLowerCase() !== targetNameLower) {
+                delete userRoles[currentUsername];
+            }
+
+            io.emit("usernames-update", onlineUsers);
+            io.emit("user-roles-update", userRoles);
+        }
     });
 
     socket.on("assign-role", async ({ username, roleIds }) => {
