@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil, Paperclip, File as FileIcon, Download, UploadCloud } from 'lucide-react';
+import { Hash, Volume2, Send, Mic, MicOff, Users, Settings, LogOut, Smile, Image as ImageIcon, Plus, Shield, Trash2, Check, Circle, Search, X, Monitor, MonitorOff, Headphones, HeadphoneOff, Pencil, Paperclip, File as FileIcon, Download, UploadCloud, ArrowDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { cn } from './lib/utils';
@@ -109,6 +109,7 @@ export default function App() {
   const [unreadMentions, setUnreadMentions] = useState<Record<string, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+  const [showScrollToBottomButton, setShowScrollToBottomButton] = useState(false);
 
   const AUDIO_CONSTRAINTS = { echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true } };
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
@@ -123,6 +124,7 @@ export default function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const streamWindowRef = useRef<Window | null>(null);
   const windowedStreamUserIdRef = useRef<string | null>(null);
+  const messageContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isDeafenedRef.current = isDeafened; }, [isDeafened]);
@@ -934,6 +936,13 @@ export default function App() {
     }
   };
 
+  const handleScroll = () => {
+    if (messageContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messageContainerRef.current;
+      setShowScrollToBottomButton(scrollHeight - scrollTop > clientHeight + 200);
+    }
+  };
+
   const StatusIndicator = ({ status, size = 10, className }: { status?: PresenceStatus, size?: number, className?: string }) => {
     const colors = { online: 'bg-green-500', idle: 'bg-yellow-500', dnd: 'bg-red-500', offline: 'bg-gray-500' };
     return <div className={cn("rounded-full border-2 border-discord-sidebar", colors[status || 'offline'], className)} style={{ width: size, height: size }} />;
@@ -1211,8 +1220,8 @@ export default function App() {
             <button onClick={() => setShowRightPanel(!showRightPanel)} className={cn("text-discord-muted hover:text-white transition-colors", showRightPanel && "text-white bg-white/5")}><Users size={20} /></button>
         </div>
         </div>
-        <div className="flex-1 flex min-h-0">
-          <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
+        <div className="flex-1 flex min-h-0 relative">
+          <div ref={messageContainerRef} onScroll={handleScroll} className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
             {currentChannel?.type === 'text' ? (
               <>
                 <AnimatePresence initial={false}>
@@ -1309,6 +1318,19 @@ export default function App() {
             )}
           </div>
           {showRightPanel && <RightPanel />}
+          <AnimatePresence>
+            {showScrollToBottomButton && currentChannel?.type === 'text' && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                className="absolute bottom-4 right-8 z-10 p-2 bg-discord-accent rounded-full text-white shadow-lg hover:bg-indigo-500 transition-colors"
+              >
+                <ArrowDown size={20} />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
         {currentChannel?.type === 'text' && (
           <div className="p-4 shrink-0 relative">
