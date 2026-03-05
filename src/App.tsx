@@ -110,6 +110,8 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
   const [showScrollToBottomButton, setShowScrollToBottomButton] = useState(false);
+  const [showMoveUserModal, setShowMoveUserModal] = useState(false);
+  const [movingUserId, setMovingUserId] = useState<string | null>(null);
 
   const AUDIO_CONSTRAINTS = { echoCancellation: { ideal: true }, noiseSuppression: { ideal: true }, autoGainControl: { ideal: true } };
   const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
@@ -125,6 +127,7 @@ export default function App() {
   const streamWindowRef = useRef<Window | null>(null);
   const windowedStreamUserIdRef = useRef<string | null>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
+  const channelsRef = useRef(channels);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isDeafenedRef.current = isDeafened; }, [isDeafened]);
@@ -132,6 +135,7 @@ export default function App() {
   useEffect(() => { isJoinedVoiceRef.current = isJoinedVoice; }, [isJoinedVoice]);
   useEffect(() => { currentVoiceChannelRef.current = currentVoiceChannel; }, [currentVoiceChannel]);
   useEffect(() => { windowedStreamUserIdRef.current = windowedStreamUserId; }, [windowedStreamUserId]);
+  useEffect(() => { channelsRef.current = channels; }, [channels]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -284,11 +288,19 @@ export default function App() {
             newSocket.emit('webrtc-offer', { targetUserId: userId, offer });
         }
     });
-    newSocket.on('user-left-voice', ({ userId }: { userId: string }) => {
+    newSocket.on('user-left-voice', ({ userId, channelId }: { userId: string, channelId: string }) => {
         if (peerConnections.current[userId]) {
             peerConnections.current[userId].close();
             delete peerConnections.current[userId];
         }
+
+        setChannelVoiceUsers(prev => {
+            const newUsers = { ...prev };
+            if (newUsers[channelId]) {
+                newUsers[channelId] = newUsers[channelId].filter(id => id !== userId);
+            }
+            return newUsers;
+        });
     });
     newSocket.on('webrtc-offer', async ({ sourceUserId, offer }: { sourceUserId: string, offer: any }) => {
         if (isJoinedVoiceRef.current && mediaStreamRef.current && newSocket) {
@@ -325,6 +337,16 @@ export default function App() {
       stopVoice();
       alert("You have been kicked from the voice channel.");
     });
+    newSocket.on('force-join-voice', (channelId: string) => {
+        const channel = channelsRef.current.find(c => c.id === channelId);
+        if (channel) {
+          stopVoice();
+          setTimeout(() => {
+            setCurrentChannel(channel);
+            startVoice(channel);
+          }, 150);
+        }
+      });
     newSocket.on('mention', ({ channelId, mentionedBy }: { channelId: string, mentionedBy: string }) => {
         if (username !== mentionedBy) {
             soundService.playMention();
@@ -812,7 +834,7 @@ export default function App() {
   };
 
   const handleUserContextMenu = (e: React.MouseEvent, userId: string) => {
-    if (!hasPermission('MANAGE_ROLES')) return;
+    if (!hasPermission('MANAGE_ROLES') && !hasPermission('KICK_MEMBERS') && !hasPermission('MOVE_MEMBERS')) return;
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ visible: false, x: 0, y: 0, channel: null });
@@ -825,6 +847,14 @@ export default function App() {
   const handleKickUser = (userId: string) => {
     if (currentVoiceChannel) socket?.emit('kick-user', { userId, channelId: currentVoiceChannel.id });
     setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
+  };
+
+  const handleMoveUser = (channelId: string) => {
+    if (movingUserId && socket) {
+      socket.emit('move-user', { userId: movingUserId, channelId });
+    }
+    setShowMoveUserModal(false);
+    setMovingUserId(null);
   };
 
   const handleDeleteUser = (userToDelete: string) => {
@@ -948,7 +978,7 @@ export default function App() {
     return <div className={cn("rounded-full border-2 border-discord-sidebar", colors[status || 'offline'], className)} style={{ width: size, height: size }} />;
   };
 
-  const PERMISSIONS: Permission[] = ['ADMINISTRATOR', 'MANAGE_CHANNELS', 'MANAGE_ROLES', 'KICK_MEMBERS', 'SEND_MESSAGES', 'CONNECT_VOICE', 'DELETE_MESSAGES', 'EDIT_MESSAGES'];
+  const PERMISSIONS: Permission[] = ['ADMINISTRATOR', 'MANAGE_CHANNELS', 'MANAGE_ROLES', 'KICK_MEMBERS', 'SEND_MESSAGES', 'CONNECT_VOICE', 'DELETE_MESSAGES', 'EDIT_MESSAGES', 'MOVE_MEMBERS'];
 
   const renderMessage = (text: string) => {
     const mentionRegex = /@(\w+)/g;
@@ -1013,6 +1043,8 @@ export default function App() {
     );
   };
 
+  const movingUserVoiceChannelId = movingUserId ? Object.keys(channelVoiceUsers).find(channelId => channelVoiceUsers[channelId].includes(movingUserId)) : null;
+
   return (
     <div className="flex h-screen w-full bg-discord-dark overflow-hidden relative" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
       <AnimatePresence>
@@ -1047,6 +1079,16 @@ export default function App() {
                   </button>
               ))}
             </div>
+            {hasPermission('MOVE_MEMBERS') && (<>
+                <div className="h-[1px] bg-white/10 my-1.5" />
+                <button onClick={() => {
+                    setMovingUserId(userContextMenu.userId);
+                    setShowMoveUserModal(true);
+                    setUserContextMenu({ visible: false, x: 0, y: 0, userId: null });
+                }} className="w-full text-left px-2 py-1.5 rounded text-sm text-discord-text hover:bg-discord-accent hover:text-white transition-colors flex items-center gap-2">
+                    <ArrowDown size={14} /> Move User
+                </button>
+            </>)}
             {hasPermission('KICK_MEMBERS') && (<>
               <div className="h-[1px] bg-white/10 my-1.5" />
               <button onClick={() => handleKickUser(userContextMenu.userId!)} className="w-full text-left px-2 py-1.5 rounded text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"><LogOut size={14} /> Kick User</button>
@@ -1098,6 +1140,33 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+        <AnimatePresence>
+            {showMoveUserModal && movingUserId && (
+            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-discord-sidebar w-full max-w-md rounded-lg shadow-2xl overflow-hidden">
+                <div className="p-6 space-y-4">
+                    <h2 className="text-xl font-bold text-white">Move {usernames[movingUserId]} to...</h2>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {channels.filter(c => c.type === 'voice' && c.id !== movingUserVoiceChannelId).map(channel => (
+                        <button
+                        key={channel.id}
+                        onClick={() => handleMoveUser(channel.id)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded transition-colors text-discord-muted hover:bg-white/5 hover:text-discord-text"
+                        >
+                        <Volume2 size={20} className="text-discord-muted" />
+                        <span className="font-medium truncate">{channel.name}</span>
+                        </button>
+                    ))}
+                    </div>
+                </div>
+                <div className="bg-discord-dark p-4 flex justify-end gap-3">
+                    <button onClick={() => { setShowMoveUserModal(false); setMovingUserId(null); }} className="px-4 py-2 text-white hover:underline text-sm font-medium">Cancel</button>
+                </div>
+                </motion.div>
+            </div>
+            )}
+        </AnimatePresence>
 
       <div className="w-18 bg-discord-guilds flex flex-col items-center py-3 gap-2 overflow-y-auto no-scrollbar">
         <div className="w-12 h-12 bg-discord-accent rounded-2xl flex items-center justify-center text-white cursor-pointer hover:rounded-xl transition-all duration-200"><img src={logo} alt="Drocsid Logo" className="w-8 h-8" /></div>

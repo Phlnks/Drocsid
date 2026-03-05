@@ -286,7 +286,7 @@ export async function configureSocket(io: SocketIoServer) {
           voiceUsers[channelId].delete(socket.id);
           socket.leave(`voice-${channelId}`);
           io.emit("voice-users-update", getVoiceUsersMap());
-          socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id });
+          socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id, channelId });
       }
     });
 
@@ -535,8 +535,46 @@ export async function configureSocket(io: SocketIoServer) {
         targetSocket.leave(`voice-${channelId}`);
         io.to(userId).emit('force-disconnect-voice');
         io.emit("voice-users-update", getVoiceUsersMap());
-        io.to(channelId).emit("user-left-voice", { userId });
+        io.to(`voice-${channelId}`).emit("user-left-voice", { userId, channelId });
       }
+    });
+
+    socket.on('move-user', ({ userId, channelId: targetChannelId }) => {
+        if (!hasPermission(socket, 'MOVE_MEMBERS')) {
+            socket.emit('channel-error', { message: "You don't have permission to move users." });
+            return;
+        }
+    
+        const targetSocket = io.sockets.sockets.get(userId);
+        if (!targetSocket) {
+            socket.emit('channel-error', { message: "User is not online." });
+            return;
+        }
+        
+        const targetChannel = channels.find(c => c.id === targetChannelId);
+        if (!targetChannel || targetChannel.type !== 'voice') {
+            socket.emit('channel-error', { message: "Invalid target channel." });
+            return;
+        }
+    
+        let sourceChannelId: string | null = null;
+        for (const id in voiceUsers) {
+            if (voiceUsers[id].has(userId)) {
+                sourceChannelId = id;
+                break;
+            }
+        }
+    
+        if (sourceChannelId && sourceChannelId !== targetChannelId) {
+            voiceUsers[sourceChannelId].delete(userId);
+            targetSocket.leave(`voice-${sourceChannelId}`);
+            io.to(`voice-${sourceChannelId}`).emit("user-left-voice", { userId, channelId: sourceChannelId });
+        } else if (sourceChannelId === targetChannelId) {
+            return;
+        }
+    
+        io.to(userId).emit('force-join-voice', targetChannelId);
+        io.emit("voice-users-update", getVoiceUsersMap());
     });
 
     socket.on("update-voice-state", (state) => {
@@ -563,7 +601,7 @@ export async function configureSocket(io: SocketIoServer) {
       Object.keys(voiceUsers).forEach((channelId) => {
         if (voiceUsers[channelId].has(socket.id)) {
           voiceUsers[channelId].delete(socket.id);
-          socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id });
+          socket.to(`voice-${channelId}`).emit("user-left-voice", { userId: socket.id, channelId });
           changed = true;
         }
       });

@@ -36,7 +36,8 @@ export type Permission =
   | 'SEND_MESSAGES' 
   | 'CONNECT_VOICE'
   | 'DELETE_MESSAGES'
-  | 'EDIT_MESSAGES';
+  | 'EDIT_MESSAGES'
+  | 'MOVE_MEMBERS';
 
 export interface Role {
   id: string;
