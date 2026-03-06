@@ -273,6 +273,9 @@ export async function configureSocket(io: SocketIoServer) {
     });
 
     socket.on("join-voice", (channelId) => {
+        if (voiceUsers[channelId] && voiceUsers[channelId].has(socket.id)) {
+            return;
+        }
       if (voiceUsers[channelId]) {
         voiceUsers[channelId].add(socket.id);
         socket.join(`voice-${channelId}`);
@@ -575,12 +578,16 @@ export async function configureSocket(io: SocketIoServer) {
             io.to(`voice-${sourceChannelId}`).emit("user-left-voice", { userId, channelId: sourceChannelId });
         }
     
-        if (voiceUsers[targetChannelId]) {
-            voiceUsers[targetChannelId].add(userId);
+        if (!voiceUsers[targetChannelId]) {
+            voiceUsers[targetChannelId] = new Set();
         }
-    
-        io.to(userId).emit('force-join-voice', targetChannelId);
+        voiceUsers[targetChannelId].add(userId);
+        targetSocket.join(`voice-${targetChannelId}`);
+        io.to(`voice-${targetChannelId}`).emit("user-joined-voice", { userId });
+        
         io.emit("voice-users-update", getVoiceUsersMap());
+
+        io.to(userId).emit('force-join-voice', targetChannelId);
     });
 
     socket.on("update-voice-state", (state) => {
