@@ -565,12 +565,18 @@ export async function configureSocket(io: SocketIoServer) {
             }
         }
     
-        if (sourceChannelId && sourceChannelId !== targetChannelId) {
+        if (sourceChannelId === targetChannelId) {
+            return;
+        }
+    
+        if (sourceChannelId) {
             voiceUsers[sourceChannelId].delete(userId);
             targetSocket.leave(`voice-${sourceChannelId}`);
             io.to(`voice-${sourceChannelId}`).emit("user-left-voice", { userId, channelId: sourceChannelId });
-        } else if (sourceChannelId === targetChannelId) {
-            return;
+        }
+    
+        if (voiceUsers[targetChannelId]) {
+            voiceUsers[targetChannelId].add(userId);
         }
     
         io.to(userId).emit('force-join-voice', targetChannelId);
