@@ -1,0 +1,642 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '../supabase';
+import { useAuthStore } from '../store/authStore';
+import { useAppStore } from '../store/appStore';
+import { Hash, Plus, Settings, ChevronDown, ChevronRight, LogOut } from 'lucide-react';
+import clsx from 'clsx';
+import socket from '../lib/socket';
+import CreateChannelModal from './ui/CreateChannelModal';
+import UserSettingsModal from './ui/UserSettingsModal';
+import ServerSettingsModal from './ui/ServerSettingsModal';
+import RenameChannelModal from './ui/RenameChannelModal';
+import VoicePanel from './VoicePanel';
+import VoiceChannelItem from './VoiceChannelItem';
+import UserAvatar from './ui/UserAvatar';
+import { playConnectSound } from '../lib/sounds';
+
+export default function ChannelList() {
+  const { user } = useAuthStore();
+  const { selectedServerId, selectedChannelId, setSelectedChannelId, connectedVoiceChannelId, setConnectedVoiceChannelId } = useAppStore();
+  const [channels, setChannels] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [server, setServer] = useState<any>(null);
+  const [currentUserMember, setCurrentUserMember] = useState<any>(null);
+  const [serverRoles, setServerRoles] = useState<any[]>([]);
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [channelToRename, setChannelToRename] = useState<any>(null);
+  const [selectedCategoryIdForNewChannel, setSelectedCategoryIdForNewChannel] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [draggedChannelId, setDraggedChannelId] = useState<string | null>(null);
+  const [dragOverChannelId, setDragOverChannelId] = useState<string | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isServerMenuOpen, setIsServerMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!selectedServerId || !user) return;
+
+    const fetchData = async () => {
+      // Fetch Server
+      const { data: serverData } = await supabase.from('servers').select('*').eq('id', selectedServerId).maybeSingle();
+      if (serverData) setServer(serverData);
+
+      // Fetch Channels
+      const { data: channelsData } = await supabase.from('channels').select('*').eq('server_id', selectedServerId);
+      if (channelsData) {
+        const sorted = channelsData.sort((a, b) => (a.order || 0) - (b.order || 0));
+        setChannels(sorted);
+        if (sorted.length > 0 && (!selectedChannelId || !sorted.find(c => c.id === selectedChannelId))) {
+          const textChannel = sorted.find(c => c.type === 'TEXT') || sorted[0];
+          setSelectedChannelId(textChannel.id);
+        }
+      }
+
+      // Fetch Categories
+      const { data: categoriesData } = await supabase.from('categories').select('*').eq('server_id', selectedServerId);
+      if (categoriesData) setCategories(categoriesData.sort((a, b) => (a.order || 0) - (b.order || 0)));
+
+      // Fetch Member
+      const { data: memberData } = await supabase.from('server_members').select('*').eq('server_id', selectedServerId).eq('user_id', user.id).maybeSingle();
+      if (memberData) setCurrentUserMember(memberData);
+
+      // Fetch Roles
+      const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', selectedServerId);
+      if (rolesData) setServerRoles(rolesData);
+
+      // Fetch Profile
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      if (profileData) setCurrentUserProfile(profileData);
+    };
+
+    fetchData();
+
+    const channel = supabase.channel(`server_${selectedServerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, () => fetchData())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, (payload) => {
+        setCurrentUserProfile(payload.new);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedServerId, user, selectedChannelId, setSelectedChannelId]);
+
+  const logAction = async (action: string, details: string) => {
+    if (!user || !selectedServerId) return;
+    try {
+      await supabase.from('server_logs').insert({
+        server_id: selectedServerId,
+        action,
+        details,
+        user_id: user.id,
+        username: user.user_metadata?.username || 'Utilisateur'
+      });
+    } catch (e) {
+      console.error("Failed to log action:", e);
+    }
+  };
+
+  const handleCreateChannel = async (name: string, type: 'TEXT' | 'VOICE' | 'AFK', categoryId: string | null) => {
+    if (!selectedServerId) return;
+
+    try {
+      const { error } = await supabase.from('channels').insert({
+        server_id: selectedServerId,
+        category_id: categoryId,
+        name,
+        type
+      });
+      
+      if (error) throw error;
+      
+      logAction('channel_create', `Salon ${type === 'TEXT' ? 'textuel' : 'vocal'} "${name}" créé`);
+    } catch (error: any) {
+      console.error("Error creating channel:", error);
+      alert(`Erreur lors de la création du salon : ${error.message}`);
+    }
+  };
+
+  const handleRenameChannel = async (newName: string) => {
+    if (!channelToRename) return;
+    try {
+      await supabase.from('channels').update({
+        name: newName
+      }).eq('id', channelToRename.id);
+      logAction('channel_rename', `Salon "${channelToRename.name}" renommé en "${newName}"`);
+    } catch (error) {
+      console.error("Error renaming channel:", error);
+    }
+  };
+
+  const handleChannelClick = (channel: any) => {
+    if (channel.type === 'VOICE') {
+      if (connectedVoiceChannelId !== channel.id) {
+        playConnectSound();
+      }
+      setConnectedVoiceChannelId(channel.id);
+      setSelectedChannelId(channel.id);
+    } else {
+      setSelectedChannelId(channel.id);
+    }
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+
+  const openCreateChannelModal = (categoryId: string | null = null) => {
+    setSelectedCategoryIdForNewChannel(categoryId);
+    setIsModalOpen(true);
+  };
+
+  if (!selectedServerId) {
+    return <div className="flex-1 md:w-60 bg-zinc-900 flex-shrink-0 border-r border-zinc-800" />;
+  }
+
+  const isOwner = server?.owner_id === user?.id;
+  
+  // Calculate permissions
+  let hasManageChannels = isOwner;
+  let hasManageServer = isOwner;
+  let hasMoveMembers = isOwner;
+  let hasKickMembers = isOwner;
+  let hasBanMembers = isOwner;
+
+  if (currentUserMember && Array.isArray(currentUserMember.roles)) {
+    if (currentUserMember.roles.includes('owner')) {
+      hasManageChannels = true;
+      hasManageServer = true;
+      hasMoveMembers = true;
+      hasKickMembers = true;
+      hasBanMembers = true;
+    } else {
+      const userRoles = serverRoles.filter(r => currentUserMember.roles.includes(r.id));
+      for (const role of userRoles) {
+        if (role.permissions?.includes('ADMINISTRATOR')) {
+          hasManageChannels = true;
+          hasManageServer = true;
+          hasMoveMembers = true;
+          hasKickMembers = true;
+          hasBanMembers = true;
+          break;
+        }
+        if (role.permissions?.includes('MANAGE_CHANNELS')) hasManageChannels = true;
+        if (role.permissions?.includes('MANAGE_SERVER')) hasManageServer = true;
+        if (role.permissions?.includes('MOVE_MEMBERS')) hasMoveMembers = true;
+        if (role.permissions?.includes('KICK_MEMBERS')) hasKickMembers = true;
+        if (role.permissions?.includes('BAN_MEMBERS')) hasBanMembers = true;
+      }
+    }
+  }
+
+  const handleMoveMember = async (userId: string, targetChannelId: string) => {
+    if (!hasMoveMembers || !userId) return;
+    socket.emit('move-user', { userId, channelId: targetChannelId });
+  };
+
+  const handleDisconnectMember = async (userId: string) => {
+    if (!hasMoveMembers || !userId) return; // Using move permission for disconnect as well
+    socket.emit('move-user', { userId, channelId: null });
+  };
+
+  const handleKickMember = async (userId: string) => {
+    if (!hasKickMembers || !selectedServerId) return;
+    try {
+      await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
+      // Also disconnect them from voice
+      handleDisconnectMember(userId);
+    } catch (error) {
+      console.error("Error kicking member:", error);
+    }
+  };
+
+  const handleBanMember = async (userId: string) => {
+    if (!hasBanMembers || !selectedServerId) return;
+    try {
+      // Add to bans collection
+      await supabase.from('server_bans').insert({
+        server_id: selectedServerId,
+        user_id: userId,
+        banned_by: user?.id
+      });
+      // Remove from members
+      await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
+      // Disconnect from voice
+      handleDisconnectMember(userId);
+    } catch (error) {
+      console.error("Error banning member:", error);
+    }
+  };
+
+  const handleChannelDragStart = (e: React.DragEvent, channel: any) => {
+    if (!hasManageChannels) return;
+    e.stopPropagation();
+    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'channel', channelId: channel.id, categoryId: channel.category_id }));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedChannelId(channel.id);
+  };
+
+  const handleChannelDragEnd = () => {
+    setDraggedChannelId(null);
+    setDragOverChannelId(null);
+  };
+
+  const handleChannelDragOver = (e: React.DragEvent, targetChannel: any) => {
+    if (!hasManageChannels || !draggedChannelId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedChannelId !== targetChannel.id) {
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverChannelId(targetChannel.id);
+    }
+  };
+
+  const handleChannelDragLeave = () => {
+    setDragOverChannelId(null);
+  };
+
+  const handleChannelDrop = async (e: React.DragEvent, targetChannel: any) => {
+    if (!hasManageChannels) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverChannelId(null);
+    setDraggedChannelId(null);
+
+    try {
+      const dataStr = e.dataTransfer.getData('application/json');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      
+      if (data.type === 'channel' && data.channelId && data.channelId !== targetChannel.id) {
+        const sourceCategoryId = data.categoryId;
+        const targetCategoryId = targetChannel.category_id;
+        
+        const targetCategoryChannels = channelsByCategory[targetCategoryId || 'uncategorized'] || [];
+        let newChannelList = [...targetCategoryChannels];
+        const draggedChannel = channels.find(c => c.id === data.channelId);
+        
+        if (!draggedChannel) return;
+
+        if (sourceCategoryId === targetCategoryId) {
+          newChannelList = newChannelList.filter(c => c.id !== data.channelId);
+        }
+        
+        const targetIndex = newChannelList.findIndex(c => c.id === targetChannel.id);
+        newChannelList.splice(targetIndex, 0, draggedChannel);
+        
+        for (let i = 0; i < newChannelList.length; i++) {
+          await supabase.from('channels').update({
+            order: i,
+            category_id: targetCategoryId || null
+          }).eq('id', newChannelList[i].id);
+        }
+      }
+    } catch (err) {
+      console.error("Error dropping channel:", err);
+    }
+  };
+
+  const handleCategoryDragOver = (e: React.DragEvent, categoryId: string | null) => {
+    if (!hasManageChannels || !draggedChannelId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverChannelId(`category-${categoryId}`);
+  };
+
+  const handleCategoryDrop = async (e: React.DragEvent, categoryId: string | null) => {
+    if (!hasManageChannels) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverChannelId(null);
+    setDraggedChannelId(null);
+
+    try {
+      const dataStr = e.dataTransfer.getData('application/json');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      
+      if (data.type === 'channel' && data.channelId) {
+        const sourceCategoryId = data.categoryId;
+        
+        if (sourceCategoryId === categoryId) return;
+
+        const targetCategoryChannels = channelsByCategory[categoryId || 'uncategorized'] || [];
+        const draggedChannel = channels.find(c => c.id === data.channelId);
+        
+        if (!draggedChannel) return;
+
+        let newChannelList = [...targetCategoryChannels];
+        newChannelList.push(draggedChannel);
+        
+        for (let i = 0; i < newChannelList.length; i++) {
+          await supabase.from('channels').update({
+            order: i,
+            category_id: categoryId || null
+          }).eq('id', newChannelList[i].id);
+        }
+      }
+    } catch (err) {
+      console.error("Error dropping channel on category:", err);
+    }
+  };
+
+  // Group channels by category
+  const channelsByCategory: Record<string, any[]> = {
+    uncategorized: channels.filter(c => !c.category_id)
+  };
+
+  categories.forEach(cat => {
+    channelsByCategory[cat.id] = channels.filter(c => c.category_id === cat.id);
+  });
+
+  const handleLeaveServer = async () => {
+    if (!selectedServerId || !user) return;
+    if (window.confirm('Êtes-vous sûr de vouloir quitter ce serveur ?')) {
+      try {
+        await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', user.id);
+        
+        await supabase.from('server_logs').insert({
+          server_id: selectedServerId,
+          action: 'member_leave',
+          details: `Membre ${user.user_metadata?.username || 'Utilisateur'} a quitté le serveur`,
+          user_id: user.id,
+          username: user.user_metadata?.username || 'Utilisateur'
+        });
+
+        setSelectedChannelId(null);
+        useAppStore.getState().setSelectedServerId(null);
+      } catch (error) {
+        console.error("Error leaving server:", error);
+      }
+    }
+  };
+
+  const renderChannel = (channel: any) => {
+    const isDragOver = dragOverChannelId === channel.id;
+    const isUnread = channel.type === 'TEXT' && 
+                     channel.last_message_at && 
+                     (!currentUserProfile?.last_read?.[channel.id] || new Date(channel.last_message_at).getTime() > currentUserProfile.last_read[channel.id]) &&
+                     selectedChannelId !== channel.id;
+
+    if (channel.type === 'VOICE') {
+      return (
+        <div
+          key={channel.id}
+          draggable={hasManageChannels}
+          onDragStart={(e) => handleChannelDragStart(e, channel)}
+          onDragEnd={handleChannelDragEnd}
+          onDragOver={(e) => handleChannelDragOver(e, channel)}
+          onDragLeave={handleChannelDragLeave}
+          onDrop={(e) => handleChannelDrop(e, channel)}
+          className={clsx(
+            "transition-all",
+            isDragOver && "border-t-2 border-indigo-500"
+          )}
+        >
+          <VoiceChannelItem
+            channel={channel}
+            isSelected={selectedChannelId === channel.id}
+            onClick={() => handleChannelClick(channel)}
+            hasMoveMembers={hasMoveMembers}
+            onMoveMember={handleMoveMember}
+            hasKickMembers={hasKickMembers}
+            hasBanMembers={hasBanMembers}
+            onDisconnectMember={handleDisconnectMember}
+            onKickMember={handleKickMember}
+            onBanMember={handleBanMember}
+            hasManageChannels={hasManageChannels}
+            onRename={(ch) => {
+              setChannelToRename(ch);
+              setIsRenameModalOpen(true);
+            }}
+          />
+        </div>
+      );
+    }
+    
+    return (
+      <div
+        key={channel.id}
+        draggable={hasManageChannels}
+        onDragStart={(e) => handleChannelDragStart(e, channel)}
+        onDragEnd={handleChannelDragEnd}
+        onDragOver={(e) => handleChannelDragOver(e, channel)}
+        onDragLeave={handleChannelDragLeave}
+        onDrop={(e) => handleChannelDrop(e, channel)}
+        onClick={() => handleChannelClick(channel)}
+        className={clsx(
+          "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer mb-[2px] group transition-all",
+          selectedChannelId === channel.id 
+            ? "bg-zinc-700/50 text-zinc-100" 
+            : isUnread 
+              ? "text-zinc-100 font-semibold" 
+              : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300",
+          isDragOver && "border-t-2 border-indigo-500",
+          hasManageChannels && "active:cursor-grabbing"
+        )}
+      >
+        <Hash className={clsx("w-4 h-4", isUnread ? "text-zinc-300" : "text-zinc-400")} />
+        <span className="truncate flex-1">{channel.name}</span>
+        {isUnread && <div className="w-1.5 h-1.5 rounded-full bg-white ml-auto mr-2"></div>}
+        {hasManageChannels && (
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setChannelToRename(channel);
+              setIsRenameModalOpen(true);
+            }}
+            className="p-1 hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="flex-1 md:w-60 bg-zinc-900 flex-shrink-0 flex flex-col border-r border-zinc-800 relative">
+        <div 
+          className="h-12 border-b border-zinc-800 flex items-center justify-between px-4 font-semibold text-zinc-100 shadow-sm transition-colors cursor-pointer hover:bg-zinc-800/50"
+          onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
+        >
+          <span className="truncate">{server?.name || 'Loading...'}</span>
+          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isServerMenuOpen ? 'rotate-180' : ''}`} />
+        </div>
+
+        {isServerMenuOpen && (
+          <>
+            <div 
+              className="fixed inset-0 z-40"
+              onClick={() => setIsServerMenuOpen(false)}
+            />
+            <div className="absolute top-14 left-2 right-2 bg-zinc-950 border border-zinc-800 rounded-md shadow-xl z-50 py-2">
+              {hasManageServer && (
+                <button 
+                  className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white flex items-center justify-between group"
+                  onClick={() => {
+                    setIsServerMenuOpen(false);
+                    setIsServerSettingsOpen(true);
+                  }}
+                >
+                  Paramètres du serveur
+                  <Settings className="w-4 h-4 opacity-0 group-hover:opacity-100" />
+                </button>
+              )}
+              {hasManageChannels && (
+                <button 
+                  className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white flex items-center justify-between group"
+                  onClick={() => {
+                    setIsServerMenuOpen(false);
+                    openCreateChannelModal(null);
+                  }}
+                >
+                  Créer un salon
+                  <Plus className="w-4 h-4 opacity-0 group-hover:opacity-100" />
+                </button>
+              )}
+              {server?.owner_id !== user?.id && (
+                <>
+                  {(hasManageServer || hasManageChannels) && <div className="h-px bg-zinc-800 my-1 mx-2" />}
+                  <button 
+                    className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white flex items-center justify-between group"
+                    onClick={() => {
+                      setIsServerMenuOpen(false);
+                      handleLeaveServer();
+                    }}
+                  >
+                    Quitter le serveur
+                    <LogOut className="w-4 h-4 opacity-0 group-hover:opacity-100" />
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+        
+        <div className="flex-1 overflow-y-auto p-2">
+          {/* Uncategorized Channels */}
+          {channelsByCategory.uncategorized.length > 0 && (
+            <div className="mb-4">
+              {channelsByCategory.uncategorized.map(renderChannel)}
+            </div>
+          )}
+
+          {/* Categories */}
+          {categories.map(category => {
+            const categoryChannels = channelsByCategory[category.id] || [];
+            const isCollapsed = collapsedCategories[category.id];
+
+            return (
+              <div key={category.id} className="mb-4">
+                <div 
+                  className={clsx(
+                    "flex items-center justify-between text-zinc-400 hover:text-zinc-100 cursor-pointer px-1 mb-1 group transition-colors",
+                    dragOverChannelId === `category-${category.id}` && "bg-zinc-800/50 rounded"
+                  )}
+                  onClick={() => toggleCategory(category.id)}
+                  onDragOver={(e) => handleCategoryDragOver(e, category.id)}
+                  onDragLeave={handleChannelDragLeave}
+                  onDrop={(e) => handleCategoryDrop(e, category.id)}
+                >
+                  <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider">
+                    {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    <span>{category.name}</span>
+                  </div>
+                  {hasManageChannels && (
+                    <Plus 
+                      className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" 
+                      onClick={(e) => { e.stopPropagation(); openCreateChannelModal(category.id); }} 
+                    />
+                  )}
+                </div>
+                
+                {!isCollapsed && (
+                  <div>
+                    {categoryChannels.map(renderChannel)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* If no categories exist, show a generic header for creating channels */}
+          {categories.length === 0 && hasManageChannels && (
+            <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-1 px-2 mt-4">
+              <span>Salons</span>
+              <Plus className="w-4 h-4 cursor-pointer hover:text-zinc-100" onClick={() => openCreateChannelModal(null)} />
+            </div>
+          )}
+        </div>
+
+        {connectedVoiceChannelId && <VoicePanel />}
+
+        <div 
+          className="h-14 bg-zinc-950 flex items-center px-2 gap-2 mt-auto shrink-0 cursor-pointer hover:bg-zinc-800 transition-colors"
+          onClick={() => setIsSettingsOpen(true)}
+        >
+          <UserAvatar 
+            user={{
+              username: currentUserProfile?.username || user?.user_metadata?.username || 'User',
+              avatarUrl: currentUserProfile?.avatar_url || user?.user_metadata?.avatar_url || '',
+              status: currentUserProfile?.status || 'online'
+            }} 
+            size="md" 
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold truncate text-zinc-100">
+              {currentUserProfile?.username || user?.user_metadata?.username || 'User'}
+            </div>
+            <div className="text-xs text-zinc-400 truncate capitalize">
+              {currentUserProfile?.status === 'dnd' ? 'Ne pas déranger' : 
+               currentUserProfile?.status === 'idle' ? 'Absent' : 
+               currentUserProfile?.status === 'offline' ? 'Hors ligne' : 'En ligne'}
+            </div>
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <CreateChannelModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateChannel}
+        categories={categories}
+        initialCategoryId={selectedCategoryIdForNewChannel}
+      />
+      <RenameChannelModal
+        isOpen={isRenameModalOpen}
+        onClose={() => {
+          setIsRenameModalOpen(false);
+          setChannelToRename(null);
+        }}
+        onSubmit={handleRenameChannel}
+        initialName={channelToRename?.name || ''}
+      />
+      <UserSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+      {server && (
+        <ServerSettingsModal
+          isOpen={isServerSettingsOpen}
+          onClose={() => setIsServerSettingsOpen(false)}
+          server={server}
+        />
+      )}
+    </>
+  );
+}

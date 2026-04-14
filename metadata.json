@@ -1,0 +1,10 @@
+{
+  "name": "Drocsid",
+  "description": "Plateforme web de communication communautaire en temps réel (Chat, Voix, Vidéo).",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture",
+    "screen-wake-lock"
+  ]
+}

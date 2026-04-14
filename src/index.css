@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.theme-neon {
+  font-family: var(--font-mono);
+  
+  /* Deep black and night blue background */
+  --color-zinc-950: #030308;
+  --color-zinc-900: #070714;
+  --color-zinc-800: #0c0c22;
+  --color-zinc-700: #151536;
+  --color-zinc-600: #22224a;
+  
+  /* Electric blue, magenta, and green neon accents */
+  --color-indigo-600: #c026d3; /* fuchsia-600 */
+  --color-indigo-500: #d946ef; /* fuchsia-500 */
+  --color-indigo-400: #e879f9; /* fuchsia-400 */
+  
+  --color-emerald-600: #06b6d4; /* cyan-500 */
+  --color-emerald-500: #22d3ee; /* cyan-400 */
+  --color-emerald-400: #67e8f9; /* cyan-300 */
+}
+
+/* Luminous outlines and glow effects */
+.theme-neon .bg-indigo-500 {
+  box-shadow: 0 0 15px rgba(217, 70, 239, 0.5);
+}
+.theme-neon .text-indigo-400, .theme-neon .text-indigo-500 {
+  text-shadow: 0 0 8px rgba(232, 121, 249, 0.6);
+}
+.theme-neon .border-indigo-500 {
+  box-shadow: 0 0 10px rgba(217, 70, 239, 0.3);
+  border-color: #d946ef;
+}
+.theme-neon .bg-emerald-500 {
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+}
+.theme-neon .text-emerald-400, .theme-neon .text-emerald-500 {
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
+}
+.theme-neon .border-emerald-500 {
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+  border-color: #22d3ee;
+}
+
+.speaking-ring {
+  box-shadow: 0 0 0 4px #10b981, 0 0 15px rgba(16, 185, 129, 0.5);
+}
+
+.theme-neon .speaking-ring {
+  box-shadow: 0 0 0 4px #22d3ee, 0 0 15px rgba(34, 211, 238, 0.8) !important;
+}
+
+/* Stylized icons/badges with halo effects */
+.theme-neon .bg-red-500 {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+}
+.theme-neon .text-red-500 {
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+/* Fix for mobile layout issues */
+.h-screen {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Neon lines for separators */
+.theme-neon .border-zinc-800, .theme-neon .border-zinc-700 {
+  border-color: rgba(34, 211, 238, 0.15);
+}
+
+/* Custom scrollbar for neon theme */
+.theme-neon ::-webkit-scrollbar-thumb {
+  background: rgba(217, 70, 239, 0.3);
+  border-radius: 4px;
+}
+.theme-neon ::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 70, 239, 0.5);
+}

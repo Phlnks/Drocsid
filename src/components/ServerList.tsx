@@ -1,0 +1,232 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '../supabase';
+import { useAuthStore } from '../store/authStore';
+import { useAppStore } from '../store/appStore';
+import { Plus, Compass } from 'lucide-react';
+import DrocsidLogo from './ui/DrocsidLogo';
+import clsx from 'clsx';
+import AddServerModal from './ui/AddServerModal';
+
+export default function ServerList() {
+  const { user } = useAuthStore();
+  const { selectedServerId, setSelectedServerId } = useAppStore();
+  const [servers, setServers] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchServers = async () => {
+      const { data: members } = await supabase.from('server_members').select('server_id').eq('user_id', user.id);
+      if (members && members.length > 0) {
+        const serverIds = members.map(m => m.server_id);
+        const { data: srvs } = await supabase.from('servers').select('*').in('id', serverIds);
+        if (srvs) setServers(srvs);
+      } else {
+        setServers([]);
+      }
+    };
+
+    fetchServers();
+    
+    // Subscribe to servers changes for icon/name updates
+    const serversChannel = supabase.channel('servers_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => {
+        fetchServers();
+      })
+      .subscribe();
+
+    // Subscribe to server_members changes
+    const membersChannel = supabase.channel('server_members_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: `user_id=eq.${user.id}` }, () => {
+        fetchServers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(serversChannel);
+      supabase.removeChannel(membersChannel);
+    };
+  }, [user]);
+
+  const handleCreateServer = async (name: string, iconUrl?: string) => {
+    if (!user) return false;
+
+    try {
+      console.log("Starting server creation for:", name);
+      const { data: server, error: serverError } = await supabase.from('servers').insert({
+        name,
+        owner_id: user.id,
+        icon_url: iconUrl
+      }).select().maybeSingle();
+      
+      if (serverError) {
+        console.error("Step 1: Servers insert failed", serverError);
+        throw serverError;
+      }
+      
+      console.log("Server created:", server.id);
+
+      // Add creator as owner member
+      const { error: memberError } = await supabase.from('server_members').insert({
+        server_id: server.id,
+        user_id: user.id,
+        roles: ['owner']
+      });
+
+      if (memberError) {
+        console.error("Step 2: Server members insert failed", memberError);
+        throw memberError;
+      }
+      
+      const { error: channelError } = await supabase.from('channels').insert({
+        server_id: server.id,
+        name: 'général',
+        type: 'TEXT'
+      });
+
+      if (channelError) {
+        console.error("Step 3: Channels insert failed", channelError);
+        throw channelError;
+      }
+
+      const { error: logError } = await supabase.from('server_logs').insert({
+        server_id: server.id,
+        action: 'server_create',
+        details: `Serveur "${name}" créé`,
+        user_id: user.id,
+        username: user.user_metadata?.username || 'Utilisateur'
+      });
+
+      if (logError) {
+        console.error("Step 4: Server logs insert failed", logError);
+        // We don't throw here as the server is already created and functional
+      }
+      
+      setSelectedServerId(server.id);
+      return true;
+    } catch (error: any) {
+      console.error("Full error creating server:", error);
+      alert(`Failed to create server: ${error.message || 'Unknown error'}. Check console for details.`);
+      return false;
+    }
+  };
+
+  const handleJoinServer = async (inviteCode: string) => {
+    if (!user) return;
+
+    try {
+      // Find invite
+      const { data: invite, error: inviteError } = await supabase.from('invites')
+        .select('*')
+        .eq('code', inviteCode)
+        .maybeSingle();
+      
+      if (inviteError || !invite) {
+        alert("Invitation invalide ou expirée.");
+        return;
+      }
+
+      const serverId = invite.server_id;
+
+      // Check if already a member
+      const { data: existingMember } = await supabase.from('server_members')
+        .select('*')
+        .eq('server_id', serverId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (existingMember) {
+        setSelectedServerId(serverId);
+        return;
+      }
+
+      // Join server
+      await supabase.from('server_members').insert({
+        server_id: serverId,
+        user_id: user.id,
+        roles: ['member']
+      });
+
+      await supabase.from('server_logs').insert({
+        server_id: serverId,
+        action: 'member_join',
+        details: `Membre ${user.user_metadata?.username || 'Utilisateur'} a rejoint via invitation`,
+        user_id: user.id,
+        username: user.user_metadata?.username || 'Utilisateur'
+      });
+
+      setSelectedServerId(serverId);
+    } catch (error) {
+      console.error("Error joining server:", error);
+      alert("Erreur lors de la connexion au serveur.");
+    }
+  };
+
+  return (
+    <>
+      <div className="w-[72px] bg-zinc-950 flex flex-col items-center py-3 gap-2 flex-shrink-0 z-20">
+        <div 
+          onClick={() => setSelectedServerId(null)}
+          className={clsx(
+            "relative group cursor-pointer flex items-center justify-center w-full"
+          )}
+        >
+          <div className={clsx(
+            "absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200",
+            selectedServerId === null ? "h-10" : "h-2 opacity-0 group-hover:opacity-100 group-hover:h-5"
+          )} />
+          <div className={clsx(
+            "w-12 h-12 flex items-center justify-center transition-all duration-200 overflow-hidden",
+            selectedServerId === null 
+              ? "bg-black rounded-[16px]" 
+              : "bg-zinc-800 rounded-[24px] group-hover:rounded-[16px] group-hover:bg-black"
+          )}>
+            <DrocsidLogo className="w-12 h-12" />
+          </div>
+        </div>
+        
+        <div className="w-8 h-[2px] bg-zinc-800 rounded-full my-1" />
+
+        {servers.map((server) => (
+          <div 
+            key={server.id}
+            onClick={() => setSelectedServerId(server.id)}
+            className="relative group cursor-pointer flex items-center justify-center w-full"
+          >
+            <div className={clsx(
+              "absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200",
+              selectedServerId === server.id ? "h-10" : "h-2 opacity-0 group-hover:opacity-100 group-hover:h-5"
+            )} />
+            <div className={clsx(
+              "w-12 h-12 flex items-center justify-center text-lg font-semibold transition-all duration-200 overflow-hidden",
+              selectedServerId === server.id 
+                ? "bg-indigo-500 text-white rounded-[16px]" 
+                : "bg-zinc-800 text-zinc-100 rounded-[24px] group-hover:rounded-[16px] group-hover:bg-indigo-500 group-hover:text-white"
+            )}>
+              {server.icon_url ? (
+                <img src={server.icon_url} alt={server.name} className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                server.name.charAt(0).toUpperCase()
+              )}
+            </div>
+          </div>
+        ))}
+
+        <div 
+          onClick={() => setIsModalOpen(true)}
+          className="w-12 h-12 bg-zinc-800 rounded-[24px] hover:rounded-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer text-emerald-500 hover:bg-emerald-500 hover:text-white mt-2 group"
+        >
+          <Plus className="w-6 h-6" />
+        </div>
+      </div>
+
+      <AddServerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreate={handleCreateServer}
+        onJoin={handleJoinServer}
+      />
+    </>
+  );
+}
