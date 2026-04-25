@@ -258,22 +258,33 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+  
+  if (!isProduction) {
+    console.log("Starting in DEVELOPMENT mode with Vite middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    console.log("Starting in PRODUCTION mode...");
+    const distPath = path.join(process.cwd(), "dist");
+    console.log(`Serving static files from: ${distPath}`);
+    
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    
+    app.get("*", (req, res) => {
+      // Pour les routes API, on ne renvoie pas l'index.html
+      if (req.path.startsWith("/api")) {
+        return res.status(404).json({ error: "API route not found" });
+      }
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running in ${isProduction ? 'production' : 'development'} mode on http://0.0.0.0:${PORT}`);
   });
 }
 
