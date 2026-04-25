@@ -1,6 +1,88 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* Global discreet scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
+  background-clip: padding-box;
+}
+
+/* Custom scrollbar for neon theme */
+.theme-neon ::-webkit-scrollbar-thumb {
+  background: rgba(217, 70, 239, 0.2);
+  background-clip: padding-box;
+}
+.theme-neon ::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 70, 239, 0.4);
+  background-clip: padding-box;
+}
+
+/* Theme specific scrollbar adjustments */
+.theme-ocean ::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.2); background-clip: padding-box; }
+.theme-forest ::-webkit-scrollbar-thumb { background: rgba(34, 197, 94, 0.2); background-clip: padding-box; }
+.theme-sunset ::-webkit-scrollbar-thumb { background: rgba(249, 115, 22, 0.2); background-clip: padding-box; }
+
+.theme-ocean ::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.4); background-clip: padding-box; }
+.theme-forest ::-webkit-scrollbar-thumb:hover { background: rgba(34, 197, 94, 0.4); background-clip: padding-box; }
+.theme-sunset ::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.4); background-clip: padding-box; }
+
+/* Global discreet scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.1);
+  background-clip: padding-box;
+}
+
+/* Custom scrollbar for neon theme */
+.theme-neon ::-webkit-scrollbar-thumb {
+  background: rgba(217, 70, 239, 0.2);
+  background-clip: padding-box;
+}
+.theme-neon ::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 70, 239, 0.4);
+  background-clip: padding-box;
+}
+
+/* Theme specific scrollbar adjustments */
+.theme-ocean ::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.2); background-clip: padding-box; }
+.theme-forest ::-webkit-scrollbar-thumb { background: rgba(34, 197, 94, 0.2); background-clip: padding-box; }
+.theme-sunset ::-webkit-scrollbar-thumb { background: rgba(249, 115, 22, 0.2); background-clip: padding-box; }
+
+.theme-ocean ::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.4); background-clip: padding-box; }
+.theme-forest ::-webkit-scrollbar-thumb:hover { background: rgba(34, 197, 94, 0.4); background-clip: padding-box; }
+.theme-sunset ::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.4); background-clip: padding-box; }
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace;
@@ -8,6 +90,7 @@
 
 body {
   font-family: var(--font-sans);
+  overscroll-behavior-y: none;
 }
 
 .theme-neon {
@@ -91,3 +174,172 @@ body {
 .theme-neon ::-webkit-scrollbar-thumb:hover {
   background: rgba(217, 70, 239, 0.5);
 }
+
+/* --- THEME: OCEAN --- */
+.theme-ocean {
+  --color-zinc-950: #050B14;
+  --color-zinc-900: #0A192F;
+  --color-zinc-800: #112240;
+  --color-zinc-700: #233554;
+  --color-zinc-600: #334A6B;
+  
+  --color-indigo-600: #0284c7; /* sky-600 */
+  --color-indigo-500: #0ea5e9; /* sky-500 */
+  --color-indigo-400: #38bdf8; /* sky-400 */
+  
+  --color-emerald-600: #0d9488; /* teal-600 */
+  --color-emerald-500: #14b8a6; /* teal-500 */
+  --color-emerald-400: #2dd4bf; /* teal-400 */
+}
+
+/* --- THEME: FOREST --- */
+.theme-forest {
+  --color-zinc-950: #09120b;
+  --color-zinc-900: #112015;
+  --color-zinc-800: #1d3323;
+  --color-zinc-700: #2d4a36;
+  --color-zinc-600: #42634d;
+  
+  --color-indigo-600: #16a34a; /* green-600 */
+  --color-indigo-500: #22c55e; /* green-500 */
+  --color-indigo-400: #4ade80; /* green-400 */
+  
+  --color-emerald-600: #65a30d; /* lime-600 */
+  --color-emerald-500: #84cc16; /* lime-500 */
+  --color-emerald-400: #a3e635; /* lime-400 */
+}
+
+/* --- THEME: SUNSET --- */
+.theme-sunset {
+  --color-zinc-950: #1a0f0f;
+  --color-zinc-900: #2a1717;
+  --color-zinc-800: #3f2222;
+  --color-zinc-700: #5c3535;
+  --color-zinc-600: #7d4949;
+  
+  --color-indigo-600: #ea580c; /* orange-600 */
+  --color-indigo-500: #f97316; /* orange-500 */
+  --color-indigo-400: #fb923c; /* orange-400 */
+  
+  --color-emerald-600: #ca8a04; /* yellow-600 */
+  --color-emerald-500: #eab308; /* yellow-500 */
+  --color-emerald-400: #facc15; /* yellow-400 */
+}
+
+.theme-ocean .speaking-ring {
+  box-shadow: 0 0 0 4px #0ea5e9 !important;
+}
+.theme-forest .speaking-ring {
+  box-shadow: 0 0 0 4px #22c55e !important;
+}
+.theme-sunset .speaking-ring {
+  box-shadow: 0 0 0 4px #f97316 !important;
+}
+
+/* --- THEME: DRACULA --- */
+.theme-dracula {
+  --color-zinc-950: #1e1f29;
+  --color-zinc-900: #282a36;
+  --color-zinc-800: #44475a;
+  --color-zinc-700: #6272a4;
+  --color-zinc-600: #6272a4;
+
+  --color-indigo-600: #9333ea;
+  --color-indigo-500: #bd93f9;
+  --color-indigo-400: #c4a7e7;
+
+  --color-emerald-600: #50fa7b;
+  --color-emerald-500: #50fa7b;
+  --color-emerald-400: #50fa7b;
+}
+
+/* --- THEME: SYNTHWAVE --- */
+.theme-synthwave {
+  --color-zinc-950: #1a1025;
+  --color-zinc-900: #261447;
+  --color-zinc-800: #2f1b54;
+  --color-zinc-700: #4a2d8a;
+  --color-zinc-600: #6940c2;
+
+  --color-indigo-600: #d64cb5;
+  --color-indigo-500: #ff7edb;
+  --color-indigo-400: #ff9ee5;
+
+  --color-emerald-600: #36ebdb;
+  --color-emerald-500: #36ebdb;
+  --color-emerald-400: #5cf2e5;
+}
+
+/* --- THEME: NORD --- */
+.theme-nord {
+  --color-zinc-950: #242933;
+  --color-zinc-900: #2e3440;
+  --color-zinc-800: #3b4252;
+  --color-zinc-700: #434c5e;
+  --color-zinc-600: #4c566a;
+
+  --color-indigo-600: #5e81ac;
+  --color-indigo-500: #81a1c1;
+  --color-indigo-400: #88c0d0;
+
+  --color-emerald-600: #a3be8c;
+  --color-emerald-500: #a3be8c;
+  --color-emerald-400: #bfd3ae;
+}
+
+/* --- THEME: MONOKAI --- */
+.theme-monokai {
+  --color-zinc-950: #1e1f1c;
+  --color-zinc-900: #272822;
+  --color-zinc-800: #3e3d32;
+  --color-zinc-700: #49483e;
+  --color-zinc-600: #75715e;
+
+  --color-indigo-600: #f92672;
+  --color-indigo-500: #f92672;
+  --color-indigo-400: #fd5ff0;
+
+  --color-emerald-600: #a6e22e;
+  --color-emerald-500: #a6e22e;
+  --color-emerald-400: #bcf255;
+}
+
+/* --- THEME: CYBERPUNK --- */
+.theme-cyberpunk {
+  --color-zinc-950: #05010f;
+  --color-zinc-900: #0d0221;
+  --color-zinc-800: #1e0548;
+  --color-zinc-700: #3b0985;
+  --color-zinc-600: #500eaf;
+
+  --color-indigo-600: #fcee0a; /* Cyberpunk Yellow */
+  --color-indigo-500: #fcee0a;
+  --color-indigo-400: #fdf358;
+
+  --color-emerald-600: #00ff9f; /* Cyberpunk Cyan/Green */
+  --color-emerald-500: #00ff9f;
+  --color-emerald-400: #33ffa0;
+}
+
+.theme-dracula .speaking-ring { box-shadow: 0 0 0 4px #bd93f9 !important; }
+.theme-synthwave .speaking-ring { box-shadow: 0 0 0 4px #ff7edb !important; }
+.theme-nord .speaking-ring { box-shadow: 0 0 0 4px #81a1c1 !important; }
+.theme-monokai .speaking-ring { box-shadow: 0 0 0 4px #f92672 !important; }
+.theme-cyberpunk .speaking-ring { box-shadow: 0 0 0 4px #fcee0a !important; }
+
+/* Custom scrollbars for the new themes */
+.theme-dracula ::-webkit-scrollbar-thumb { background: rgba(189, 147, 249, 0.2); background-clip: padding-box; }
+.theme-dracula ::-webkit-scrollbar-thumb:hover { background: rgba(189, 147, 249, 0.4); background-clip: padding-box; }
+
+.theme-synthwave ::-webkit-scrollbar-thumb { background: rgba(255, 126, 219, 0.2); background-clip: padding-box; }
+.theme-synthwave ::-webkit-scrollbar-thumb:hover { background: rgba(255, 126, 219, 0.4); background-clip: padding-box; }
+
+.theme-nord ::-webkit-scrollbar-thumb { background: rgba(129, 161, 193, 0.2); background-clip: padding-box; }
+.theme-nord ::-webkit-scrollbar-thumb:hover { background: rgba(129, 161, 193, 0.4); background-clip: padding-box; }
+
+.theme-monokai ::-webkit-scrollbar-thumb { background: rgba(249, 38, 114, 0.2); background-clip: padding-box; }
+.theme-monokai ::-webkit-scrollbar-thumb:hover { background: rgba(249, 38, 114, 0.4); background-clip: padding-box; }
+
+.theme-cyberpunk ::-webkit-scrollbar-thumb { background: rgba(252, 238, 10, 0.2); background-clip: padding-box; }
+.theme-cyberpunk ::-webkit-scrollbar-thumb:hover { background: rgba(252, 238, 10, 0.4); background-clip: padding-box; }
+

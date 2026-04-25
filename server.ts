@@ -29,7 +29,7 @@ async function startServer() {
     pingTimeout: 120000  // 120 seconds
   });
 
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // Track online users: userId -> Set of socketIds
   const onlineUsers = new Map<string, Set<string>>();
@@ -177,6 +177,11 @@ async function startServer() {
       // We can just reuse the update event or create a specific one
       // Reusing update is simpler if the client handles it
       io.to(target).emit(event, { id: data.messageId, reactions: data.reactions, channel_id: data.channelId, dm_id: data.dmId });
+    });
+
+    socket.on("dm-read", (data) => {
+      // data: { dmId, userId, timestamp }
+      socket.to(data.dmId).emit("dm-read", data);
     });
 
     socket.on("start-call", (data) => {

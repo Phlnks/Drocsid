@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -6,12 +7,15 @@ import { Plus, Compass } from 'lucide-react';
 import DrocsidLogo from './ui/DrocsidLogo';
 import clsx from 'clsx';
 import AddServerModal from './ui/AddServerModal';
+import { useTranslation } from 'react-i18next';
 
 export default function ServerList() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { selectedServerId, setSelectedServerId } = useAppStore();
+  const { selectedServerId, setSelectedServerId, addNotification, mutedServers, toggleMuteServer } = useAppStore();
   const [servers, setServers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, serverId: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -107,7 +111,7 @@ export default function ServerList() {
       return true;
     } catch (error: any) {
       console.error("Full error creating server:", error);
-      alert(`Failed to create server: ${error.message || 'Unknown error'}. Check console for details.`);
+      addNotification(`Failed to create server: ${error.message || 'Unknown error'}. Check console for details.`, "error");
       return false;
     }
   };
@@ -123,7 +127,7 @@ export default function ServerList() {
         .maybeSingle();
       
       if (inviteError || !invite) {
-        alert("Invitation invalide ou expirée.");
+        addNotification(t('app.serverList.invalidInvite'), "error");
         return;
       }
 
@@ -159,18 +163,20 @@ export default function ServerList() {
       setSelectedServerId(serverId);
     } catch (error) {
       console.error("Error joining server:", error);
-      alert("Erreur lors de la connexion au serveur.");
+      addNotification(t('app.serverList.errorJoin'), "error");
     }
   };
 
   return (
     <>
       <div className="w-[72px] bg-zinc-950 flex flex-col items-center py-3 gap-2 flex-shrink-0 z-20">
-        <div 
+        <motion.div 
           onClick={() => setSelectedServerId(null)}
           className={clsx(
             "relative group cursor-pointer flex items-center justify-center w-full"
           )}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
           <div className={clsx(
             "absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200",
@@ -184,15 +190,21 @@ export default function ServerList() {
           )}>
             <DrocsidLogo className="w-12 h-12" />
           </div>
-        </div>
+        </motion.div>
         
         <div className="w-8 h-[2px] bg-zinc-800 rounded-full my-1" />
 
         {servers.map((server) => (
-          <div 
+          <motion.div 
             key={server.id}
             onClick={() => setSelectedServerId(server.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY, serverId: server.id });
+            }}
             className="relative group cursor-pointer flex items-center justify-center w-full"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             <div className={clsx(
               "absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200",
@@ -210,16 +222,51 @@ export default function ServerList() {
                 server.name.charAt(0).toUpperCase()
               )}
             </div>
-          </div>
+            {mutedServers.includes(server.id) && (
+              <div className="absolute -bottom-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800">
+                <div className="w-2 h-2 bg-red-500 rounded-full" title={t('app.serverList.muted')} />
+              </div>
+            )}
+          </motion.div>
         ))}
 
-        <div 
+        <motion.div 
           onClick={() => setIsModalOpen(true)}
+          title={t('serverList.addServer')}
           className="w-12 h-12 bg-zinc-800 rounded-[24px] hover:rounded-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer text-emerald-500 hover:bg-emerald-500 hover:text-white mt-2 group"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
           <Plus className="w-6 h-6" />
-        </div>
+        </motion.div>
       </div>
+
+      {contextMenu && (
+        <div 
+          className="fixed inset-0 z-[100]" 
+          onClick={() => setContextMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu(null);
+          }}
+        >
+          <div 
+            className="absolute bg-zinc-900 border border-zinc-800 rounded-md shadow-xl py-1 w-48"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMuteServer(contextMenu.serverId);
+                setContextMenu(null);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-zinc-200 hover:bg-indigo-500 hover:text-white transition-colors"
+            >
+              {mutedServers.includes(contextMenu.serverId) ? t('app.serverList.unmute') : t('app.serverList.mute')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <AddServerModal
         isOpen={isModalOpen}
@@ -230,3 +277,4 @@ export default function ServerList() {
     </>
   );
 }
+

@@ -25,10 +25,36 @@ const playTone = (freq: number, type: OscillatorType, duration: number, vol: num
     osc.type = type;
     osc.frequency.setValueAtTime(freq, ctx.currentTime + startTimeOffset);
     
-    // Envelope to avoid clicks
+    // Normal envelope: rapid attack, exponential decay
     gain.gain.setValueAtTime(0, ctx.currentTime + startTimeOffset);
     gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startTimeOffset + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTimeOffset + duration);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.start(ctx.currentTime + startTimeOffset);
+    osc.stop(ctx.currentTime + startTimeOffset + duration);
+  } catch (e) {
+    console.error("Audio play error", e);
+  }
+};
+
+const playReverseTone = (freq: number, type: OscillatorType, duration: number, vol: number = 0.05, startTimeOffset: number = 0) => {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + startTimeOffset);
+    
+    // Reversed envelope: slow linear attack, instant cutoff (reverse of decay)
+    gain.gain.setValueAtTime(0, ctx.currentTime + startTimeOffset);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startTimeOffset + duration - 0.02);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + startTimeOffset + duration);
     
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -81,32 +107,31 @@ export const playRingtone = () => {
   if (ringtoneInterval) return;
   
   const ring = () => {
-    // Modern melodic ringtone
+    // Professional melodic ringtone (Skype/Teams style) - Faster and more present version
     const now = 0;
+    const speed = 0.65; // Slightly faster
+    const vol = 0.25; // Increased volume
     
-    // Main melody (marimba-like)
-    playTone(523.25, 'sine', 0.15, 0.06, now);      // C5
-    playTone(659.25, 'sine', 0.15, 0.06, now + 0.2); // E5
-    playTone(783.99, 'sine', 0.15, 0.06, now + 0.4); // G5
-    playTone(1046.50, 'sine', 0.3, 0.06, now + 0.6); // C6
+    // Main melody (triangle wave for more presence than sine)
+    // Rising sequence
+    playTone(392.00, 'triangle', 0.2 * speed, vol, now);       // G4
+    playTone(523.25, 'triangle', 0.2 * speed, vol, now + 0.2 * speed); // C5
+    playTone(659.25, 'triangle', 0.2 * speed, vol, now + 0.4 * speed);  // E5
+    playTone(783.99, 'triangle', 0.4 * speed, vol, now + 0.6 * speed); // G5
     
-    playTone(880.00, 'sine', 0.15, 0.06, now + 1.0); // A5
-    playTone(698.46, 'sine', 0.15, 0.06, now + 1.2); // F5
-    playTone(523.25, 'sine', 0.3, 0.06, now + 1.4);  // C5
+    // Response sequence
+    playTone(880.00, 'triangle', 0.2 * speed, vol - 0.05, now + 1.1 * speed); // A5
+    playTone(783.99, 'triangle', 0.2 * speed, vol - 0.05, now + 1.3 * speed); // G5
+    playTone(659.25, 'triangle', 0.2 * speed, vol - 0.05, now + 1.5 * speed);  // E5
+    playTone(523.25, 'triangle', 0.4 * speed, vol - 0.05, now + 1.7 * speed);  // C5
     
-    // Harmony (soft pad)
-    playTone(261.63, 'triangle', 0.8, 0.02, now);     // C4
-    playTone(329.63, 'triangle', 0.8, 0.02, now + 0.8); // E4
-    
-    // Second part
-    playTone(587.33, 'sine', 0.15, 0.06, now + 1.8); // D5
-    playTone(739.99, 'sine', 0.15, 0.06, now + 2.0); // F#5
-    playTone(880.00, 'sine', 0.15, 0.06, now + 2.2); // A5
-    playTone(1174.66, 'sine', 0.3, 0.06, now + 2.4); // D6
+    // Low harmonic support
+    playTone(261.63, 'square', 0.8, 0.05, now + 0.4 * speed);  // C4
+    playTone(349.23, 'square', 0.8, 0.05, now + 1.3 * speed); // F4
   };
   
   ring();
-  ringtoneInterval = setInterval(ring, 4000);
+  ringtoneInterval = setInterval(ring, 3000); // 3 second professional loop (faster)
 };
 
 export const stopRingtone = () => {

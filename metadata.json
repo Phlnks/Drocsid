@@ -1,6 +1,6 @@
 {
   "name": "Drocsid",
-  "description": "Plateforme web de communication communautaire en temps réel (Chat, Voix, Vidéo).",
+  "description": "A modern real-time community communication platform (Chat, Voice, Video).",
   "requestFramePermissions": [
     "camera",
     "microphone",

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import ServerList from './ServerList';
 import ChannelList from './ChannelList';
 import ChatArea from './ChatArea';
@@ -11,6 +12,7 @@ import IncomingCallModal from './ui/IncomingCallModal';
 import ScreenShareViewer from './ScreenShareViewer';
 import FocusedScreenShare from './FocusedScreenShare';
 import MobileVoiceControl from './MobileVoiceControl';
+import NotificationManager from './NotificationManager';
 import { useAppStore } from '../store/appStore';
 import socket from '../lib/socket';
 
@@ -32,8 +34,9 @@ export default function Layout() {
   }, [setVoiceParticipants]);
 
   return (
-    <div className="flex h-screen bg-zinc-900 text-zinc-100 overflow-hidden relative">
+    <div className="flex h-screen h-[100dvh] bg-zinc-900 text-zinc-100 overflow-hidden relative">
       <WebRTCManager />
+      <NotificationManager />
       <IncomingCallModal />
       <ScreenShareViewer />
       <MobileVoiceControl />
@@ -49,7 +52,7 @@ export default function Layout() {
       </div>
 
       {/* Main Content (ChatArea/DMChatArea/FriendsDashboard) */}
-      <div className={`flex-1 h-full min-w-0 ${!isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
+      <div className={`flex-1 h-full min-w-0 min-h-0 ${!isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
         {selectedServerId === null ? (
           activeStreamFocus ? <FocusedScreenShare /> : (selectedDmId ? <DMChatArea /> : <FriendsDashboard />)
         ) : (
@@ -58,9 +61,19 @@ export default function Layout() {
       </div>
 
       {/* Right Sidebar */}
-      <div className={`absolute right-0 top-0 bottom-0 z-30 md:relative ${isRightSidebarOpen && !isMobileNavOpen ? 'block' : 'hidden'} md:block w-full md:w-auto`}>
-        {isRightSidebarOpen && <RightSidebar />}
-      </div>
+      <AnimatePresence>
+        {isRightSidebarOpen && (
+          <motion.div 
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className={`absolute right-0 top-0 bottom-0 z-40 md:relative flex w-full md:w-72 bg-zinc-900 md:bg-transparent`}
+          >
+            <RightSidebar />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

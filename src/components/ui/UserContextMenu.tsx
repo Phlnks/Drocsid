@@ -1,29 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import socket from '../../lib/socket';
+import { useTranslation } from 'react-i18next';
 
 interface UserContextMenuProps {
   userId: string;
   username: string;
   serverId?: string | null;
+  dmId?: string | null;
   position: { x: number; y: number };
   onClose: () => void;
+  onViewProfile?: () => void;
 }
 
-export default function UserContextMenu({ userId, username, serverId, position, onClose }: UserContextMenuProps) {
+export default function UserContextMenu({ userId, username, serverId, dmId, position, onClose, onViewProfile }: UserContextMenuProps) {
+  const { t } = useTranslation();
   const [relationship, setRelationship] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [serverMember, setServerMember] = useState<any>(null);
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
+  const [serverRoles, setServerRoles] = useState<any[]>([]);
+  const [serverInfo, setServerInfo] = useState<any>(null);
   const [userVoiceState, setUserVoiceState] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
-  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen } = useAppStore();
+  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm } = useAppStore();
 
   useEffect(() => {
     if (!user) return;
@@ -42,6 +48,12 @@ export default function UserContextMenu({ userId, username, serverId, position, 
 
         const { data: currentMemberData } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
         if (currentMemberData) setCurrentUserMember(currentMemberData);
+
+        const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', serverId);
+        if (rolesData) setServerRoles(rolesData);
+
+        const { data: servData } = await supabase.from('servers').select('*').eq('id', serverId).maybeSingle();
+        if (servData) setServerInfo(servData);
       }
 
       // Check if user is in any voice channel
@@ -192,7 +204,7 @@ export default function UserContextMenu({ userId, username, serverId, position, 
 
   const handleKick = async () => {
     if (!serverId || !userId) return;
-    if (!window.confirm(`Voulez-vous vraiment exclure ${username} ?`)) return;
+    if (!window.confirm(t('modals.userContextMenu.kickConfirm', { username }))) return;
     onClose();
 
     try {
@@ -211,7 +223,7 @@ export default function UserContextMenu({ userId, username, serverId, position, 
 
   const handleBan = async () => {
     if (!serverId || !userId) return;
-    if (!window.confirm(`Voulez-vous vraiment bannir ${username} ?`)) return;
+    if (!window.confirm(t('modals.userContextMenu.banConfirm', { username }))) return;
     onClose();
 
     try {
@@ -249,15 +261,61 @@ export default function UserContextMenu({ userId, username, serverId, position, 
     }
   };
 
-  const canManage = currentUserMember?.roles?.includes('owner') || 
-                   currentUserMember?.roles?.some((roleId: string) => {
-                     // This is simplified, ideally we'd check permissions of each role
-                     return roleId === 'admin'; 
-                   });
+  let isOwner = false;
+  let canKick = false;
+  let canBan = false;
+  let canMove = false;
+
+  if (serverInfo && currentUserMember) {
+    isOwner = serverInfo.owner_id === user?.id;
+    const targetIsOwner = serverInfo.owner_id === userId;
+    
+    // Determine highest order for current user (lower number = higher hierarchical priority)
+    let currentUserHighestOrder = isOwner ? 0 : Infinity;
+    let currentUserHasAdmin = false;
+    
+    const currUserRoles = serverRoles.filter(r => currentUserMember.roles?.includes(r.id));
+    currUserRoles.forEach(r => {
+      if ((r.order || 999) < currentUserHighestOrder) currentUserHighestOrder = r.order || 999;
+      if (r.permissions?.includes('ADMINISTRATOR')) currentUserHasAdmin = true;
+      if (r.permissions?.includes('KICK_MEMBERS')) canKick = true;
+      if (r.permissions?.includes('BAN_MEMBERS')) canBan = true;
+      if (r.permissions?.includes('MOVE_MEMBERS')) canMove = true;
+    });
+
+    if (isOwner || currentUserHasAdmin) {
+      canKick = true;
+      canBan = true;
+      canMove = true;
+    }
+
+    // Evaluate target user's highest order
+    let targetUserHighestOrder = targetIsOwner ? 0 : Infinity;
+    if (serverMember) {
+      const targetRoles = serverRoles.filter(r => serverMember.roles?.includes(r.id));
+      targetRoles.forEach(r => {
+        if ((r.order || 999) < targetUserHighestOrder) targetUserHighestOrder = r.order || 999;
+      });
+    }
+
+    // Hierarchical check: cannot kick/ban someone with a higher or equal rank (lower order)
+    if (!isOwner && currentUserHighestOrder >= targetUserHighestOrder) {
+      canKick = false;
+      canBan = false;
+    }
+
+    // Never kick/ban owner
+    if (targetIsOwner) {
+      canKick = false;
+      canBan = false;
+    }
+  }
 
   // Adjust position to keep menu within viewport
   const menuWidth = 200;
-  const menuHeight = serverId && canManage ? 280 : 160;
+  const isSelf = userId === user?.id;
+  const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove);
+  const menuHeight = showAdminActions ? 280 : 160;
   let x = position.x;
   let y = position.y;
 
@@ -274,68 +332,103 @@ export default function UserContextMenu({ userId, username, serverId, position, 
         <p className="text-xs font-bold text-zinc-500 uppercase truncate">{username}</p>
       </div>
 
-      <button 
-        onClick={handleDM}
-        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
-      >
-        <MessageSquare className="w-4 h-4" />
-        Message privé
-      </button>
+      {onViewProfile && (
+        <button 
+          onClick={() => {
+            onClose();
+            onViewProfile();
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
+        >
+          <UserIcon className="w-4 h-4" />
+          {t('modals.userContextMenu.profile')}
+        </button>
+      )}
 
-      <button 
-        onClick={handleCall}
-        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
-      >
-        <Phone className="w-4 h-4" />
-        Appeler
-      </button>
+      {!isSelf && (
+        <>
+          <button 
+            onClick={handleDM}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
+          >
+            <MessageSquare className="w-4 h-4" />
+            {t('modals.userContextMenu.message')}
+          </button>
 
-      <button 
-        onClick={handleFriendAction}
-        disabled={isLoading}
-        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors disabled:opacity-50"
-      >
-        {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : relationship?.status === 'accepted' ? (
-          <>
-            <UserMinus className="w-4 h-4" />
-            Retirer des amis
-          </>
-        ) : (
-          <>
-            <UserPlus className="w-4 h-4" />
-            Ajouter en ami
-          </>
-        )}
-      </button>
+          <button 
+            onClick={handleCall}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
+          >
+            <Phone className="w-4 h-4" />
+            {t('modals.userContextMenu.call')}
+          </button>
 
-      {serverId && canManage && userId !== user?.id && (
+          {dmId && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMuteDm(dmId);
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
+            >
+              <PhoneOff className="w-4 h-4" />
+              {mutedDms.includes(dmId) ? t('modals.userContextMenu.unmute') : t('modals.userContextMenu.mute')}
+            </button>
+          )}
+
+          <button 
+            onClick={handleFriendAction}
+            disabled={isLoading}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors disabled:opacity-50"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : relationship?.status === 'accepted' ? (
+              <>
+                <UserMinus className="w-4 h-4" />
+                {t('modals.userContextMenu.removeFriend')}
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4" />
+                {t('modals.userContextMenu.addFriend')}
+              </>
+            )}
+          </button>
+        </>
+      )}
+
+      {showAdminActions && (
         <>
           <div className="h-px bg-zinc-800 my-1" />
-          {userVoiceState && (
+          {userVoiceState && canMove && (
             <button 
               onClick={handleDisconnectVoice}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
             >
               <PhoneOff className="w-4 h-4" />
-              Déconnecter du vocal
+              {t('modals.userContextMenu.disconnectVoice')}
             </button>
           )}
-          <button 
-            onClick={handleKick}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-          >
-            <ShieldAlert className="w-4 h-4" />
-            Exclure
-          </button>
-          <button 
-            onClick={handleBan}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-          >
-            <UserX className="w-4 h-4" />
-            Bannir
-          </button>
+          {canKick && (
+            <button 
+              onClick={handleKick}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              {t('modals.userContextMenu.kick')}
+            </button>
+          )}
+          {canBan && (
+            <button 
+              onClick={handleBan}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+            >
+              <UserX className="w-4 h-4" />
+              {t('modals.userContextMenu.ban')}
+            </button>
+          )}
         </>
       )}
     </div>,

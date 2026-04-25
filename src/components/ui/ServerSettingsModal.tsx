@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Settings, Users, Shield, Link as LinkIcon, Trash2, Plus, Hash, Folder, UserMinus, Ban, Check } from 'lucide-react';
+import { X, Settings, Users, Shield, Link as LinkIcon, Trash2, Plus, Hash, Folder, UserMinus, Ban, Check, Copy, Smile, Volume2, Moon } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -8,6 +8,7 @@ import PromptModal from './PromptModal';
 import ConfirmModal from './ConfirmModal';
 import UserAvatar from './UserAvatar';
 import { processImageForSupabase } from '../../lib/imageUtils';
+import { useTranslation } from 'react-i18next';
 
 interface ServerSettingsModalProps {
   isOpen: boolean;
@@ -16,9 +17,11 @@ interface ServerSettingsModalProps {
 }
 
 export default function ServerSettingsModal({ isOpen, onClose, server }: ServerSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'roles' | 'members' | 'invites' | 'channels' | 'logs'>('overview');
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'overview' | 'roles' | 'members' | 'invites' | 'channels' | 'emojis' | 'logs'>('overview');
   const [serverName, setServerName] = useState(server?.name || '');
   const [iconUrl, setIconUrl] = useState(server?.icon_url || '');
+  const [customEmojis, setCustomEmojis] = useState<{name: string, url: string}[]>(server?.custom_emojis || []);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
@@ -34,9 +37,10 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const [roleSearch, setRoleSearch] = useState('');
   const [editingRole, setEditingRole] = useState<any | null>(null);
   const [editingChannel, setEditingChannel] = useState<any | null>(null);
+  const [isLogFilterOpen, setIsLogFilterOpen] = useState(false);
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
   const { user } = useAuthStore();
-  const { setSelectedServerId } = useAppStore();
+  const { setSelectedServerId, addNotification } = useAppStore();
 
   const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, label: string, onSubmit: (val: string) => void}>({
     isOpen: false, title: '', label: '', onSubmit: () => {}
@@ -47,24 +51,27 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   });
 
   const AVAILABLE_PERMISSIONS = [
-    { id: 'ADMINISTRATOR', label: 'Administrateur', description: 'Donne tous les droits sur le serveur.' },
-    { id: 'MANAGE_SERVER', label: 'Gérer le serveur', description: 'Permet de modifier le nom et supprimer le serveur.' },
-    { id: 'MANAGE_ROLES', label: 'Gérer les rôles', description: 'Permet de créer, modifier et supprimer des rôles.' },
-    { id: 'MANAGE_CHANNELS', label: 'Gérer les salons', description: 'Permet de créer, modifier et supprimer des salons et catégories.' },
-    { id: 'KICK_MEMBERS', label: 'Expulser des membres', description: 'Permet d\'expulser des membres du serveur.' },
-    { id: 'BAN_MEMBERS', label: 'Bannir des membres', description: 'Permet de bannir des membres du serveur.' },
-    { id: 'CREATE_INVITE', label: 'Créer une invitation', description: 'Permet de créer des liens d\'invitation.' },
-    { id: 'SEND_MESSAGES', label: 'Envoyer des messages', description: 'Permet d\'envoyer des messages dans les salons textuels.' },
-    { id: 'READ_MESSAGES', label: 'Lire les messages', description: 'Permet de voir et lire les salons textuels.' },
-    { id: 'CONNECT', label: 'Se connecter', description: 'Permet de se connecter aux salons vocaux.' },
-    { id: 'SPEAK', label: 'Parler', description: 'Permet de parler dans les salons vocaux.' },
-    { id: 'MOVE_MEMBERS', label: 'Déplacer des membres', description: 'Permet de déplacer des membres entre les salons vocaux.' }
+    { id: 'ADMINISTRATOR', label: t('serverSettings.perms.ADMINISTRATOR.label'), description: t('serverSettings.perms.ADMINISTRATOR.description') },
+    { id: 'MANAGE_SERVER', label: t('serverSettings.perms.MANAGE_SERVER.label'), description: t('serverSettings.perms.MANAGE_SERVER.description') },
+    { id: 'MANAGE_ROLES', label: t('serverSettings.perms.MANAGE_ROLES.label'), description: t('serverSettings.perms.MANAGE_ROLES.description') },
+    { id: 'MANAGE_CHANNELS', label: t('serverSettings.perms.MANAGE_CHANNELS.label'), description: t('serverSettings.perms.MANAGE_CHANNELS.description') },
+    { id: 'MANAGE_MESSAGES', label: t('serverSettings.perms.MANAGE_MESSAGES.label'), description: t('serverSettings.perms.MANAGE_MESSAGES.description') },
+    { id: 'PIN_MESSAGES', label: t('serverSettings.perms.PIN_MESSAGES.label'), description: t('serverSettings.perms.PIN_MESSAGES.description') },
+    { id: 'KICK_MEMBERS', label: t('serverSettings.perms.KICK_MEMBERS.label'), description: t('serverSettings.perms.KICK_MEMBERS.description') },
+    { id: 'BAN_MEMBERS', label: t('serverSettings.perms.BAN_MEMBERS.label'), description: t('serverSettings.perms.BAN_MEMBERS.description') },
+    { id: 'CREATE_INVITE', label: t('serverSettings.perms.CREATE_INVITE.label'), description: t('serverSettings.perms.CREATE_INVITE.description') },
+    { id: 'SEND_MESSAGES', label: t('serverSettings.perms.SEND_MESSAGES.label'), description: t('serverSettings.perms.SEND_MESSAGES.description') },
+    { id: 'READ_MESSAGES', label: t('serverSettings.perms.READ_MESSAGES.label'), description: t('serverSettings.perms.READ_MESSAGES.description') },
+    { id: 'CONNECT', label: t('serverSettings.perms.CONNECT.label'), description: t('serverSettings.perms.CONNECT.description') },
+    { id: 'SPEAK', label: t('serverSettings.perms.SPEAK.label'), description: t('serverSettings.perms.SPEAK.description') },
+    { id: 'MOVE_MEMBERS', label: t('serverSettings.perms.MOVE_MEMBERS.label'), description: t('serverSettings.perms.MOVE_MEMBERS.description') }
   ];
 
   useEffect(() => {
     if (server) {
       setServerName(server.name);
       setIconUrl(server.icon_url || '');
+      setCustomEmojis(server.custom_emojis || []);
     }
   }, [server]);
 
@@ -83,7 +90,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
       const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
 
       // Fetch roles
-      const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', server.id);
+      const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', server.id).order('order', { ascending: true });
       if (rolesData) setRoles(rolesData);
 
       // Fetch invites
@@ -189,7 +196,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
     if (!user) return;
     try {
       const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).maybeSingle();
-      const username = profile?.username || user.user_metadata?.username || user.email?.split('@')[0] || 'Utilisateur';
+      const username = profile?.username || user.user_metadata?.username || user.email?.split('@')[0] || t('serverSettings.unknownUser');
       
       await supabase.from('server_logs').insert({
         server_id: server.id,
@@ -209,7 +216,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
     setSaveSuccess(false);
     try {
       await supabase.from('servers').update({ name: serverName, icon_url: iconUrl }).eq('id', server.id);
-      logAction('server_update', `Paramètres du serveur modifiés`);
+      logAction('server_update', t('serverSettings.serverUpdatedLog'));
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
@@ -224,7 +231,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("L'image est trop grande (max 5 MB)");
+      addNotification(t('errors.imageTooLarge', { max: 5 }), "error");
       return;
     }
 
@@ -252,20 +259,74 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
     } catch (error: any) {
       console.error("Error uploading icon:", error);
       if (error.message === "GIF_TOO_LARGE") {
-        alert("Ce GIF est trop lourd. Veuillez choisir un GIF plus léger.");
+        addNotification(t('errors.gifTooLarge'), "error");
       } else {
-        alert("Erreur lors du téléchargement de l'image");
+        addNotification(t('errors.imageUploadFailed'), "error");
       }
     } finally {
       setIsUploadingIcon(false);
     }
   };
 
+  const handleEmojiUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      addNotification(t('errors.imageTooLarge', { max: 2 }), "error");
+      return;
+    }
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const emojiName = file.name.split('.')[0].replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 20); // Sanitize and limit length
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `server-emojis/${server.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      let url = '';
+      if (uploadError) {
+        console.warn("Storage upload failed, falling back to base64 compression", uploadError);
+        url = await processImageForSupabase(file, 64);
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+        url = publicUrl;
+      }
+
+      // Add to custom emojis list
+      const newEmojis = [...customEmojis, { name: emojiName, url }];
+      setCustomEmojis(newEmojis);
+      await supabase.from('servers').update({ custom_emojis: newEmojis }).eq('id', server.id);
+      
+      addNotification(t('serverSettings.emojiAdded'), "success");
+      logAction('emoji_add', t('serverSettings.emojiAddedLog', { name: emojiName }));
+    } catch (error) {
+      console.error("Error uploading emoji:", error);
+      addNotification(t('errors.emojiUploadFailed'), "error");
+    }
+    
+    if (e.target) e.target.value = '';
+  };
+
+  const handleDeleteEmoji = async (index: number) => {
+    const emoji = customEmojis[index];
+    const newEmojis = customEmojis.filter((_, i) => i !== index);
+    setCustomEmojis(newEmojis);
+    await supabase.from('servers').update({ custom_emojis: newEmojis }).eq('id', server.id);
+    addNotification(t('serverSettings.emojiDeleted'), "success");
+    logAction('emoji_delete', t('serverSettings.emojiDeletedLog', { name: emoji.name }));
+  };
+
   const handleDeleteServer = async () => {
     setConfirmConfig({
       isOpen: true,
-      title: "Supprimer le serveur",
-      description: "Êtes-vous sûr de vouloir supprimer ce serveur ? Cette action est irréversible.",
+      title: t('serverSettings.deleteServer'),
+      description: t('serverSettings.deleteServerConfirm'),
       danger: true,
       onConfirm: async () => {
         try {
@@ -289,7 +350,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
         uses: 0,
         max_uses: 0
       });
-      logAction('invite_create', `Invitation créée (code: ${code})`);
+      logAction('invite_create', t('serverSettings.inviteCreatedLog', { code }));
     } catch (error) {
       console.error("Error creating invite:", error);
     }
@@ -298,7 +359,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleDeleteInvite = async (inviteId: string) => {
     try {
       await supabase.from('invites').delete().eq('id', inviteId);
-      logAction('invite_delete', `Invitation supprimée`);
+      logAction('invite_delete', t('serverSettings.inviteDeletedLog'));
     } catch (error) {
       console.error("Error deleting invite:", error);
     }
@@ -307,8 +368,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleCreateCategory = async () => {
     setPromptConfig({
       isOpen: true,
-      title: "Créer une catégorie",
-      label: "Nom de la catégorie",
+      title: t('serverSettings.createCategory'),
+      label: t('serverSettings.categoryNameLabel'),
       onSubmit: async (name) => {
         try {
           await supabase.from('categories').insert({
@@ -316,7 +377,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             name: name,
             order: categories.length
           });
-          logAction('category_create', `Catégorie "${name}" créée`);
+          logAction('category_create', t('serverSettings.categoryCreatedLog', { name }));
         } catch (error) {
           console.error("Error creating category:", error);
         }
@@ -327,8 +388,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleDeleteCategory = async (categoryId: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: "Supprimer la catégorie",
-      description: "Supprimer cette catégorie ? Les salons à l'intérieur ne seront pas supprimés.",
+      title: t('serverSettings.deleteCategory'),
+      description: t('serverSettings.deleteCategoryConfirm'),
       danger: true,
       onConfirm: async () => {
         try {
@@ -338,7 +399,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
           for (const channel of channelsToUpdate) {
             await supabase.from('channels').update({ category_id: null }).eq('id', channel.id);
           }
-          if (cat) logAction('category_delete', `Catégorie "${cat.name}" supprimée`);
+          if (cat) logAction('category_delete', t('serverSettings.categoryDeletedLog', { name: cat.name }));
         } catch (error) {
           console.error("Error deleting category:", error);
         }
@@ -349,14 +410,14 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleDeleteChannel = async (channelId: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: "Supprimer le salon",
-      description: "Êtes-vous sûr de vouloir supprimer ce salon ?",
+      title: t('serverSettings.deleteChannel'),
+      description: t('serverSettings.deleteChannelConfirm'),
       danger: true,
       onConfirm: async () => {
         try {
           const ch = channels.find(c => c.id === channelId);
           await supabase.from('channels').delete().eq('id', channelId);
-          if (ch) logAction('channel_delete', `Salon "${ch.name}" supprimé`);
+          if (ch) logAction('channel_delete', t('serverSettings.channelDeletedLog', { name: ch.name }));
         } catch (error) {
           console.error("Error deleting channel:", error);
         }
@@ -367,11 +428,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleUpdateChannel = async () => {
     if (!editingChannel || !editingChannel.name.trim()) return;
     try {
+      const isAfk = editingChannel.displayType === 'AFK';
+      const dbType = isAfk ? 'VOICE' : editingChannel.displayType || editingChannel.type;
+      
+      // Clean name from any potentially typed [AFK] to avoid double suffix
+      const cleanName = editingChannel.name.replace(' [AFK]', '');
+      const dbName = isAfk ? `${cleanName} [AFK]` : cleanName;
+
       await supabase.from('channels').update({
-        name: editingChannel.name,
+        name: dbName,
+        type: dbType,
         category_id: editingChannel.category_id || null
       }).eq('id', editingChannel.id);
-      logAction('channel_update', `Salon "${editingChannel.name}" mis à jour`);
+      
+      logAction('channel_update', t('serverSettings.channelUpdatedLog', { name: dbName }));
       setEditingChannel(null);
     } catch (error) {
       console.error("Error updating channel:", error);
@@ -381,17 +451,18 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleCreateRole = async () => {
     setPromptConfig({
       isOpen: true,
-      title: "Créer un rôle",
-      label: "Nom du rôle",
+      title: t('serverSettings.createRole'),
+      label: t('serverSettings.roleNameLabel'),
       onSubmit: async (name) => {
         try {
           await supabase.from('roles').insert({
             server_id: server.id,
             name: name,
             color: '#99aab5',
-            permissions: ['SEND_MESSAGES', 'READ_MESSAGES', 'CONNECT', 'SPEAK']
+            permissions: ['SEND_MESSAGES', 'READ_MESSAGES', 'CONNECT', 'SPEAK'],
+            order: roles.length + 1
           });
-          logAction('role_create', `Rôle "${name}" créé`);
+          logAction('role_create', t('serverSettings.roleCreatedLog', { name }));
         } catch (error) {
           console.error("Error creating role:", error);
         }
@@ -402,14 +473,14 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleDeleteRole = async (roleId: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: "Supprimer le rôle",
-      description: "Êtes-vous sûr de vouloir supprimer ce rôle ?",
+      title: t('serverSettings.deleteRole') || "Supprimer le rôle",
+      description: t('serverSettings.deleteRoleConfirm'),
       danger: true,
       onConfirm: async () => {
         try {
           const r = roles.find(ro => ro.id === roleId);
           await supabase.from('roles').delete().eq('id', roleId);
-          if (r) logAction('role_delete', `Rôle "${r.name}" supprimé`);
+          if (r) logAction('role_delete', t('serverSettings.roleDeletedLog', { name: r.name }));
         } catch (error) {
           console.error("Error deleting role:", error);
         }
@@ -423,7 +494,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
       await supabase.from('roles').update({
         name: editingRole.name,
         color: editingRole.color,
-        permissions: editingRole.permissions
+        permissions: editingRole.permissions,
+        order: editingRole.order
       }).eq('id', editingRole.id);
       logAction('role_update', `Rôle "${editingRole.name}" mis à jour`);
       setEditingRole(null);
@@ -595,7 +667,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'overview' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Settings className="w-4 h-4" />
-            <span className="font-medium">Vue d'ensemble</span>
+            <span className="font-medium">{t('serverSettings.overview')}</span>
           </button>
           
           <button
@@ -603,7 +675,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'roles' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Shield className="w-4 h-4" />
-            <span className="font-medium">Rôles</span>
+            <span className="font-medium">{t('serverSettings.roles')}</span>
           </button>
 
           <button
@@ -611,7 +683,15 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'channels' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Hash className="w-4 h-4" />
-            <span className="font-medium">Salons</span>
+            <span className="font-medium">{t('serverSettings.channels')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('emojis')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'emojis' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Smile className="w-4 h-4" />
+            <span className="font-medium">{t('serverSettings.emojis')}</span>
           </button>
 
           <button
@@ -619,7 +699,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'members' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Users className="w-4 h-4" />
-            <span className="font-medium">Membres</span>
+            <span className="font-medium">{t('serverSettings.members')}</span>
           </button>
 
           <button
@@ -627,7 +707,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'invites' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <LinkIcon className="w-4 h-4" />
-            <span className="font-medium">Invitations</span>
+            <span className="font-medium">{t('serverSettings.invites')}</span>
           </button>
 
           <button
@@ -635,7 +715,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md md:mb-4 transition-colors whitespace-nowrap ${activeTab === 'logs' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Folder className="w-4 h-4" />
-            <span className="font-medium">Logs d'audit</span>
+            <span className="font-medium">{t('serverSettings.logs')}</span>
           </button>
 
           <div className="md:mt-auto md:pt-4 md:border-t border-zinc-700/50 flex items-center">
@@ -644,7 +724,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
               className="flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md text-red-400 hover:bg-red-500/10 transition-colors whitespace-nowrap w-full"
             >
               <Trash2 className="w-4 h-4" />
-              <span className="font-medium">Supprimer le serveur</span>
+              <span className="font-medium">{t('serverSettings.deleteServer')}</span>
             </button>
           </div>
         </div>
@@ -653,16 +733,16 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
         <div className="flex-1 flex flex-col bg-zinc-800 relative">
           <button 
             onClick={onClose}
-            className="absolute top-6 right-6 p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 rounded-full transition-colors flex flex-col items-center gap-1"
+            className="absolute top-4 right-4 md:top-6 md:right-6 p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 rounded-full transition-colors flex flex-col items-center gap-1 z-10"
           >
             <X className="w-5 h-5" />
             <span className="text-[10px] font-bold uppercase">Échap</span>
           </button>
 
-          <div className={clsx("flex-1 p-10 min-h-0", activeTab !== 'members' && "overflow-y-auto")}>
+          <div className={clsx("flex-1 pt-6 pl-6 pb-6 pr-16 md:pt-10 md:pl-10 md:pb-10 md:pr-24 min-h-0", activeTab !== 'members' && "overflow-y-auto custom-scrollbar")}>
             {activeTab === 'overview' && (
               <div className="max-w-xl">
-                <h2 className="text-xl font-bold text-zinc-100 mb-6">Vue d'ensemble du serveur</h2>
+                <h2 className="text-xl font-bold text-zinc-100 mb-6">{t('serverSettings.overview')}</h2>
                 
                 <div className="space-y-6">
                   <div className="flex flex-col md:flex-row gap-6 items-start">
@@ -676,7 +756,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                           </span>
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <span className="text-xs font-bold text-white uppercase">Changer</span>
+                          <span className="text-xs font-bold text-white uppercase">{t('modals.userProfile.changeAvatar')}</span>
                         </div>
                         <input 
                           type="file" 
@@ -686,20 +766,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                           className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
                         />
                       </div>
-                      {isUploadingIcon && <span className="text-xs text-indigo-400 animate-pulse">Téléchargement...</span>}
+                      {isUploadingIcon && <span className="text-xs text-indigo-400 animate-pulse">{t('common.uploading')}</span>}
                       {iconUrl && (
                         <button 
                           onClick={() => setIconUrl('')}
                           className="text-xs text-red-400 hover:text-red-300"
                         >
-                          Supprimer l'image
+                          {t('common.removeImage')}
                         </button>
                       )}
                     </div>
 
                     <div className="flex-1 w-full">
                       <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                        Nom du serveur
+                        {t('serverSettings.serverName')}
                       </label>
                       <input
                         type="text"
@@ -721,11 +801,11 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                           : "bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50"
                       )}
                     >
-                      {isSaving ? 'Enregistrement...' : saveSuccess ? 'Enregistré !' : 'Enregistrer les modifications'}
+                      {isSaving ? t('serverSettings.saving') : saveSuccess ? t('common.saved') : t('serverSettings.saveChanges')}
                     </button>
                     {saveSuccess && (
                       <span className="text-emerald-500 text-sm font-medium animate-fade-in">
-                        Modifications enregistrées avec succès
+                        {t('common.savedSuccessfully')}
                       </span>
                     )}
                   </div>
@@ -742,16 +822,16 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                         onClick={() => setEditingRole(null)}
                         className="text-zinc-400 hover:text-zinc-100 transition-colors"
                       >
-                        Retour
+                        {t('common.back')}
                       </button>
-                      <h2 className="text-xl font-bold text-zinc-100">Modifier le rôle : {editingRole.name}</h2>
+                      <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.editRole', { name: editingRole.name })}</h2>
                     </div>
 
                     <div className="space-y-6">
                       <div className="flex gap-6">
                         <div className="flex-1">
                           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                            Nom du rôle
+                            {t('serverSettings.roleName')}
                           </label>
                           <input
                             type="text"
@@ -762,7 +842,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                            Couleur
+                            {t('serverSettings.position')}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={editingRole.order || 1}
+                            onChange={(e) => setEditingRole({...editingRole, order: parseInt(e.target.value) || 1 })}
+                            className="w-20 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500 text-center"
+                            title={t('serverSettings.highestRank')}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                            {t('serverSettings.roleColor')}
                           </label>
                           <div className="flex items-center gap-3">
                             <input
@@ -777,7 +870,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                       </div>
 
                       <div className="pt-4 border-t border-zinc-700/50">
-                        <h3 className="text-lg font-bold text-zinc-100 mb-4">Permissions</h3>
+                        <h3 className="text-lg font-bold text-zinc-100 mb-4">{t('serverSettings.permissions')}</h3>
                         <div className="space-y-4">
                           {AVAILABLE_PERMISSIONS.map(perm => {
                             const isEnabled = editingRole.permissions.includes(perm.id);
@@ -801,12 +894,47 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                         </div>
                       </div>
 
+                      <div className="pt-4 border-t border-zinc-700/50">
+                        <h3 className="text-lg font-bold text-zinc-100 mb-4">{t('serverSettings.channelExceptions')}</h3>
+                        <div className="space-y-2">
+                          {channels.map((channel: any) => {
+                            const isDenied = editingRole.permissions.includes(`DENY_CHANNEL_${channel.id}`);
+                            return (
+                              <div key={channel.id} className="flex items-center justify-between p-3 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
+                                <div className="flex items-center gap-2 text-zinc-300">
+                                  <span className="text-zinc-500">#</span>
+                                  {channel.name}
+                                  <span className="text-xs text-zinc-500 ml-2">({channel.type === 'TEXT' ? t('serverSettings.text') : t('serverSettings.voice')})</span>
+                                </div>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <span className="text-xs text-zinc-500">{t('serverSettings.deny')}</span>
+                                  <input 
+                                    type="checkbox" 
+                                    className="rounded border-zinc-700 text-red-500 focus:ring-red-500 bg-zinc-900"
+                                    checked={isDenied}
+                                    onChange={(e) => {
+                                      const permId = `DENY_CHANNEL_${channel.id}`;
+                                      if (e.target.checked) {
+                                        setEditingRole({...editingRole, permissions: [...editingRole.permissions, permId]});
+                                      } else {
+                                        setEditingRole({...editingRole, permissions: editingRole.permissions.filter((p: string) => p !== permId)});
+                                      }
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            );
+                          })}
+                          {channels.length === 0 && <div className="text-sm text-zinc-500">{t('serverSettings.noChannels')}</div>}
+                        </div>
+                      </div>
+
                       <div className="pt-6 flex justify-end">
                         <button
                           onClick={handleUpdateRole}
                           className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md font-medium transition-colors"
                         >
-                          Enregistrer les modifications
+                          {t('serverSettings.saveChanges')}
                         </button>
                       </div>
                     </div>
@@ -814,20 +942,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-bold text-zinc-100">Rôles</h2>
+                      <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.roles')}</h2>
                       <button 
                         onClick={handleCreateRole}
                         className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        Créer un rôle
+                        {t('serverSettings.createRole')}
                       </button>
                     </div>
                     
                     <div className="bg-zinc-900/50 rounded-lg border border-zinc-700/50 overflow-hidden">
                       {roles.length === 0 ? (
                         <div className="p-8 text-center text-zinc-400">
-                          Aucun rôle personnalisé.
+                          {t('serverSettings.noCustomRoles')}
                         </div>
                       ) : (
                         roles.map(role => (
@@ -867,15 +995,15 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                         onClick={() => setEditingChannel(null)}
                         className="text-zinc-400 hover:text-zinc-100 transition-colors"
                       >
-                        Retour
+                        {t('common.back')}
                       </button>
-                      <h2 className="text-xl font-bold text-zinc-100">Modifier le salon : {editingChannel.name}</h2>
+                      <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.editChannel', { name: editingChannel.name })}</h2>
                     </div>
 
                     <div className="space-y-6">
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          Nom du salon
+                          {t('serverSettings.channelName')}
                         </label>
                         <input
                           type="text"
@@ -887,14 +1015,52 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
 
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          Catégorie
+                          {t('modals.createChannel.channelType')}
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() => setEditingChannel({...editingChannel, displayType: 'TEXT'})}
+                            className={clsx(
+                              "flex flex-col items-center gap-1 p-3 rounded-lg border transition-colors",
+                              (editingChannel.displayType === 'TEXT' || (!editingChannel.displayType && editingChannel.type === 'TEXT')) ? "bg-zinc-700 border-indigo-500 text-zinc-100" : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                            )}
+                          >
+                            <Hash className="w-5 h-5" />
+                            <span className="text-xs font-medium">{t('common.text')}</span>
+                          </button>
+                          <button
+                            onClick={() => setEditingChannel({...editingChannel, displayType: 'VOICE'})}
+                            className={clsx(
+                              "flex flex-col items-center gap-1 p-3 rounded-lg border transition-colors",
+                              (editingChannel.displayType === 'VOICE' || (!editingChannel.displayType && editingChannel.type === 'VOICE' && !editingChannel.name.endsWith(' [AFK]'))) ? "bg-zinc-700 border-indigo-500 text-zinc-100" : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                            )}
+                          >
+                            <Volume2 className="w-5 h-5" />
+                            <span className="text-xs font-medium">{t('common.voice')}</span>
+                          </button>
+                          <button
+                            onClick={() => setEditingChannel({...editingChannel, displayType: 'AFK'})}
+                            className={clsx(
+                              "flex flex-col items-center gap-1 p-3 rounded-lg border transition-colors",
+                              (editingChannel.displayType === 'AFK') ? "bg-zinc-700 border-indigo-500 text-zinc-100" : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+                            )}
+                          >
+                            <Moon className="w-5 h-5" />
+                            <span className="text-xs font-medium">AFK</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                          {t('serverSettings.category')}
                         </label>
                         <select
                           value={editingChannel.category_id || ''}
                           onChange={(e) => setEditingChannel({...editingChannel, category_id: e.target.value || null})}
                           className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
                         >
-                          <option value="">Sans catégorie</option>
+                          <option value="">{t('serverSettings.uncategorized')}</option>
                           {categories.map(cat => (
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                           ))}
@@ -906,7 +1072,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                           onClick={handleUpdateChannel}
                           className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md font-medium transition-colors"
                         >
-                          Enregistrer les modifications
+                          {t('serverSettings.saveChanges')}
                         </button>
                       </div>
                     </div>
@@ -914,13 +1080,13 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-bold text-zinc-100">Salons et Catégories</h2>
+                      <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.channelsAndCategories')}</h2>
                       <button 
                         onClick={handleCreateCategory}
                         className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        Créer une catégorie
+                        {t('serverSettings.createCategory')}
                       </button>
                     </div>
                     
@@ -928,32 +1094,42 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                       {/* Uncategorized */}
                       <div className="bg-zinc-900/50 rounded-lg border border-zinc-700/50 overflow-hidden">
                         <div className="bg-zinc-800/50 px-4 py-2 border-b border-zinc-700/50 font-semibold text-zinc-300 text-sm uppercase tracking-wider">
-                          Sans catégorie
+                          {t('serverSettings.uncategorized')}
                         </div>
-                        {channels.filter(c => !c.category_id).map(channel => (
-                          <div key={channel.id} className="p-3 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
-                            <div className="flex items-center gap-2 text-zinc-300">
-                              <Hash className="w-4 h-4 text-zinc-500" />
-                              <span>{channel.name}</span>
+                        {channels.filter(c => !c.category_id).map(channel => {
+                          const isAfk = channel.name.endsWith(' [AFK]');
+                          const displayName = isAfk ? channel.name.replace(' [AFK]', '') : channel.name;
+                          return (
+                            <div key={channel.id} className="p-3 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
+                              <div className="flex items-center gap-2 text-zinc-300">
+                                {channel.type === 'TEXT' ? <Hash className="w-4 h-4 text-zinc-500" /> : isAfk ? <Moon className="w-4 h-4 text-zinc-500" /> : <Volume2 className="w-4 h-4 text-zinc-500" />}
+                                <span>{displayName}</span>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => {
+                                    setEditingChannel({
+                                      ...channel,
+                                      name: displayName,
+                                      displayType: isAfk ? 'AFK' : channel.type
+                                    });
+                                  }}
+                                  className="p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteChannel(channel.id)}
+                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => setEditingChannel(channel)}
-                                className="p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
-                              >
-                                <Settings className="w-4 h-4" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteChannel(channel.id)}
-                                className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {channels.filter(c => !c.category_id).length === 0 && (
-                          <div className="p-4 text-center text-zinc-500 text-sm">Aucun salon.</div>
+                          <div className="p-4 text-center text-zinc-500 text-sm">{t('serverSettings.noChannels')}</div>
                         )}
                       </div>
 
@@ -972,30 +1148,40 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          {channels.filter(c => c.category_id === category.id).map(channel => (
-                            <div key={channel.id} className="p-3 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
-                              <div className="flex items-center gap-2 text-zinc-300 pl-4">
-                                <Hash className="w-4 h-4 text-zinc-500" />
-                                <span>{channel.name}</span>
+                          {channels.filter(c => c.category_id === category.id).map(channel => {
+                            const isAfk = channel.name.endsWith(' [AFK]');
+                            const displayName = isAfk ? channel.name.replace(' [AFK]', '') : channel.name;
+                            return (
+                              <div key={channel.id} className="p-3 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
+                                <div className="flex items-center gap-2 text-zinc-300 pl-4">
+                                  {channel.type === 'TEXT' ? <Hash className="w-4 h-4 text-zinc-500" /> : isAfk ? <Moon className="w-4 h-4 text-zinc-500" /> : <Volume2 className="w-4 h-4 text-zinc-500" />}
+                                  <span>{displayName}</span>
+                                </div>
+                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={() => {
+                                      setEditingChannel({
+                                        ...channel,
+                                        name: displayName,
+                                        displayType: isAfk ? 'AFK' : channel.type
+                                      });
+                                    }}
+                                    className="p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
+                                  >
+                                    <Settings className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteChannel(channel.id)}
+                                    className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button 
-                                  onClick={() => setEditingChannel(channel)}
-                                  className="p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
-                                >
-                                  <Settings className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteChannel(channel.id)}
-                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                           {channels.filter(c => c.category_id === category.id).length === 0 && (
-                            <div className="p-4 text-center text-zinc-500 text-sm">Aucun salon dans cette catégorie.</div>
+                            <div className="p-4 text-center text-zinc-500 text-sm">{t('serverSettings.noChannelsInCategory')}</div>
                           )}
                         </div>
                       ))}
@@ -1007,7 +1193,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
 
             {activeTab === 'members' && (
               <div className="max-w-2xl h-full flex flex-col">
-                <h2 className="text-xl font-bold text-zinc-100 mb-6">Membres du serveur</h2>
+                <h2 className="text-xl font-bold text-zinc-100 mb-6">{t('serverSettings.serverMembers')}</h2>
                 
                 <div className="bg-zinc-900/50 rounded-lg border border-zinc-700/50 overflow-hidden mb-8 flex-1 flex flex-col min-h-0">
                   <div className="overflow-y-auto flex-1 custom-scrollbar">
@@ -1016,7 +1202,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                         <div className="flex items-center gap-3">
                           <UserAvatar 
                             user={{
-                              username: member.user?.username || 'Utilisateur inconnu',
+                              username: member.user?.username || t('serverSettings.unknownUser'),
                               avatarUrl: member.user?.avatar_url || '',
                               status: member.user?.status || 'offline'
                             }} 
@@ -1024,8 +1210,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                             showStatus={false}
                           />
                         <div>
-                          <div className="text-zinc-100 font-medium">{member.user?.username || 'Utilisateur inconnu'}</div>
-                          <div className="text-xs text-zinc-400">A rejoint le {new Date(member.joined_at).toLocaleDateString()}</div>
+                          <div className="text-zinc-100 font-medium">{member.user?.username || t('serverSettings.unknownUser')}</div>
+                          <div className="text-xs text-zinc-400">{t('serverSettings.joinedOn', { date: new Date(member.joined_at).toLocaleDateString() })}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
@@ -1065,15 +1251,15 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                                 />
                                 <div className={clsx(
                                   "absolute right-0 w-56 bg-zinc-950 border border-zinc-700 rounded-md shadow-xl z-[70] overflow-hidden",
-                                  index > members.length - 3 ? "bottom-full mb-2" : "top-full mt-2"
+                                  members.length > 2 && index > members.length - 2 ? "bottom-full mb-2" : "top-full mt-2"
                                 )}>
                                   <div className="p-2 border-b border-zinc-800">
                                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                                      Rôles
+                                      {t('serverSettings.roles')}
                                     </div>
                                     <input 
                                       type="text"
-                                      placeholder="Rechercher un rôle..."
+                                      placeholder={t('serverSettings.searchRoles')}
                                       className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                       onClick={(e) => e.stopPropagation()}
                                       value={roleSearch}
@@ -1099,12 +1285,12 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                                     })}
                                     {roles.length > 0 && roles.filter(r => (r.name || '').toLowerCase().includes(roleSearch.toLowerCase())).length === 0 && (
                                       <div className="px-3 py-2 text-xs text-zinc-500 italic">
-                                        Aucun résultat
+                                        {t('serverSettings.noResults')}
                                       </div>
                                     )}
                                     {roles.length === 0 && (
                                       <div className="px-3 py-2 text-xs text-zinc-500 italic">
-                                        Aucun rôle créé
+                                        {t('serverSettings.noRolesCreated')}
                                       </div>
                                     )}
                                   </div>
@@ -1119,7 +1305,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                               <button
                                 onClick={() => handleKickMember(member.user_id)}
                                 className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
-                                title="Expulser"
+                                title={t('serverSettings.kick')}
                               >
                                 <UserMinus className="w-4 h-4" />
                               </button>
@@ -1128,7 +1314,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                               <button
                                 onClick={() => handleBanMember(member.user_id)}
                                 className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-zinc-800 rounded-md transition-colors"
-                                title="Bannir"
+                                title={t('serverSettings.ban')}
                               >
                                 <Ban className="w-4 h-4" />
                               </button>
@@ -1143,22 +1329,22 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
 
                 {bans.length > 0 && (
                   <>
-                    <h2 className="text-xl font-bold text-zinc-100 mb-6">Membres bannis</h2>
+                    <h2 className="text-xl font-bold text-zinc-100 mb-6">{t('serverSettings.bannedMembers')}</h2>
                     <div className="bg-zinc-900/50 rounded-lg border border-zinc-700/50 overflow-hidden">
                       {bans.map(ban => (
                         <div key={ban.id} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
                           <div className="flex items-center gap-3">
                             <UserAvatar 
                               user={{
-                                username: ban.user?.username || 'Utilisateur inconnu',
+                                username: ban.user?.username || t('serverSettings.unknownUser'),
                                 avatarUrl: ban.user?.avatar_url || '',
                                 status: 'offline'
                               }} 
                               size="lg" 
                             />
                             <div>
-                              <div className="text-zinc-100 font-medium">{ban.user?.username || 'Utilisateur inconnu'}</div>
-                              <div className="text-xs text-zinc-400">Banni le {new Date(ban.created_at).toLocaleDateString()}</div>
+                              <div className="text-zinc-100 font-medium">{ban.user?.username || t('serverSettings.unknownUser')}</div>
+                              <div className="text-xs text-zinc-400">{t('serverSettings.bannedOn', { date: new Date(ban.created_at).toLocaleDateString() })}</div>
                             </div>
                           </div>
                           {hasBanMembers && (
@@ -1166,7 +1352,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                               onClick={() => handleUnbanMember(ban.user_id)}
                               className="px-3 py-1.5 text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                             >
-                              Débannir
+                              {t('serverSettings.unban')}
                             </button>
                           )}
                         </div>
@@ -1177,37 +1363,102 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
               </div>
             )}
 
+            {activeTab === 'emojis' && (
+              <div className="max-w-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.customEmojisTitle')}</h2>
+                    <p className="text-sm text-zinc-400 mt-1">{t('serverSettings.customEmojisDesc')}</p>
+                  </div>
+                  <div>
+                    <input
+                      type="file"
+                      id="emoji-upload"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleEmojiUpload}
+                    />
+                    <label
+                      htmlFor="emoji-upload"
+                      className="cursor-pointer bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-block"
+                    >
+                      {t('serverSettings.addEmoji')}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {customEmojis.map((emoji, index) => (
+                    <div key={index} className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg p-3 flex flex-col items-center gap-2 group relative">
+                      <img src={emoji.url} alt={emoji.name} className="w-10 h-10 object-contain" />
+                      <span className="text-xs text-zinc-300 font-medium truncate w-full text-center">:{emoji.name}:</span>
+                      <button
+                        onClick={() => handleDeleteEmoji(index)}
+                        className="absolute top-1 right-1 p-1 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors opacity-0 group-hover:opacity-100"
+                        title={t('serverSettings.deleteEmoji')}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {customEmojis.length === 0 && (
+                    <div className="col-span-full py-8 text-center border-2 border-dashed border-zinc-700 rounded-lg text-zinc-500 flex flex-col items-center">
+                      <Smile className="w-8 h-8 mb-2 opacity-50" />
+                      <p>{t('serverSettings.noCustomEmojis')}</p>
+                      <p className="text-xs mt-1">{t('serverSettings.maxEmojiSize')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'invites' && (
               <div className="max-w-xl">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-zinc-100">Invitations</h2>
+                  <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.invites')}</h2>
                   <button 
                     onClick={handleCreateInvite}
                     className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Générer un lien
+                    {t('serverSettings.generateLink')}
                   </button>
                 </div>
                 
                 <div className="bg-zinc-900/50 rounded-lg border border-zinc-700/50 overflow-hidden">
                   {invites.length === 0 ? (
                     <div className="p-8 text-center text-zinc-400">
-                      Aucune invitation active.
+                      {t('serverSettings.noActiveInvites')}
                     </div>
                   ) : (
                     invites.map(invite => (
-                      <div key={invite.id} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between">
-                        <div>
-                          <div className="text-zinc-100 font-medium font-mono">{invite.code}</div>
-                          <div className="text-xs text-zinc-400">Créé le {new Date(invite.created_at).toLocaleDateString()}</div>
+                      <div key={invite.id} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between gap-4">
+                        <div className="flex-1 overflow-hidden">
+                          <div className="text-zinc-100 font-medium font-mono truncate bg-zinc-950/50 p-2 rounded border border-zinc-800">
+                            {`${import.meta.env.VITE_APP_URL || import.meta.env.VITE_BACKEND_URL || window.location.origin}/invite/${invite.code}`}
+                          </div>
+                          <div className="text-xs text-zinc-400 mt-2">{t('serverSettings.createdOn', { date: new Date(invite.created_at).toLocaleDateString() })}</div>
                         </div>
-                        <button 
-                          onClick={() => handleDeleteInvite(invite.id)}
-                          className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${import.meta.env.VITE_APP_URL || import.meta.env.VITE_BACKEND_URL || window.location.origin}/invite/${invite.code}`);
+                              addNotification("Lien copié dans le presse-papier !", "success");
+                            }}
+                            className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
+                            title={t('serverSettings.copyLink')}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteInvite(invite.id)}
+                            className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
+                            title={t('serverSettings.deleteInvite')}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -1219,52 +1470,84 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
               <div className="max-w-3xl h-full flex flex-col">
                 <div className="flex flex-col gap-4 mb-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-zinc-100">Logs d'audit</h2>
-                    <button
-                      onClick={handleSelectAllLogs}
-                      className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                      {logFilters.length === LOG_OPTIONS.length ? 'Tout désélectionner' : 'Tout sélectionner'}
-                    </button>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => handleToggleLogFilter('all')}
-                      className={clsx(
-                        "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border",
-                        logFilters.includes('all')
-                          ? "bg-indigo-500 border-indigo-500 text-white"
-                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                      )}
-                    >
-                      Tous
-                    </button>
-                    {LOG_OPTIONS.map(option => (
+                    <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.auditLogs')}</h2>
+                    <div className="flex items-center gap-4">
                       <button
-                        key={option.value}
-                        onClick={() => handleToggleLogFilter(option.value)}
-                        className={clsx(
-                          "px-3 py-1.5 rounded-full text-xs font-medium transition-colors border flex items-center gap-1.5",
-                          logFilters.includes(option.value)
-                            ? "bg-indigo-500 border-indigo-500 text-white"
-                            : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                        )}
+                        onClick={handleSelectAllLogs}
+                        className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
                       >
-                        {logFilters.includes(option.value) && <Check className="w-3 h-3" />}
-                        {option.label}
+                        {logFilters.length === LOG_OPTIONS.length ? t('serverSettings.deselectAll') : t('serverSettings.selectAll')}
                       </button>
-                    ))}
+                      
+                      <div className="relative">
+                        <button
+                          onClick={() => setIsLogFilterOpen(!isLogFilterOpen)}
+                          className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-xs text-zinc-100 hover:bg-zinc-800 transition-colors"
+                        >
+                          Filtrer par action
+                          <Settings className="w-3 h-3" />
+                        </button>
+                        
+                        {isLogFilterOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsLogFilterOpen(false)} />
+                            <div className="absolute right-0 mt-2 w-64 bg-zinc-950 border border-zinc-700 rounded-md shadow-xl z-50 overflow-hidden max-h-80 flex flex-col">
+                              <div className="p-2 border-b border-zinc-800 bg-zinc-900/50">
+                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                                  Actions
+                                </div>
+                              </div>
+                              <div className="overflow-y-auto custom-scrollbar p-1">
+                                <button
+                                  onClick={() => handleToggleLogFilter('all')}
+                                  className={clsx(
+                                    "w-full flex items-center gap-3 px-3 py-2 text-xs transition-colors rounded hover:bg-zinc-800",
+                                    logFilters.includes('all') ? "text-indigo-400" : "text-zinc-300"
+                                  )}
+                                >
+                                  <div className={clsx(
+                                    "w-3.5 h-3.5 border rounded flex items-center justify-center",
+                                    logFilters.includes('all') ? "bg-indigo-500 border-indigo-500" : "border-zinc-600"
+                                  )}>
+                                    {logFilters.includes('all') && <Check className="w-2.5 h-2.5 text-white" />}
+                                  </div>
+                                  {t('serverSettings.logsAll')}
+                                </button>
+                                
+                                {LOG_OPTIONS.map(option => (
+                                  <button
+                                    key={option.value}
+                                    onClick={() => handleToggleLogFilter(option.value)}
+                                    className={clsx(
+                                      "w-full flex items-center gap-3 px-3 py-2 text-xs transition-colors rounded hover:bg-zinc-800",
+                                      logFilters.includes(option.value) ? "text-indigo-400" : "text-zinc-300"
+                                    )}
+                                  >
+                                    <div className={clsx(
+                                      "w-3.5 h-3.5 border rounded flex items-center justify-center",
+                                      logFilters.includes(option.value) ? "bg-indigo-500 border-indigo-500" : "border-zinc-600"
+                                    )}>
+                                      {logFilters.includes(option.value) && <Check className="w-2.5 h-2.5 text-white" />}
+                                    </div>
+                                    {t(`serverSettings.${option.value}`)}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
                 <div className="bg-zinc-900/50 rounded-lg border border-zinc-700/50 overflow-hidden flex-1 flex flex-col min-h-0">
                   {filteredLogs.length === 0 ? (
                     <div className="p-8 text-center text-zinc-400">
-                      Aucun log trouvé pour ces filtres.
+                      {t('serverSettings.noLogsFound')}
                     </div>
                   ) : (
-                    <div className="divide-y divide-zinc-700/50 overflow-y-auto">
+                    <div className="divide-y divide-zinc-700/50 overflow-y-auto custom-scrollbar">
                       {filteredLogs.map(log => (
                         <div key={log.id} className="p-4 flex flex-col gap-1 hover:bg-zinc-800/30 transition-colors">
                           <div className="flex items-center justify-between">
@@ -1272,7 +1555,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                             <span className="text-xs text-zinc-500">{new Date(log.created_at).toLocaleString()}</span>
                           </div>
                           <div className="text-xs text-zinc-400 flex items-center gap-1">
-                            <span>Par</span>
+                            <span>{t('serverSettings.by')}</span>
                             <span className="font-medium text-zinc-300">{log.user?.username || log.username}</span>
                             <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] ml-2 text-zinc-500 uppercase font-bold tracking-wider">
                               {log.action.replace('_', ' ')}

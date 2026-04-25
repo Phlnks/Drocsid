@@ -1,20 +1,123 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Drocsid 🚀
 
-# Run and deploy your AI Studio app
+![Drocsid Logo](logo.png)
 
-This contains everything you need to run your app locally.
+**Drocsid** is a modern communication platform, designed to provide a fluid, secure, and highly customizable experience. Whether for gaming communities, work teams, or groups of friends, Drocsid offers a robust infrastructure built on Electron and Supabase.
 
-View your app in AI Studio: https://ai.studio/apps/11de29b8-d27d-42fa-b6fb-15df43e3c5e1
+## ✨ Key Features
 
-## Run Locally
+- **💬 Real-Time Messaging**: Instant chat with Markdown support, emojis, and file sharing.
+- **🔊 Voice Channels**: Connect instantly via voice with your friends (native WebRTC support via browser/Electron).
+- **🛡️ Role Hierarchy**: Advanced role system with priority ordering (Position). A member with a lower-ranked role cannot perform administrative actions on a higher-ranked member.
+- **🔒 Per-Channel Permissions**: Total granular control. Authorize or deny access to any specific channel for each role.
+- **🔗 Invite System**: Generate unique invitation links (`/invite/XYZ123`) to grow your community effortlessly.
+- **🖥️ Screen Sharing**: (Electron Version) Share your screen or a specific window with other members in the voice channel.
+- **🔔 Smart Notifications**: Customizable desktop notifications and sound alerts so you never miss an important message.
+- **🎨 Custom Themes**: Multiple themes (Dark, Indigo, Nature, etc.) to adapt the application to your visual preferences.
+- **📱 Responsive & Desktop**: Works perfectly in your browser or as a native desktop application via Electron.
+- **🖼️ Media Gallery**: Advanced media preview with full-screen gallery support, keyboard navigation (arrows), and direct download.
+- **👁️ Read Receipts (DM)**: Real-time read indicators showing your friends' avatars on the last message they've read in private conversations.
 
-**Prerequisites:**  Node.js
+## ⌨️ Keyboard Shortcuts
+
+Speed up your workflow with these native shortcuts:
+- **`Ctrl + K` (or `Cmd + K`)**: Quick access to the Global Search bar.
+- **`Arrow Up (↑)`**: Edit your last sent message (when the input is empty).
+- **`Esc`**: Cancel the current action (cancel reply, cancel edit, or close modals/gallery).
+- **`Arrows (←/→)`**: Navigate between images in the Media Gallery.
+
+## 🛠️ Backend Setup (Supabase)
+
+Drocsid uses **Supabase** for database management, authentication, and real-time updates.
+
+### 1. Create a Supabase Project
+- Go to [supabase.com](https://supabase.com/) and create a new project.
+
+### 2. Configure the Database
+- Access the **SQL Editor** tab in your Supabase dashboard.
+- Copy and paste the contents of the `supabase_schema.sql` file (found in the root of this project) into the SQL editor.
+- Run the query to create all necessary tables, Row Level Security (RLS) policies, and functions.
+
+### 3. Configure Authentication (Google Login)
+- Go to **Authentication** -> **Providers** -> **Google**.
+- Enable Google provider and enter your Client ID and Secret.
+- **Important**: In the **Redirect URL** field of your Google Cloud Console, add: `https://your-project.supabase.co/auth/v1/callback`.
+- Also ensure that in Supabase **Authentication** -> **URL Configuration**, the **Site URL** is set to your application URL (e.g., `http://localhost:3000`) and add it to the **Redirect URLs** list.
+
+### 4. Enable Realtime
+- Access the **SQL Editor** tab in your Supabase dashboard and run:
+  ```sql
+  ALTER PUBLICATION supabase_realtime ADD TABLE messages, profiles, server_members, roles, channels;
+  ```
+- Or ensure that **Realtime** is enabled for these tables under Database -> Replication.
+
+## ⚙️ Environment Configuration
+
+Rename the `.env.example` file to `.env` (or create a new one) and fill in the following variables:
+
+```env
+# Your Supabase Project URL
+VITE_SUPABASE_URL=https://your-project.supabase.co
+# Public Anonymous API Key
+VITE_SUPABASE_PUBLISHABLE_KEY=your_public_key
+
+# (Optional) Service Role Key for administrative operations
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
+
+# Application URL (used for invitations)
+VITE_BACKEND_URL=http://localhost:3000
+```
+
+## 🚀 Running the Server
+
+Once dependencies are installed (`npm install`), you can start the application:
+
+### Development Mode (Browser)
+```bash
+npm run dev
+```
+The application will be accessible at `http://localhost:3000`.
+
+### Desktop Mode (Electron)
+```bash
+npm run electron:dev
+```
+
+### Build for Production
+```bash
+# For web deployment
+npm run build
+
+# For Windows installer (Electron)
+npm run electron:build
+
+# For Android development
+# This will sync your web build to the Android project
+npm run android:sync
+
+# To open the project in Android Studio
+npm run android:open
+```
+
+## 📱 Mobile Development (Capacitor)
+Drocsid uses **Capacitor** to target mobile platforms. To start mobile development:
+1. Ensure you have **Android Studio** installed on your machine.
+2. **Important**: On Windows, you may need to run your terminal as **Administrator** to perform certain native build/sync operations.
+3. Run `npm run android:sync` to build the web app and sync it with the native project.
+4. Run `npm run android:open` to launch Android Studio and compile the APK.
+
+### Push Notifications & Voice in Background
+To enable these features on mobile:
+- **Android**: Foreground services are handled via Capacitor plugins.
+- **iOS**: Requires the Apple Developer Program for Push (APNs) and CallKit for background audio.
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🤝 Connecting to a Private Backend
+
+Since Drocsid is designed to be self-hosted if needed:
+1. Deploy your own Supabase instance (Cloud or Docker).
+2. Configure your environment variables in the application to point to your instance (as explained above).
+3. Generated invitation links will automatically use the address defined in `VITE_BACKEND_URL` to ensure your members join the correct server.
+
+---
+*Drocsid - Communicate without limits.*

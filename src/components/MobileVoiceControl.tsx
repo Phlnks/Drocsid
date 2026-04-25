@@ -31,14 +31,15 @@ export default function MobileVoiceControl() {
     }
   };
 
+  // Detect AFK from channel name if we had access to it, but for now we rely on the store states
+  // We'll add a way to check if current channel is AFK in the future or just use the disabled state
+  // For now let's just make sure the toggles work correctly with the forced state.
+
   const toggleMute = () => {
-    if (isVoiceMuted) {
+    if (isVoiceMuted && !isDeafened) {
       playUnmuteSound();
       setIsVoiceMuted(false);
-      if (isDeafened) {
-        setIsDeafened(false);
-      }
-    } else {
+    } else if (!isVoiceMuted) {
       playMuteSound();
       setIsVoiceMuted(true);
     }

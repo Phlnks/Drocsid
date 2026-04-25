@@ -7,7 +7,7 @@ import socket from '../lib/socket';
 
 function AudioPlayer({ stream }: { key?: any, stream: any }) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { isDeafened } = useAppStore();
+  const { isDeafened, voiceSettings } = useAppStore();
   
   useEffect(() => {
     if (audioRef.current && stream) {
@@ -26,6 +26,13 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
     }
   }, [isDeafened]);
 
+  useEffect(() => {
+    if (audioRef.current && voiceSettings.selectedSpeakerId && (audioRef.current as any).setSinkId) {
+      (audioRef.current as any).setSinkId(voiceSettings.selectedSpeakerId)
+        .catch((e: any) => console.error("Error setting output device:", e));
+    }
+  }, [voiceSettings.selectedSpeakerId]);
+
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
 }
 
@@ -34,6 +41,9 @@ export default function WebRTCManager() {
   const { 
     connectedVoiceChannelId, 
     isVoiceMuted, 
+    setIsVoiceMuted,
+    isDeafened,
+    setIsDeafened,
     voiceSettings, 
     setSpeakingUsers, 
     setConnectedVoiceChannelId,
@@ -67,6 +77,7 @@ export default function WebRTCManager() {
   const lastMoveTimestampRef = useRef<number>(Date.now());
   const localStreamIdRef = useRef<string | null>(null);
   const remoteStreamIdsRef = useRef<Map<string, string>>(new Map());
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Cleanup stale voice participants on mount
   useEffect(() => {
@@ -104,6 +115,21 @@ export default function WebRTCManager() {
       });
     }
   }, [isVoiceMuted, connectedVoiceChannelId, currentUser]);
+
+  // Enforce AFK channel restrictions
+  useEffect(() => {
+    if (!connectedVoiceChannelId) return;
+
+    const checkChannelAfk = async () => {
+      const { data: channel } = await supabase.from('channels').select('name').eq('id', connectedVoiceChannelId).maybeSingle();
+      if (channel && channel.name.endsWith(' [AFK]')) {
+        if (!isVoiceMuted) setIsVoiceMuted(true);
+        if (!isDeafened) setIsDeafened(true);
+      }
+    };
+
+    checkChannelAfk();
+  }, [connectedVoiceChannelId, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened]);
 
   // Handle voice settings changes
   useEffect(() => {
@@ -143,44 +169,136 @@ export default function WebRTCManager() {
   useEffect(() => {
     if (!connectedVoiceChannelId || !currentUser) return;
 
-    if (localScreenShareStream && localScreenShareStream !== localScreenShareStreamRef.current) {
-      // New screen share stream
-      localScreenShareStreamRef.current = localScreenShareStream;
-      
-      // Add tracks to all peers
-      peersRef.current.forEach((pc) => {
-        localScreenShareStream.getTracks().forEach(track => {
-          pc.addTrack(track, localScreenShareStream);
-        });
+    const startScreenShare = async () => {
+      if (localScreenShareStream && localScreenShareStream !== localScreenShareStreamRef.current) {
+        // New screen share stream
+        localScreenShareStreamRef.current = localScreenShareStream;
         
-        // Force negotiation if it doesn't fire automatically
-        if (pc.signalingState === 'stable') {
-          pc.onnegotiationneeded?.(new Event('negotiationneeded'));
-        }
-      });
-    } else if (!localScreenShareStream && localScreenShareStreamRef.current) {
-      // Screen share stopped
-      const stream = localScreenShareStreamRef.current;
-      
-      // Remove tracks from all peers
-      peersRef.current.forEach((pc) => {
-        const senders = pc.getSenders();
-        stream.getTracks().forEach(track => {
-          const sender = senders.find(s => s.track === track);
-          if (sender) {
-            pc.removeTrack(sender);
+        // Add tracks to all peers
+        peersRef.current.forEach((pc) => {
+          localScreenShareStream.getTracks().forEach(track => {
+            pc.addTrack(track, localScreenShareStream);
+          });
+          
+          // Force negotiation if it doesn't fire automatically
+          if (pc.signalingState === 'stable') {
+            pc.onnegotiationneeded?.(new Event('negotiationneeded'));
           }
         });
-      });
-      
-      localScreenShareStreamRef.current = null;
-    }
+      } else if (!localScreenShareStream && localScreenShareStreamRef.current) {
+        // Screen share stopped
+        const stream = localScreenShareStreamRef.current;
+        
+        // Remove tracks from all peers
+        peersRef.current.forEach((pc) => {
+          const senders = pc.getSenders();
+          stream.getTracks().forEach(track => {
+            const sender = senders.find(s => s.track === track);
+            if (sender) {
+              pc.removeTrack(sender);
+            }
+          });
+        });
+        
+        localScreenShareStreamRef.current = null;
+      }
+    };
+
+    startScreenShare();
   }, [localScreenShareStream, connectedVoiceChannelId, currentUser]);
+
+  // Handle Electron-specific screen sharing and external links
+  useEffect(() => {
+    const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+    if (isElectron) {
+      // Override window.open to use shell.openExternal via main process handler
+      // (The main process already has a setWindowOpenHandler, but this is a fallback)
+      const originalWindowOpen = window.open;
+      window.open = (url?: string | URL, target?: string, features?: string) => {
+        if (url && (url.toString().startsWith('http'))) {
+          // In Electron, window.open with a remote URL will be caught by our setWindowOpenHandler
+          return originalWindowOpen(url, target, features);
+        }
+        return originalWindowOpen(url, target, features);
+      };
+
+      return () => {
+        window.open = originalWindowOpen;
+      };
+    }
+  }, []);
 
   // Sync remote streams with voice participants state
   useEffect(() => {
-    if (!connectedVoiceChannelId || !currentUser) return;
+    if (!connectedVoiceChannelId || !currentUser) {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'none';
+      }
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+      }
+      return;
+    }
+
+    // Setup Media Session for mobile notification controls
+    if ('mediaSession' in navigator) {
+      const status = [
+        isVoiceMuted ? 'Micro : OFF' : 'Micro : ON',
+        isDeafened ? 'Sourdine : ON' : 'Sourdine : OFF'
+      ].join(' | ');
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Conversation Vocale',
+        artist: 'Drocsid',
+        album: status,
+        artwork: [
+          { src: 'logo.png', sizes: '512x512', type: 'image/png' }
+        ]
+      });
+
+      // Show "playing" if connected, "paused" if muted
+      navigator.mediaSession.playbackState = isVoiceMuted ? 'paused' : 'playing';
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        setIsVoiceMuted(false);
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        setIsVoiceMuted(true);
+      });
+      navigator.mediaSession.setActionHandler('stop', () => {
+        setConnectedVoiceChannelId(null);
+      });
+
+      // Using next/previous track for Deafen (Sourdine) toggle
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        setIsDeafened(!isDeafened);
+      });
+      
+      try {
+        // @ts-ignore
+        navigator.mediaSession.setActionHandler('togglemicrophone', () => {
+          setIsVoiceMuted(!isVoiceMuted);
+        });
+        // @ts-ignore
+        navigator.mediaSession.setActionHandler('hangup', () => {
+          setConnectedVoiceChannelId(null);
+        });
+      } catch (e) {}
+    }
+
+    // Play a silent audio loop to keep the process alive in background on mobile
+    if (!silentAudioRef.current) {
+      const audio = new Audio();
+      // Extremely short silent base64 wav
+      audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFav7//v8BAAgAZGF0YQAAAAA=';
+      audio.loop = true;
+      silentAudioRef.current = audio;
+    }
     
+    silentAudioRef.current.play().catch(() => {
+      // User interaction might be needed, but usually within a click handler
+    });
+
     voiceParticipants.forEach(p => {
       const isMe = p.id === currentUser.id;
       const isStillStreaming = isMe ? isScreenSharing : p.isStreaming;
@@ -206,7 +324,7 @@ export default function WebRTCManager() {
         }
       }
     });
-  }, [voiceParticipants, connectedVoiceChannelId, currentUser, isScreenSharing, setRemoteScreenShares, setViewingScreenShares, setActiveStreamFocus]);
+  }, [voiceParticipants, connectedVoiceChannelId, currentUser, isScreenSharing, setRemoteScreenShares, setViewingScreenShares, setActiveStreamFocus, setConnectedVoiceChannelId, isVoiceMuted, setIsVoiceMuted, isDeafened, setIsDeafened]);
 
   // Speaking detection
   useEffect(() => {
@@ -561,14 +679,16 @@ export default function WebRTCManager() {
       let stream: MediaStream | null = null;
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          stream = await navigator.mediaDevices.getUserMedia({
+          const constraints: MediaStreamConstraints = {
             audio: {
               echoCancellation: voiceSettings.echoCancellation,
               noiseSuppression: voiceSettings.noiseSuppression,
               autoGainControl: voiceSettings.autoGainControl,
+              ...(voiceSettings.selectedMicrophoneId ? { deviceId: { exact: voiceSettings.selectedMicrophoneId } } : {})
             },
             video: false
-          });
+          };
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
         } else {
           console.warn("navigator.mediaDevices.getUserMedia is not supported in this browser.");
         }

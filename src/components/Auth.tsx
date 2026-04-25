@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import DrocsidLogo from './ui/DrocsidLogo';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -10,22 +12,29 @@ export default function Auth() {
     setLoading(true);
     setError('');
     try {
-      // On s'assure que l'URL est propre
-      const redirectTo = window.location.origin.replace(/\/$/, '');
+      // Déterminer l'URL de redirection
+      let redirectTo = window.location.origin;
+      
+      if (Capacitor.isNativePlatform()) {
+        redirectTo = 'com.drocsid.app://login-callback';
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectTo,
-          skipBrowserRedirect: true // On récupère l'URL pour l'ouvrir proprement
+          skipBrowserRedirect: true 
         }
       });
       
       if (error) throw error;
 
       if (data?.url) {
-        // On essaie d'ouvrir dans la même fenêtre
-        window.location.href = data.url;
+        if (Capacitor.isNativePlatform()) {
+          await Browser.open({ url: data.url, windowName: '_self' });
+        } else {
+          window.location.href = data.url;
+        }
       }
     } catch (err: any) {
       console.error(err);

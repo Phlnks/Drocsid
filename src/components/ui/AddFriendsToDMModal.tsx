@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
+import { useAppStore } from '../../store/appStore';
 import { X, Search } from 'lucide-react';
 import UserAvatar from './UserAvatar';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   isOpen: boolean;
@@ -12,7 +14,9 @@ interface Props {
 }
 
 export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentParticipants }: Props) {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
+  const { setSelectedDmId } = useAppStore();
   const [friends, setFriends] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -72,20 +76,64 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
   };
 
   const handleAddFriends = async () => {
-    if (selectedUserIds.size === 0) return;
+    if (selectedUserIds.size === 0 || !currentUser) return;
     setIsLoading(true);
     
     try {
-      const newParticipants = [...(currentParticipants || []), ...Array.from(selectedUserIds)];
-      const { error } = await supabase.from('dms')
-        .update({
-          participants: newParticipants,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', dmId);
+      const newParticipantsList = Array.from(new Set([...(currentParticipants || []), ...Array.from(selectedUserIds)])).sort();
       
-      if (error) throw error;
-      onClose();
+      // 1. Check if a DM with these EXACT participants already exists
+      const { data: existingDms } = await supabase.from('dms')
+        .select('*')
+        .contains('participants', newParticipantsList);
+      
+      // Filter for exact match in participants length and content
+      const exactMatch = existingDms?.find(dm => 
+        dm.participants.length === newParticipantsList.length && 
+        dm.participants.every((p: string) => newParticipantsList.includes(p))
+      );
+
+      if (exactMatch) {
+        setSelectedDmId(exactMatch.id);
+        onClose();
+        return;
+      }
+
+      // 2. If it was already a group (>2 participants), we might just want to update it 
+      // but Discord logic often creates new group if you add friends to a 1on1.
+      // If it's already a group DM (id from props), let's see if the user wants to update THIS group or create new one.
+      // Usually, if you add friends to a GROUP, it adds them to the existing group.
+      // If you add friends to a 1-on-1, it creates a NEW group.
+      
+      const isCurrentlyGroup = currentParticipants.length > 2;
+
+      if (isCurrentlyGroup) {
+        // Update existing group
+        const { error } = await supabase.from('dms')
+          .update({
+            participants: newParticipantsList,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', dmId);
+        
+        if (error) throw error;
+        onClose();
+      } else {
+        // Create new group DM
+        const { data: newDm, error } = await supabase.from('dms')
+          .insert({
+            participants: newParticipantsList,
+            type: 'group'
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        if (newDm) {
+          setSelectedDmId(newDm.id);
+        }
+        onClose();
+      }
     } catch (error) {
       console.error("Error adding friends to DM:", error);
     } finally {
@@ -111,7 +159,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
       <div className="bg-zinc-900 w-full max-w-md rounded-lg shadow-xl flex flex-col max-h-[80vh]">
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center shrink-0">
-          <h2 className="text-xl font-bold text-zinc-100">Ajouter des amis</h2>
+          <h2 className="text-xl font-bold text-zinc-100">{t('friends.addFriendsModalTitle')}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
@@ -121,7 +169,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
           <div className="relative">
             <input
               type="text"
-              placeholder="Rechercher des amis..."
+              placeholder={t('friends.searchFriends')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-zinc-950 text-zinc-200 rounded-md py-2 pl-9 pr-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -133,7 +181,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
         <div className="flex-1 overflow-y-auto px-2 pb-2">
           {filteredFriends.length === 0 ? (
             <div className="text-center text-zinc-500 py-8">
-              {friends.length === 0 ? "Vous n'avez pas d'autres amis à ajouter." : "Aucun ami trouvé."}
+              {friends.length === 0 ? t('friends.noMoreFriends') : t('friends.noFriendFound')}
             </div>
           ) : (
             filteredFriends.map(friend => (
@@ -147,7 +195,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
                     <div className="w-3 h-3 bg-indigo-500 rounded-sm" />
                   )}
                 </div>
-                <UserAvatar user={{ username: friend.username || friend.display_name, avatarUrl: friend.avatar_url, status: friend.status }} size="md" />
+                <UserAvatar user={{ username: friend.username || friend.display_name, avatar_url: friend.avatar_url, status: friend.status }} size="md" />
                 <span className="text-zinc-200 font-medium">{friend.username || friend.display_name}</span>
               </div>
             ))
@@ -160,7 +208,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
             disabled={selectedUserIds.size === 0 || isLoading}
             className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium py-2 rounded transition-colors"
           >
-            {isLoading ? 'Ajout en cours...' : `Ajouter ${selectedUserIds.size > 0 ? `(${selectedUserIds.size})` : ''}`}
+            {isLoading ? t('friends.adding') : `${t('friends.add')} ${selectedUserIds.size > 0 ? `(${selectedUserIds.size})` : ''}`}
           </button>
         </div>
       </div>

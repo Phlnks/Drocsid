@@ -1,20 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
-import { Search, Hash, MessageSquare, User, Loader2, Bell, Check, AtSign, X } from 'lucide-react';
+import { MessageSquare, Bell, Check, AtSign, X } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { format } from 'date-fns';
+import clsx from 'clsx';
 import UserProfileModal from './ui/UserProfileModal';
 import UserAvatar from './ui/UserAvatar';
 import UserContextMenu from './ui/UserContextMenu';
+import { useTranslation } from 'react-i18next';
 
 export default function RightSidebar() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'search' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'notifications'>('users');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadDMs, setUnreadDMs] = useState<any[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
@@ -57,18 +56,7 @@ export default function RightSidebar() {
       const { data: notifs } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
       if (notifs) {
         setNotifications(notifs);
-        
-        // Trigger browser notification for new unread mentions
-        notifs.forEach(async (n) => {
-          if (!n.read && !n.notified) {
-            if (Notification.permission === 'granted') {
-              new Notification(`Mention from ${n.author_name}`, {
-                body: n.content,
-              });
-            }
-            await supabase.from('notifications').update({ notified: true }).eq('id', n.id);
-          }
-        });
+        // Note: NotificationManager.tsx now handles triggering actual native push notifications for unread/unnotified items.
       }
     };
 
@@ -109,81 +97,6 @@ export default function RightSidebar() {
     await supabase.from('notifications').update({ read: true }).eq('user_id', currentUser.id).eq('read', false);
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
-    }
-
-    setIsSearching(true);
-    setHasSearched(true);
-    setActiveTab('search');
-    
-    try {
-      const results: any[] = [];
-      
-      // Search in server channels
-      const { data: messages } = await supabase.from('messages')
-        .select('*, channels(name)')
-        .ilike('content', `%${searchQuery}%`);
-
-      if (messages) {
-        messages.forEach(msg => {
-          results.push({
-            id: msg.id,
-            type: 'channel',
-            channelId: msg.channel_id,
-            serverId: msg.server_id,
-            channelName: msg.channels?.name,
-            content: msg.content,
-            authorId: msg.author_id,
-            createdAt: msg.created_at
-          });
-        });
-      }
-
-      // Search in DMs
-      if (currentUser) {
-        const { data: dmMessages } = await supabase.from('dm_messages')
-          .select('*')
-          .ilike('content', `%${searchQuery}%`);
-        
-        if (dmMessages) {
-          // Filter DMs where user is participant
-          const { data: userDms } = await supabase.from('dms').select('id').contains('participants', [currentUser.id]);
-          const userDmIds = new Set(userDms?.map(dm => dm.id) || []);
-
-          dmMessages.forEach(msg => {
-            if (userDmIds.has(msg.dm_id)) {
-              results.push({
-                id: msg.id,
-                type: 'dm',
-                dmId: msg.dm_id,
-                content: msg.content,
-                authorId: msg.author_id,
-                createdAt: msg.created_at
-              });
-            }
-          });
-        }
-      }
-
-      // Sort by date descending
-      results.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      });
-      setSearchResults(results);
-    } catch (error) {
-      console.error("Search error:", error);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const jumpToMessage = (result: any) => {
     if (result.type === 'channel') {
       setSelectedServerId(result.serverId);
@@ -196,6 +109,13 @@ export default function RightSidebar() {
   };
 
   const getUser = (userId: string) => users.find(u => u.id === userId);
+
+  useEffect(() => {
+    if ((window as any).electron) {
+      const unreadCount = notifications.filter(n => !n.read).length;
+      (window as any).electron.setBadge(unreadCount);
+    }
+  }, [notifications]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -228,23 +148,16 @@ export default function RightSidebar() {
   return (
     <>
       <div className="w-full md:w-72 bg-zinc-800/50 border-l border-zinc-800 flex flex-col h-full shrink-0">
-        <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
+        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+          <h2 className="font-semibold text-zinc-100 flex items-center gap-2">
+            {t('common.sidebar')}
+          </h2>
           <button 
             onClick={() => setIsRightSidebarOpen(false)}
-            className="md:hidden p-2 -ml-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/50 rounded-md transition-colors"
+            className="p-2 -mr-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/50 rounded-md transition-colors md:hidden"
           >
             <X className="w-5 h-5" />
           </button>
-          <form onSubmit={handleSearch} className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Search all chats..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-900 text-zinc-100 text-sm rounded-md pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
-          </form>
         </div>
 
         <div className="flex border-b border-zinc-800">
@@ -252,18 +165,12 @@ export default function RightSidebar() {
             onClick={() => setActiveTab('users')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'users' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-zinc-400 hover:text-zinc-300'}`}
           >
-            Users
-          </button>
-          <button
-            onClick={() => setActiveTab('search')}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'search' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-zinc-400 hover:text-zinc-300'}`}
-          >
-            Search
+            {t('common.members')}
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
             className={`flex-1 py-3 text-sm font-medium transition-colors relative ${activeTab === 'notifications' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-zinc-400 hover:text-zinc-300'}`}
-            title="Notifications"
+            title={t('settings.notifications')}
           >
             <div className="flex items-center justify-center gap-1">
               <Bell className="w-4 h-4" />
@@ -281,7 +188,7 @@ export default function RightSidebar() {
             <div className="space-y-4">
               <div>
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                  En ligne — {onlineUsers.length}
+                  {t('friends.onlineCount', { count: onlineUsers.length })}
                 </h3>
                 <div className="space-y-2">
                   {onlineUsers.map(user => {
@@ -296,7 +203,7 @@ export default function RightSidebar() {
                         <UserAvatar 
                           user={{
                             username: user.username,
-                            avatarUrl: user.avatar_url,
+                            avatar_url: user.avatar_url,
                             status: status
                           }} 
                           size="md" 
@@ -311,7 +218,7 @@ export default function RightSidebar() {
               {offlineUsers.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-6">
-                    Hors ligne — {offlineUsers.length}
+                    {t('friends.offlineCount', { count: offlineUsers.length })}
                   </h3>
                   <div className="space-y-2">
                     {offlineUsers.map(user => (
@@ -324,7 +231,7 @@ export default function RightSidebar() {
                         <UserAvatar 
                           user={{
                             username: user.username,
-                            avatarUrl: user.avatar_url,
+                            avatar_url: user.avatar_url,
                             status: 'offline'
                           }} 
                           size="md" 
@@ -337,82 +244,30 @@ export default function RightSidebar() {
                 </div>
               )}
             </div>
-          ) : activeTab === 'search' ? (
-            <div className="space-y-4">
-              {isSearching ? (
-                <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
-                  <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-                  <p className="text-sm">Searching messages...</p>
-                </div>
-              ) : hasSearched ? (
-                searchResults.length > 0 ? (
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                      {searchResults.length} Results
-                    </h3>
-                    {searchResults.map(result => {
-                      const author = getUser(result.authorId);
-                      return (
-                        <div 
-                          key={result.id} 
-                          onClick={() => jumpToMessage(result)}
-                          className="bg-zinc-800/50 p-3 rounded-md hover:bg-zinc-700/50 cursor-pointer transition-colors border border-zinc-700/50"
-                        >
-                          <div className="flex items-center gap-2 mb-2 text-xs text-zinc-400">
-                            {result.type === 'channel' ? (
-                              <><Hash className="w-3 h-3" /> {result.channelName}</>
-                            ) : (
-                              <><MessageSquare className="w-3 h-3" /> Direct Message</>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-zinc-200">{author?.username || 'Unknown User'}</span>
-                            <span className="text-[10px] text-zinc-500">
-                              {result.createdAt ? format(new Date(result.createdAt), 'dd/MM/yyyy') : ''}
-                            </span>
-                          </div>
-                          <p className="text-sm text-zinc-300 line-clamp-3 break-words">
-                            {result.content}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10 text-zinc-500 text-sm">
-                    No messages found for "{searchQuery}"
-                  </div>
-                )
-              ) : (
-                <div className="text-center py-10 text-zinc-500 text-sm">
-                  Type in the search box above to find messages.
-                </div>
-              )}
-            </div>
           ) : (
             <div className="space-y-4 flex-1">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                  Mentions & Notifications
+                  {t('notifications.mentionsAndNotifications')}
                 </h3>
                 {notifications.some(n => !n.read) && (
                   <button 
                     onClick={markAllAsRead}
                     className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-tight"
                   >
-                    Tout lire
+                    {t('notifications.markAllRead')}
                   </button>
                 )}
               </div>
               
               {unreadDMsList.length > 0 && (
                 <div className="mb-6 space-y-3">
-                  <h4 className="text-xs font-medium text-zinc-500 uppercase">Messages Privés Non Lus</h4>
+                  <h4 className="text-xs font-medium text-zinc-500 uppercase">{t('notifications.unreadDMs')}</h4>
                   {unreadDMsList.map(dm => {
                     const isGroup = dm.participants.length > 2;
                       const dmName = isGroup 
-                        ? "Groupe" 
-                        : users.find(u => u.id === dm.participants.find((p: string) => p !== currentUser?.id))?.username || 'Utilisateur';
+                        ? t('common.group') 
+                        : users.find(u => u.id === dm.participants.find((p: string) => p !== currentUser?.id))?.username || t('common.user');
 
                       return (
                         <div 
@@ -425,13 +280,13 @@ export default function RightSidebar() {
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <MessageSquare className="w-4 h-4 text-indigo-400" />
-                            <span className="font-medium text-zinc-200">Nouveau message de {dmName}</span>
+                            <span className="font-medium text-zinc-200">{t('notifications.newMessageFrom', { name: dmName })}</span>
                           </div>
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-[10px] text-zinc-500">
                               {format(new Date(dm.last_message_at), 'dd/MM/yyyy HH:mm')}
                             </span>
-                            <span className="text-xs text-indigo-400 font-medium">Ouvrir</span>
+                            <span className="text-xs text-indigo-400 font-medium">{t('common.open')}</span>
                           </div>
                         </div>
                       );
@@ -439,12 +294,15 @@ export default function RightSidebar() {
                 </div>
               )}
 
-              {notifications.filter(n => !n.read).length > 0 ? (
+              {notifications.length > 0 ? (
                 <div className="space-y-3">
-                  {notifications.filter(n => !n.read).map(notif => (
+                  {notifications.map(notif => (
                     <div 
                       key={notif.id} 
-                      className="bg-zinc-800/50 p-3 rounded-md border border-indigo-500/50 bg-indigo-500/5 transition-colors cursor-pointer hover:bg-zinc-700/50 group"
+                      className={clsx(
+                        "bg-zinc-800/50 p-3 rounded-md border transition-colors cursor-pointer hover:bg-zinc-700/50 group",
+                        notif.read ? "border-zinc-700/30 opacity-70" : "border-indigo-500/50 bg-indigo-500/5"
+                      )}
                       onClick={() => {
                         markAsRead(notif.id);
                         jumpToMessage({
@@ -459,7 +317,7 @@ export default function RightSidebar() {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2 text-xs text-zinc-400">
                           <AtSign className="w-3 h-3 text-indigo-400" />
-                          <span>Mentioned by <span className="font-medium text-zinc-300">{notif.author_name}</span></span>
+                          <span>{t('notifications.mentionedBy')} <span className="font-medium text-zinc-300">{notif.author_name}</span></span>
                         </div>
                         {!notif.read && (
                           <button 
@@ -468,7 +326,7 @@ export default function RightSidebar() {
                               markAsRead(notif.id);
                             }}
                             className="text-zinc-500 hover:text-indigo-400 transition-colors"
-                            title="Mark as read"
+                            title={t('notifications.markAsRead')}
                           >
                             <Check className="w-4 h-4" />
                           </button>
@@ -482,7 +340,7 @@ export default function RightSidebar() {
                           {notif.created_at ? format(new Date(notif.created_at), 'dd/MM/yyyy HH:mm') : ''}
                         </span>
                         <span className="text-[10px] text-indigo-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                          View Message
+                          {t('notifications.viewMessage')}
                         </span>
                       </div>
                     </div>
@@ -490,7 +348,7 @@ export default function RightSidebar() {
                 </div>
               ) : unreadDMsList.length === 0 ? (
                 <div className="text-center py-10 text-zinc-500 text-sm">
-                  No notifications yet.
+                  {t('notifications.noNotifications')}
                 </div>
               ) : null}
             </div>
@@ -511,6 +369,10 @@ export default function RightSidebar() {
           serverId={selectedServerId}
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={() => setContextMenu(null)}
+          onViewProfile={() => {
+            const u = users.find(u => u.id === contextMenu.userId);
+            if (u) setSelectedUser(u);
+          }}
         />
       )}
     </>

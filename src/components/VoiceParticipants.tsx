@@ -4,6 +4,7 @@ import { useAppStore } from '../store/appStore';
 import { MicOff, MonitorUp } from 'lucide-react';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
+import UserProfileModal from './ui/UserProfileModal';
 
 interface VoiceParticipantsProps {
   channelId?: string;
@@ -25,6 +26,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   const activeChannelId = channelId || selectedChannelId;
   const participants = allVoiceParticipants[activeChannelId || ''] || [];
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const toggleViewScreenShare = (e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
@@ -78,7 +80,8 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
         return (
           <div 
             key={p.id} 
-            className="relative flex flex-col items-center gap-2 group"
+            className="relative flex flex-col items-center gap-2 group cursor-pointer"
+            onClick={() => setSelectedUser(p)}
             onContextMenu={(e) => handleContextMenu(e, p)}
           >
             <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden transition-all duration-200 bg-indigo-500 ${
@@ -123,8 +126,18 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
           serverId={useAppStore.getState().selectedServerId}
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={() => setContextMenu(null)}
+          onViewProfile={() => {
+            const p = participants.find(part => part.id === contextMenu.userId);
+            if (p) setSelectedUser(p);
+          }}
         />
       )}
+
+      <UserProfileModal
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        user={selectedUser}
+      />
     </div>
   );
 }

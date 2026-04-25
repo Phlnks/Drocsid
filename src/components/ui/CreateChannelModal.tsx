@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Hash, Volume2, Moon } from 'lucide-react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function CreateChannelModal({ isOpen, onClose, onSubmit, categories, initialCategoryId = null }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [type, setType] = useState<'TEXT' | 'VOICE' | 'AFK'>('TEXT');
   const [categoryId, setCategoryId] = useState<string | null>(initialCategoryId);
@@ -37,7 +39,7 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-zinc-800 rounded-xl w-full max-w-md p-6 shadow-xl border border-zinc-700">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-zinc-100">Create Channel</h2>
+          <h2 className="text-xl font-bold text-zinc-100">{t('modals.createChannel.title')}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100">
             <X className="w-5 h-5" />
           </button>
@@ -46,7 +48,7 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <label className="block text-xs font-bold text-zinc-300 uppercase mb-2">
-              Channel Type
+              {t('modals.createChannel.channelType')}
             </label>
             <div className="flex flex-col gap-2">
               <div 
@@ -58,8 +60,8 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
               >
                 <Hash className="w-6 h-6 text-zinc-400" />
                 <div>
-                  <div className="font-medium text-zinc-100">Text</div>
-                  <div className="text-xs text-zinc-400">Send messages, images, GIFs, emoji, opinions, and puns</div>
+                  <div className="font-medium text-zinc-100">{t('modals.createChannel.text')}</div>
+                  <div className="text-xs text-zinc-400">{t('modals.createChannel.textDesc')}</div>
                 </div>
                 <div className="ml-auto">
                   <div className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center", type === 'TEXT' ? "border-indigo-500" : "border-zinc-500")}>
@@ -77,8 +79,8 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
               >
                 <Volume2 className="w-6 h-6 text-zinc-400" />
                 <div>
-                  <div className="font-medium text-zinc-100">Voice</div>
-                  <div className="text-xs text-zinc-400">Hang out together with voice, video, and screen share</div>
+                  <div className="font-medium text-zinc-100">{t('modals.createChannel.voice')}</div>
+                  <div className="text-xs text-zinc-400">{t('modals.createChannel.voiceDesc')}</div>
                 </div>
                 <div className="ml-auto">
                   <div className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center", type === 'VOICE' ? "border-indigo-500" : "border-zinc-500")}>
@@ -96,8 +98,8 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
               >
                 <Moon className="w-6 h-6 text-zinc-400" />
                 <div>
-                  <div className="font-medium text-zinc-100">AFK</div>
-                  <div className="text-xs text-zinc-400">Inactive users are moved here. No voice or text.</div>
+                  <div className="font-medium text-zinc-100">{t('modals.createChannel.afk')}</div>
+                  <div className="text-xs text-zinc-400">{t('modals.createChannel.afkDesc')}</div>
                 </div>
                 <div className="ml-auto">
                   <div className={clsx("w-5 h-5 rounded-full border-2 flex items-center justify-center", type === 'AFK' ? "border-indigo-500" : "border-zinc-500")}>
@@ -111,14 +113,14 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
           {categories.length > 0 && (
             <div className="mb-6">
               <label className="block text-xs font-bold text-zinc-300 uppercase mb-2">
-                Catégorie
+                {t('modals.createChannel.category')}
               </label>
               <select
                 value={categoryId || ''}
                 onChange={(e) => setCategoryId(e.target.value || null)}
                 className="w-full bg-zinc-900 border border-zinc-950 rounded p-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
               >
-                <option value="">Sans catégorie</option>
+                <option value="">{t('modals.createChannel.noCategory')}</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
@@ -128,7 +130,7 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
 
           <div className="mb-4">
             <label className="block text-xs font-bold text-zinc-300 uppercase mb-2">
-              Channel Name
+              {t('modals.createChannel.channelName')}
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
@@ -139,17 +141,17 @@ export default function CreateChannelModal({ isOpen, onClose, onSubmit, categori
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-950 rounded p-2 pl-9 text-zinc-100 focus:outline-none focus:border-indigo-500"
-                placeholder="new-channel"
+                placeholder={t('modals.createChannel.placeholder')}
                 autoFocus
               />
             </div>
           </div>
           <div className="flex justify-end gap-3 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 text-zinc-300 hover:underline">
-              Cancel
+              {t('modals.createChannel.cancel')}
             </button>
             <button type="submit" disabled={!name.trim()} className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed">
-              Create Channel
+              {t('modals.createChannel.create')}
             </button>
           </div>
         </form>

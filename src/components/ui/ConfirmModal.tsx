@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   isOpen: boolean;
@@ -18,10 +19,14 @@ export default function ConfirmModal({
   onConfirm, 
   title, 
   description, 
-  confirmText = 'Confirmer', 
-  cancelText = 'Annuler',
+  confirmText, 
+  cancelText,
   danger = false
 }: Props) {
+  const { t } = useTranslation();
+  const cText = confirmText || t('modals.confirm.confirm', 'Confirmer');
+  const xText = cancelText || t('modals.confirm.cancel', 'Annuler');
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -46,7 +51,7 @@ export default function ConfirmModal({
         <p className="text-zinc-300 text-sm mb-6">{description}</p>
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-zinc-300 hover:underline">
-            {cancelText}
+            {xText}
           </button>
           <button 
             onClick={() => {
@@ -55,7 +60,7 @@ export default function ConfirmModal({
             }} 
             className={`px-4 py-2 rounded font-medium text-white ${danger ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}
           >
-            {confirmText}
+            {cText}
           </button>
         </div>
       </div>

@@ -150,8 +150,8 @@ export default function IncomingCallModal() {
           <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20"></div>
           <UserAvatar 
             user={{
-              username: caller.username || caller.displayName,
-              avatarUrl: caller.avatarUrl || caller.photoURL,
+              username: caller.username,
+              avatar_url: caller.avatar_url,
               status: caller.status
             }} 
             size="xl" 

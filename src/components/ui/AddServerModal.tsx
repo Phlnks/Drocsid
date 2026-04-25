@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Camera, Plus } from 'lucide-react';
 import { supabase } from '../../supabase';
+import { useAppStore } from '../../store/appStore';
 import { processImageForSupabase } from '../../lib/imageUtils';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   isOpen: boolean;
@@ -11,11 +13,13 @@ interface Props {
 }
 
 export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Props) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
   const [serverName, setServerName] = useState('');
   const [iconUrl, setIconUrl] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const { addNotification } = useAppStore();
 
   useEffect(() => {
     if (isOpen) {
@@ -47,9 +51,9 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
       <div className="bg-zinc-800 rounded-xl w-full max-w-md p-6 shadow-xl border border-zinc-700">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-zinc-100">
-            {mode === 'menu' && 'Ajouter un serveur'}
-            {mode === 'create' && 'Créer votre serveur'}
-            {mode === 'join' && 'Rejoindre un serveur'}
+            {mode === 'menu' && t('modals.addServer.titleMenu')}
+            {mode === 'create' && t('modals.addServer.titleCreate')}
+            {mode === 'join' && t('modals.addServer.titleJoin')}
           </h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 disabled:opacity-50" disabled={loading}>
             <X className="w-5 h-5" />
@@ -59,20 +63,20 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
         {mode === 'menu' && (
           <div className="space-y-4">
             <p className="text-zinc-400 text-sm text-center mb-6">
-              Votre serveur est l'endroit où vous et vos amis vous retrouvez. Créez le vôtre et commencez à discuter.
+              {t('modals.addServer.menuDescription')}
             </p>
             <button
               onClick={() => setMode('create')}
               className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-md transition-colors"
             >
-              Créer un serveur
+              {t('modals.addServer.createServerBtn')}
             </button>
-            <div className="text-center text-zinc-400 text-sm py-2">ou</div>
+            <div className="text-center text-zinc-400 text-sm py-2">{t('modals.addServer.or')}</div>
             <button
               onClick={() => setMode('join')}
               className="w-full bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3 px-4 rounded-md transition-colors"
             >
-              Rejoindre un serveur
+              {t('modals.addServer.joinServerBtn')}
             </button>
           </div>
         )}
@@ -80,7 +84,7 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
         {mode === 'create' && (
           <form onSubmit={handleCreate}>
             <p className="text-zinc-400 text-sm mb-6 text-center">
-              Donnez une personnalité à votre nouveau serveur avec un nom et une icône. Vous pourrez toujours les modifier plus tard.
+              {t('modals.addServer.createDescription')}
             </p>
 
             <div className="flex justify-center mb-6">
@@ -115,9 +119,9 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
                       } catch (err: any) {
                         console.error(err);
                         if (err.message === "GIF_TOO_LARGE") {
-                          alert("Ce GIF est trop lourd. Veuillez choisir un GIF plus léger.");
+                          addNotification(t('errors.gifTooLarge'), "error");
                         } else {
-                          alert("Erreur lors du téléchargement");
+                          addNotification(t('errors.imageUploadFailed'), "error");
                         }
                       } finally {
                         setLoading(false);
@@ -132,14 +136,14 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
 
             <div className="mb-4">
               <label className="block text-xs font-bold text-zinc-300 uppercase mb-2">
-                Nom du serveur
+                {t('modals.addServer.serverName')}
               </label>
               <input
                 type="text"
                 value={serverName}
                 onChange={(e) => setServerName(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-950 rounded p-2 text-zinc-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-                placeholder="Mon super serveur"
+                placeholder={t('modals.addServer.serverNamePlaceholder')}
                 autoFocus
                 disabled={loading}
               />
@@ -151,7 +155,7 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
                 className="text-zinc-400 hover:text-zinc-300 text-sm disabled:opacity-50"
                 disabled={loading}
               >
-                Retour
+                {t('modals.addServer.back')}
               </button>
               <button 
                 type="submit" 
@@ -159,7 +163,7 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
                 className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Créer
+                {t('modals.addServer.create')}
               </button>
             </div>
           </form>
@@ -168,18 +172,18 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
         {mode === 'join' && (
           <form onSubmit={async (e) => { e.preventDefault(); if (inviteCode.trim() && !loading) { setLoading(true); await onJoin(inviteCode.trim()); setLoading(false); onClose(); } }}>
             <p className="text-zinc-400 text-sm mb-4">
-              Entrez une invitation ci-dessous pour rejoindre un serveur existant.
+              {t('modals.addServer.joinDescription')}
             </p>
             <div className="mb-4">
               <label className="block text-xs font-bold text-zinc-300 uppercase mb-2">
-                Lien d'invitation ou code
+                {t('modals.addServer.inviteLink')}
               </label>
               <input
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-950 rounded p-2 text-zinc-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-                placeholder="Ex: hZ9x2A"
+                placeholder={t('modals.addServer.invitePlaceholder')}
                 autoFocus
                 disabled={loading}
               />
@@ -191,7 +195,7 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
                 className="text-zinc-400 hover:text-zinc-300 text-sm disabled:opacity-50"
                 disabled={loading}
               >
-                Retour
+                {t('modals.addServer.back')}
               </button>
               <button 
                 type="submit" 
@@ -199,7 +203,7 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
                 className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Rejoindre
+                {t('modals.addServer.join')}
               </button>
             </div>
           </form>

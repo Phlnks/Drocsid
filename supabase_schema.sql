@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   avatar_url TEXT,
   status TEXT DEFAULT 'online' CHECK (status IN ('online', 'idle', 'dnd', 'offline')),
   display_name TEXT,
+  bio TEXT,
   force_voice_move JSONB DEFAULT '{"channelId": null, "timestamp": 0}'::jsonb,
   last_read JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS messages (
   reply_to UUID REFERENCES messages(id) ON DELETE SET NULL,
   attachments JSONB DEFAULT '[]'::jsonb,
   is_edited BOOLEAN DEFAULT FALSE,
+  is_pinned BOOLEAN DEFAULT FALSE,
   reactions JSONB DEFAULT '{}'::jsonb
 );
 
@@ -98,6 +100,7 @@ CREATE TABLE IF NOT EXISTS dm_messages (
   reply_to UUID REFERENCES dm_messages(id) ON DELETE SET NULL,
   attachments JSONB DEFAULT '[]'::jsonb,
   is_edited BOOLEAN DEFAULT FALSE,
+  is_pinned BOOLEAN DEFAULT FALSE,
   reactions JSONB DEFAULT '{}'::jsonb
 );
 
@@ -174,14 +177,27 @@ CREATE TABLE IF NOT EXISTS voice_participants (
 );
 
 -- Add missing columns to existing tables (if they were created before these columns were added)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE channels ADD COLUMN IF NOT EXISTS "order" INTEGER DEFAULT 0;
 ALTER TABLE relationships ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT FALSE;
 ALTER TABLE calls ADD COLUMN IF NOT EXISTS dm_id UUID REFERENCES dms(id) ON DELETE CASCADE;
+
+-- Messages alterations
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to UUID REFERENCES messages(id) ON DELETE SET NULL;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;
+
+-- DM Messages alterations
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS reply_to UUID REFERENCES dm_messages(id) ON DELETE SET NULL;
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS custom_emojis JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE calls ALTER COLUMN id SET DEFAULT uuid_generate_v4();
 ALTER TABLE calls ADD CONSTRAINT calls_dm_id_key UNIQUE (dm_id);
 ALTER TABLE voice_participants ADD COLUMN IF NOT EXISTS is_streaming BOOLEAN DEFAULT FALSE;
@@ -429,4 +445,31 @@ BEGIN
   END LOOP;
 END $$;
 COMMIT;
+
+-- 17. Storage Buckets & Policies
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('chat-attachments', 'chat-attachments', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Storage Rules
+DROP POLICY IF EXISTS "Allow public read access" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated updates" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated deletes" ON storage.objects;
+
+CREATE POLICY "Allow public read access" ON storage.objects 
+FOR SELECT USING (bucket_id IN ('chat-attachments', 'avatars'));
+
+CREATE POLICY "Allow authenticated uploads" ON storage.objects 
+FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('chat-attachments', 'avatars'));
+
+CREATE POLICY "Allow authenticated updates" ON storage.objects 
+FOR UPDATE TO authenticated USING (bucket_id IN ('chat-attachments', 'avatars'));
+
+CREATE POLICY "Allow authenticated deletes" ON storage.objects 
+FOR DELETE TO authenticated USING (bucket_id IN ('chat-attachments', 'avatars'));
 

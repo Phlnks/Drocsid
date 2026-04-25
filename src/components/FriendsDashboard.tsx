@@ -4,10 +4,12 @@ import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { Users, MessageSquare, Check, X, UserPlus, MoreVertical, ArrowLeft } from 'lucide-react';
 import UserAvatar from './ui/UserAvatar';
+import { useTranslation } from 'react-i18next';
 
 type Tab = 'online' | 'all' | 'pending' | 'add';
 
 export default function FriendsDashboard() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('online');
   const [relationships, setRelationships] = useState<any[]>([]);
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
@@ -17,7 +19,7 @@ export default function FriendsDashboard() {
   const [addMessage, setAddMessage] = useState({ type: '', text: '' });
   
   const { user } = useAuthStore();
-  const { setSelectedDmId, setIsMobileNavOpen, connectedVoiceChannelId } = useAppStore();
+  const { setSelectedDmId, setIsMobileNavOpen, connectedVoiceChannelId, addNotification } = useAppStore();
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -115,7 +117,7 @@ export default function FriendsDashboard() {
       if (error) throw error;
     } catch (error) {
       console.error("Error accepting friend request:", error);
-      alert("Erreur lors de l'acceptation de la demande.");
+      addNotification(t('friends.acceptError'), "error");
     }
   };
 
@@ -125,7 +127,7 @@ export default function FriendsDashboard() {
       if (error) throw error;
     } catch (error) {
       console.error("Error declining friend request:", error);
-      alert("Erreur lors du refus de la demande.");
+      addNotification(t('friends.declineError'), "error");
     }
   };
 
@@ -139,9 +141,9 @@ export default function FriendsDashboard() {
       
       if (existingRel) {
         if (existingRel.status === 'accepted') {
-          setAddMessage({ type: 'error', text: "Vous êtes déjà amis." });
+          setAddMessage({ type: 'error', text: t('friends.alreadyFriends') });
         } else {
-          setAddMessage({ type: 'error', text: "Une demande est déjà en cours." });
+          setAddMessage({ type: 'error', text: t('friends.requestInProgress') });
         }
         return;
       }
@@ -154,10 +156,10 @@ export default function FriendsDashboard() {
 
       if (error) throw error;
 
-      setAddMessage({ type: 'success', text: "Demande d'ami envoyée !" });
+      setAddMessage({ type: 'success', text: t('friends.addFriendSuccess') });
     } catch (error) {
       console.error("Error sending friend request:", error);
-      setAddMessage({ type: 'error', text: "Une erreur est survenue." });
+      setAddMessage({ type: 'error', text: t('common.errorOccurred') });
     }
   };
 
@@ -220,7 +222,7 @@ export default function FriendsDashboard() {
     return (
       <div className="space-y-1 mt-4">
         <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 px-2">
-          Amis — {list.length}
+          {t('friends.friendsCount', { count: list.length })}
         </h2>
         {list.map(rel => {
           const otherUserId = getOtherUserId(rel);
@@ -240,9 +242,9 @@ export default function FriendsDashboard() {
                     {otherUser.username}
                   </div>
                   <div className="text-sm text-zinc-400 capitalize">
-                    {otherUser.status === 'dnd' ? 'Ne pas déranger' : 
-                     otherUser.status === 'idle' ? 'Absent' : 
-                     otherUser.status === 'offline' ? 'Hors ligne' : 'En ligne'}
+                    {otherUser.status === 'dnd' ? t('common.dnd') : 
+                     otherUser.status === 'idle' ? t('common.idle') : 
+                     otherUser.status === 'offline' ? t('common.offline') : t('common.online')}
                   </div>
                 </div>
               </div>
@@ -250,14 +252,14 @@ export default function FriendsDashboard() {
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleMessage(otherUserId); }}
                   className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-full transition-colors"
-                  title="Message"
+                  title={t('friends.message')}
                 >
                   <MessageSquare className="w-5 h-5" />
                 </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleDeclineOrCancel(rel.id); }}
                   className="p-2 bg-zinc-800 hover:bg-red-500/20 text-zinc-300 hover:text-red-400 rounded-full transition-colors"
-                  title="Retirer l'ami"
+                  title={t('friends.removeFriend')}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -281,26 +283,26 @@ export default function FriendsDashboard() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <Users className="w-5 h-5 text-zinc-400 hidden md:block" />
-          Amis
+          {t('friends.title')}
         </div>
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setActiveTab('online')}
             className={`px-2 py-1 rounded text-sm font-medium transition-colors ${activeTab === 'online' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-300'}`}
           >
-            En ligne
+            {t('friends.online')}
           </button>
           <button 
             onClick={() => setActiveTab('all')}
             className={`px-2 py-1 rounded text-sm font-medium transition-colors ${activeTab === 'all' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-300'}`}
           >
-            Tous
+            {t('friends.all')}
           </button>
           <button 
             onClick={() => setActiveTab('pending')}
             className={`px-2 py-1 rounded text-sm font-medium transition-colors flex items-center gap-1 ${activeTab === 'pending' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-300'}`}
           >
-            En attente
+            {t('friends.pending')}
                 {pendingRequests.filter(r => r.requester_id !== user?.id).length > 0 && (
                   <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                     {pendingRequests.filter(r => r.requester_id !== user?.id).length}
@@ -311,15 +313,15 @@ export default function FriendsDashboard() {
             onClick={() => setActiveTab('add')}
             className={`px-2 py-1 rounded text-sm font-medium transition-colors ${activeTab === 'add' ? 'bg-emerald-600 text-white' : 'bg-emerald-600/20 text-emerald-500 hover:bg-emerald-600/30'}`}
           >
-            Ajouter un ami
+            {t('friends.addFriend')}
           </button>
         </div>
       </div>
 
       {/* Content */}
       <div className={`flex-1 overflow-y-auto p-6 pb-safe ${connectedVoiceChannelId ? 'pt-16 md:pt-6' : ''}`}>
-        {activeTab === 'online' && renderFriendList(onlineFriends, "Personne n'est là pour jouer avec vous.")}
-        {activeTab === 'all' && renderFriendList(friends, "Vous n'avez pas encore d'amis. Ajoutez-en un !")}
+        {activeTab === 'online' && renderFriendList(onlineFriends, t('friends.noOnlineFriends'))}
+        {activeTab === 'all' && renderFriendList(friends, t('friends.noFriends'))}
         
         {activeTab === 'pending' && (
           pendingRequests.length === 0 ? (
@@ -327,12 +329,12 @@ export default function FriendsDashboard() {
               <div className="w-48 h-48 mb-4 opacity-50 bg-zinc-800 rounded-full flex items-center justify-center">
                 <UserPlus className="w-20 h-20" />
               </div>
-              <p>Il n'y a pas de demande d'ami en attente.</p>
+              <p>{t('friends.noPending')}</p>
             </div>
           ) : (
             <div className="space-y-1 mt-4">
               <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 px-2">
-                En attente — {pendingRequests.length}
+                {t('friends.pendingCount', { count: pendingRequests.length })}
               </h2>
               {pendingRequests.map(rel => {
                 const otherUserId = getOtherUserId(rel);
@@ -350,7 +352,7 @@ export default function FriendsDashboard() {
                           {otherUser.username}
                         </div>
                         <div className="text-sm text-zinc-400">
-                          {isIncoming ? 'Demande entrante' : 'Demande sortante'}
+                          {isIncoming ? t('friends.incomingRequest') : t('friends.outgoingRequest')}
                         </div>
                       </div>
                     </div>
@@ -359,7 +361,7 @@ export default function FriendsDashboard() {
                         <button 
                           onClick={() => handleAccept(rel.id)}
                           className="p-2 bg-zinc-800 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-400 rounded-full transition-colors"
-                          title="Accepter"
+                          title={t('common.accept')}
                         >
                           <Check className="w-5 h-5" />
                         </button>
@@ -367,7 +369,7 @@ export default function FriendsDashboard() {
                       <button 
                         onClick={() => handleDeclineOrCancel(rel.id)}
                         className="p-2 bg-zinc-800 hover:bg-red-500/20 text-zinc-300 hover:text-red-400 rounded-full transition-colors"
-                        title={isIncoming ? "Ignorer" : "Annuler"}
+                        title={isIncoming ? t('common.ignore') : t('common.cancel')}
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -381,9 +383,9 @@ export default function FriendsDashboard() {
 
         {activeTab === 'add' && (
           <div className="max-w-2xl">
-            <h2 className="text-base font-bold text-zinc-100 mb-2">AJOUTER UN AMI</h2>
+            <h2 className="text-base font-bold text-zinc-100 mb-2">{t('friends.addFriendTitle')}</h2>
             <p className="text-sm text-zinc-400 mb-4">
-              Vous pouvez ajouter un ami grâce à son pseudo.
+              {t('friends.addFriendDesc')}
             </p>
             
             <div className="relative mb-4">
@@ -391,7 +393,7 @@ export default function FriendsDashboard() {
                 type="text"
                 value={searchUsername}
                 onChange={(e) => setSearchUsername(e.target.value)}
-                placeholder="Entrez un pseudo"
+                placeholder={t('friends.addFriendPlaceholder')}
                 className={`w-full bg-zinc-900 border ${addMessage.type === 'success' ? 'border-emerald-500' : addMessage.type === 'error' ? 'border-red-500' : 'border-zinc-700 focus:border-indigo-500'} rounded-lg px-4 py-3 text-zinc-100 focus:outline-none`}
               />
               {isSearching && (
@@ -410,7 +412,7 @@ export default function FriendsDashboard() {
             {searchResults.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider px-2">
-                  Résultats de recherche
+                  {t('friends.searchResults')}
                 </h3>
                 {searchResults.map(targetUser => {
                   const existingRel = relationships.find(r => r.participants && r.participants.includes(targetUser.id));
@@ -432,7 +434,7 @@ export default function FriendsDashboard() {
                           'bg-indigo-500 hover:bg-indigo-600 text-white'
                         }`}
                       >
-                        {isAccepted ? 'Amis' : isPending ? 'En attente' : 'Ajouter'}
+                        {isAccepted ? t('friends.friends') : isPending ? t('friends.pending') : t('common.add')}
                       </button>
                     </div>
                   );
@@ -441,7 +443,7 @@ export default function FriendsDashboard() {
             )}
 
             {searchUsername.length >= 3 && !isSearching && searchResults.length === 0 && (
-              <p className="text-center text-zinc-500 py-8">Aucun utilisateur trouvé.</p>
+              <p className="text-center text-zinc-500 py-8">{t('friends.noUsersFound')}</p>
             )}
           </div>
         )}

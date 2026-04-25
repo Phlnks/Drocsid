@@ -1,5 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import LinkPreview from './ui/LinkPreview';
 
 const YOUTUBE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n<]+)(?:[^ \n<]+)?/g;
@@ -32,7 +34,8 @@ export default function MessageContent({ content }: { content: string }) {
   // Extract Image URLs
   const imageUrls: string[] = [];
   while ((match = IMAGE_REGEX.exec(content)) !== null) {
-    if (!imageUrls.includes(match[1])) {
+    const isMarkdownImage = match.index > 1 && content.substring(match.index - 2, match.index) === '](';
+    if (!isMarkdownImage && !imageUrls.includes(match[1])) {
       imageUrls.push(match[1]);
     }
   }
@@ -40,8 +43,9 @@ export default function MessageContent({ content }: { content: string }) {
   // Extract generic URLs for LinkPreview (excluding youtube and images)
   const genericUrls: string[] = [];
   while ((match = URL_REGEX.exec(content)) !== null) {
+    const isMarkdownImage = match.index > 1 && content.substring(match.index - 2, match.index) === '](';
     const url = match[1];
-    if (!url.match(YOUTUBE_REGEX) && !url.match(IMAGE_REGEX) && !genericUrls.includes(url)) {
+    if (!isMarkdownImage && !url.match(YOUTUBE_REGEX) && !url.match(IMAGE_REGEX) && !genericUrls.includes(url)) {
       genericUrls.push(url);
     }
   }
@@ -60,12 +64,41 @@ export default function MessageContent({ content }: { content: string }) {
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
           components={{
+            code({node, inline, className, children, ...props}: any) {
+              const match = /language-(\w+)/.exec(className || '');
+              return !inline && match ? (
+                <div className="rounded-md overflow-hidden my-2 border border-zinc-700/50">
+                  <div className="bg-zinc-800/80 px-4 py-1 text-xs text-zinc-400 font-mono flex items-center justify-between border-b border-zinc-700/50">
+                    <span>{match[1]}</span>
+                  </div>
+                  <SyntaxHighlighter
+                    {...props}
+                    style={vscDarkPlus as any}
+                    language={match[1]}
+                    PreTag="div"
+                    customStyle={{ margin: 0, padding: '1rem', background: '#1e1e1e' }}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                </div>
+              ) : (
+                <code {...props} className={`${className} bg-zinc-800 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-sm`}>
+                  {children}
+                </code>
+              );
+            },
             a: ({node, href, children, ...props}) => {
               if (href?.startsWith('mention:')) {
                 // Decode for display if needed, but children already has the @username
                 return <span className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium">{children}</span>;
               }
               return <a href={href} {...props} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">{children}</a>;
+            },
+            img: ({node, src, alt, ...props}: any) => {
+              if (alt?.startsWith('custom_emoji:')) {
+                return <img src={src} title={alt.replace('custom_emoji:', '')} className="w-6 h-6 inline-block align-middle mx-0.5" alt={alt.replace('custom_emoji:', '')} />;
+              }
+              return <img src={src} alt={alt} className="rounded-md max-w-full max-h-80 object-contain" referrerPolicy="no-referrer" />;
             }
           }}
         >

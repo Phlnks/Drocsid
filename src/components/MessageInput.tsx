@@ -1,10 +1,19 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
-import { PlusCircle, Loader2, Send, SmilePlus, X, Image as ImageIcon, AtSign } from 'lucide-react';
+import { useAppStore } from '../store/appStore';
+import { PlusCircle, Loader2, Send, SmilePlus, X, Image as ImageIcon, AtSign, Mic, StopCircle, FileUp, BarChart3 } from 'lucide-react';
 const EmojiPicker = lazy(() => import('emoji-picker-react'));
 import PromptModal from './ui/PromptModal';
 import socket from '../lib/socket';
+import PollModal from './PollModal';
+import { useTranslation } from 'react-i18next';
+
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -78,11 +87,14 @@ interface MessageInputProps {
   isDM?: boolean;
   replyingTo?: any;
   onCancelReply?: () => void;
+  onEditLastMessage?: () => void;
 }
 
-export default function MessageInput({ channelId, serverId, isDM = false, replyingTo, onCancelReply }: MessageInputProps) {
+export default function MessageInput({ channelId, serverId, isDM = false, replyingTo, onCancelReply, onEditLastMessage }: MessageInputProps) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
-  const [content, setContent] = useState('');
+  const { addNotification, drafts, setDraft } = useAppStore();
+  const [content, setContent] = useState(drafts[channelId] || '');
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
@@ -92,9 +104,63 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
   const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, label: string, onSubmit: (val: string) => void}>({
     isOpen: false, title: '', label: '', onSubmit: () => {}
   });
+  const [isDragging, setIsDragging] = useState(false);
+  const [serverEmojis, setServerEmojis] = useState<{name: string, url: string}[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [isPollModalOpen, setIsPollModalOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const recordingIntervalRef = useRef<any>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setShowAddMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        const voiceFile = new File([audioBlob], `voice-message-${Date.now()}.webm`, { type: 'audio/webm' });
+        await sendPayload('', voiceFile, null, 'voice');
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      addNotification(t('errors.micAccessDenied'), "error");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      clearInterval(recordingIntervalRef.current);
+    }
+  };
 
   useEffect(() => {
     if (replyingTo && inputRef.current) {
@@ -103,12 +169,43 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
   }, [replyingTo]);
 
   useEffect(() => {
+    setContent(drafts[channelId] || '');
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+  }, [channelId, drafts]);
+
+  useEffect(() => {
     const fetchUsers = async () => {
       const { data } = await supabase.from('profiles').select('*');
       if (data) setUsers(data);
     };
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (serverId && !isDM) {
+      const fetchEmojis = async () => {
+        const { data } = await supabase.from('servers').select('custom_emojis').eq('id', serverId).maybeSingle();
+        if (data && data.custom_emojis) {
+          setServerEmojis(data.custom_emojis);
+        }
+      };
+      fetchEmojis();
+
+      const channel = supabase.channel(`server_emojis_${serverId}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${serverId}` }, (payload) => {
+          if (payload.new && payload.new.custom_emojis) {
+            setServerEmojis(payload.new.custom_emojis);
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [serverId, isDM]);
 
   const filteredUsers = mentionQuery !== null 
     ? [{ username: 'everyone', id: 'everyone' }, ...users].filter(u => 
@@ -143,6 +240,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setContent(val);
+    setDraft(channelId, val);
     
     // Auto-resize textarea
     if (inputRef.current) {
@@ -188,14 +286,41 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       return;
     }
 
+    if (e.key === 'ArrowUp' && !content && onEditLastMessage) {
+      e.preventDefault();
+      onEditLastMessage();
+    }
+
+    if (e.key === 'Escape') {
+      if (replyingTo && onCancelReply) {
+        onCancelReply();
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   };
 
-  const sendPayload = async (textToSend: string, fileToSend: File | null, gifUrl: string | null = null) => {
-    if ((!textToSend.trim() && !fileToSend && !gifUrl) || !user || isUploading) return;
+  const sendPayload = async (textToSend: string, fileToSend: File | null, gifUrl: string | null = null, forcedType?: string, pollData?: any) => {
+    if ((!textToSend.trim() && !fileToSend && !gifUrl && !pollData) || !user || isUploading) return;
+
+    if (fileToSend && fileToSend.size > 20 * 1024 * 1024) {
+      addNotification(t('errors.fileTooLarge', { max: 20 }), "error");
+      return;
+    }
+
+    // Optimistically clear the input UI
+    const previousContent = textToSend;
+    const previousReply = replyingTo;
+    if (!fileToSend && !gifUrl && !pollData) {
+      setDraft(channelId, '');
+      setContent('');
+      setMentionQuery(null);
+      if (inputRef.current) inputRef.current.style.height = 'auto';
+      if (replyingTo && onCancelReply) onCancelReply();
+    }
 
     setIsUploading(true);
     let imageUrl = gifUrl;
@@ -204,15 +329,20 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       if (fileToSend) {
         const fileExt = fileToSend.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `chat-images/${channelId}/${fileName}`;
+        const filePath = `chat-attachments/${channelId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('chat-attachments')
           .upload(filePath, fileToSend);
 
         if (uploadError) {
-          console.warn("Storage upload failed, falling back to base64 compression", uploadError);
-          imageUrl = await processImageForSupabase(fileToSend);
+          if (fileToSend.type.startsWith('image/')) {
+            console.warn("Storage upload failed, falling back to base64 compression", uploadError);
+            imageUrl = await processImageForSupabase(fileToSend);
+          } else {
+            console.error("Storage upload failed for non-image file", uploadError);
+            throw new Error("Erreur lors de l'envoi du fichier.");
+          }
         } else {
           const { data: { publicUrl } } = supabase.storage
             .from('chat-attachments')
@@ -221,22 +351,35 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
         }
       }
 
-      let attachmentType = 'file';
-      if (gifUrl || (fileToSend && fileToSend.type.startsWith('image/'))) {
-        attachmentType = 'image';
-      } else if (fileToSend && fileToSend.type.startsWith('video/')) {
-        attachmentType = 'video';
+      let attachmentType = forcedType || 'file';
+      if (!forcedType) {
+        if (gifUrl || (fileToSend && fileToSend.type.startsWith('image/'))) {
+          attachmentType = 'image';
+        } else if (fileToSend && fileToSend.type.startsWith('video/')) {
+          attachmentType = 'video';
+        } else if (fileToSend && fileToSend.type.startsWith('audio/')) {
+          attachmentType = 'audio';
+        }
+      }
+
+      const attachmentsArray: any[] = imageUrl ? [{ 
+        url: imageUrl, 
+        type: attachmentType,
+        name: fileToSend?.name || (gifUrl ? 'gif' : 'file'),
+        size: fileToSend?.size || 0
+      }] : [];
+
+      if (pollData) {
+        attachmentsArray.push({
+          type: 'poll',
+          data: pollData
+        });
       }
 
       const messageData: any = {
         author_id: user.id,
         content: textToSend.trim() || '',
-        attachments: imageUrl ? [{ 
-          url: imageUrl, 
-          type: attachmentType,
-          name: fileToSend?.name || (gifUrl ? 'gif' : 'file'),
-          size: fileToSend?.size || 0
-        }] : []
+        attachments: attachmentsArray
       };
 
       if (isDM) {
@@ -257,23 +400,23 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
         .select()
         .maybeSingle();
 
-      if (insertError || !newMessage) throw insertError || new Error("Failed to send message");
+      if (insertError || !newMessage) {
+        setContent(previousContent);
+        setDraft(channelId, previousContent);
+        throw insertError || new Error("Failed to send message");
+      }
 
-      // Emit via socket
-      socket.emit(isDM ? 'new-dm-message' : 'new-message', newMessage);
-      
-      // Update last_message_at
-      const parentTable = isDM ? 'dms' : 'channels';
-      await supabase.from(parentTable).update({
-        last_message_at: new Date().toISOString()
-      }).eq('id', channelId);
-      
-      // Handle Mentions & Notifications (Simplified for now)
-      // ...
+      // Explicitly tell socket
+      const eventName = isDM ? 'new-dm-message' : 'new-message';
+      socket.emit(eventName, newMessage);
 
-      setContent('');
-      setMentionQuery(null);
-      if (onCancelReply) onCancelReply();
+      // Clear draft after successful send if it was not optimistically cleared
+      if (fileToSend || gifUrl) {
+        setDraft(channelId, '');
+        setContent('');
+        setMentionQuery(null);
+        if (onCancelReply) onCancelReply();
+      }
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -296,11 +439,11 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
     } catch (error: any) {
       console.error("Error sending message:", error);
       if (error.message === "GIF_TOO_LARGE") {
-        alert("Ce GIF est trop lourd (max 700 Ko). Veuillez choisir un GIF plus léger.");
+        addNotification(t('errors.gifTooLarge'), "error");
       } else if (error.message === "IMAGE_STILL_TOO_LARGE") {
-        alert("Cette image est trop complexe pour être compressée suffisamment. Veuillez choisir une image plus légère.");
+        addNotification(t('errors.imageTooComplex'), "error");
       } else {
-        alert("Erreur lors de l'envoi du message.");
+        addNotification(t('errors.messageSendFailed'), "error");
       }
     } finally {
       setIsUploading(false);
@@ -334,7 +477,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
     if (!items) return;
 
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type && items[i].type.indexOf('image') !== -1) {
+      if (items[i].kind === 'file') {
         const file = items[i].getAsFile();
         if (file) {
           e.preventDefault();
@@ -346,7 +489,14 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
   };
 
   const handleEmojiClick = (emojiData: any) => {
-    setContent(prev => prev + emojiData.emoji);
+    let emojiText = emojiData.emoji;
+    if (emojiData.isCustom) {
+      emojiText = `![custom_emoji:${emojiData.names[0]}](${emojiData.imageUrl}) `;
+    }
+    
+    const newContent = content + emojiText;
+    setContent(newContent);
+    setDraft(channelId, newContent);
     setShowEmojiPicker(false);
     inputRef.current?.focus();
   };
@@ -360,25 +510,49 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
     await sendPayload(content, null, url);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLFormElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       const file = files[0];
-      if (file.type.startsWith('image/')) {
-        await sendPayload(content, file);
-      } else {
-        alert("Seules les images sont supportées.");
-      }
+      await sendPayload(content, file);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLFormElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
 
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    // Only set dragging to false if we leave the main container
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
   return (
-    <div className="p-4 pb-safe shrink-0 flex flex-col gap-2 relative">
+    <div 
+      className="p-4 pb-safe shrink-0 flex flex-col gap-2 relative"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+    >
+      {isDragging && (
+        <div className="absolute inset-2 -top-4 rounded-xl border-2 border-dashed border-indigo-500 bg-indigo-500/10 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-none transition-all">
+          <div className="bg-indigo-500/90 text-white px-6 py-3 justify-center rounded-full font-medium shadow-lg flex items-center gap-2">
+            <PlusCircle className="w-5 h-5" />
+            Déposer le fichier pour l'envoyer
+          </div>
+        </div>
+      )}
       {mentionQuery !== null && filteredUsers.length > 0 && (
         <div className="absolute bottom-full left-4 mb-2 w-64 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg overflow-hidden z-50">
           <div className="p-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider border-b border-zinc-700">
@@ -415,81 +589,160 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       
       <form 
         onSubmit={handleSubmit} 
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        className={`bg-zinc-700 flex items-center px-4 py-2 gap-3 ${replyingTo ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'}`}
+        className={`bg-zinc-700 flex items-center px-4 py-2 gap-3 transition-colors ${replyingTo ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'} ${isDragging ? 'ring-2 ring-indigo-500 bg-zinc-700/80' : ''}`}
       >
-        <button 
-          type="button" 
-          onClick={() => fileInputRef.current?.click()}
-          className="text-zinc-400 hover:text-zinc-200 transition-colors"
-          disabled={isUploading}
-          title="Envoyer une image"
-        >
-          <PlusCircle className="w-6 h-6" />
-        </button>
+        <div className="relative" ref={addMenuRef}>
+          <button 
+            type="button" 
+            onClick={() => setShowAddMenu(!showAddMenu)}
+            className="text-zinc-400 hover:text-zinc-200 transition-colors"
+            disabled={isUploading || isRecording}
+            title="Options d'envoi"
+          >
+            <PlusCircle className="w-6 h-6" />
+          </button>
+
+          {showAddMenu && (
+            <div className="absolute bottom-full left-0 mb-4 w-48 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg overflow-hidden z-50">
+              <button
+                type="button"
+                onClick={() => {
+                  fileInputRef.current?.click();
+                  setShowAddMenu(false);
+                }}
+                className="w-full px-4 py-2 flex items-center gap-3 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
+              >
+                <FileUp className="w-4 h-4 text-zinc-400" />
+                Démarrer un fichier
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPollModalOpen(true);
+                  setShowAddMenu(false);
+                }}
+                className="w-full px-4 py-2 flex items-center gap-3 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
+              >
+                <BarChart3 className="w-4 h-4 text-zinc-400" />
+                Créer un sondage
+              </button>
+            </div>
+          )}
+        </div>
+
         <input 
           type="file" 
           ref={fileInputRef} 
           onChange={handleFileSelect} 
-          accept="image/*"
           className="hidden" 
         />
         
-        <textarea
-          ref={inputRef}
-          value={content}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder={replyingTo ? `Répondre à @${replyingTo.author_name}...` : "Message..."}
-          className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-zinc-100 placeholder-zinc-400 resize-none custom-scrollbar py-1"
-          disabled={isUploading}
-          rows={1}
-          style={{ minHeight: '24px', maxHeight: '120px' }}
-        />
+        {isRecording ? (
+          <div className="flex-1 flex items-center gap-3 bg-zinc-800/50 rounded-md px-3 py-1 text-zinc-200">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="font-mono text-sm">{formatTime(recordingTime)}</span>
+            <span className="text-zinc-400 text-xs italic">Enregistrement en cours...</span>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => {
+                setIsRecording(false);
+                if (mediaRecorder) mediaRecorder.stop();
+                setMediaRecorder(null);
+                clearInterval(recordingIntervalRef.current);
+              }}
+              className="text-zinc-500 hover:text-zinc-300 transition-colors text-xs font-semibold"
+            >
+              Annuler
+            </button>
+          </div>
+        ) : (
+          <textarea
+            ref={inputRef}
+            value={content}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={replyingTo ? `Répondre à @${replyingTo.author_name}...` : "Message..."}
+            className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-zinc-100 placeholder-zinc-400 resize-none custom-scrollbar py-1"
+            disabled={isUploading}
+            rows={1}
+            maxLength={2000}
+            style={{ minHeight: '24px', maxHeight: '120px' }}
+          />
+        )}
         
         <div className="flex items-center gap-1 md:gap-2 relative shrink-0">
-          <button 
-            type="button"
-            onClick={handleGifClick}
-            className="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center justify-center p-1"
-            title="Ajouter un GIF"
-          >
-            <ImageIcon className="w-5 h-5" />
-          </button>
-
-          {showGifPicker && (
-            <GifPicker 
-              onSelect={handleGifSelect} 
-              onClose={() => setShowGifPicker(false)} 
-            />
-          )}
-
-          <div className="relative flex items-center justify-center">
+          {!isRecording && !content.trim() && (
             <button 
               type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center justify-center p-1"
-              title="Ajouter un emoji"
+              onClick={startRecording}
+              className="text-zinc-400 hover:text-red-400 transition-colors flex items-center justify-center p-1"
+              title="Envoyer un message vocal"
+              disabled={isUploading}
             >
-              <SmilePlus className="w-5 h-5" />
+              <Mic className="w-5 h-5" />
             </button>
-            
-            {showEmojiPicker && (
-              <div className="absolute right-0 bottom-full mb-4 z-50">
-                <Suspense fallback={<div className="w-[300px] h-[350px] bg-zinc-800 rounded-lg flex items-center justify-center"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>}>
-                  <EmojiPicker 
-                    theme={'dark' as any} 
-                    onEmojiClick={handleEmojiClick}
-                    lazyLoadEmojis={true}
-                    height={350}
-                    width={300}
-                  />
-                </Suspense>
+          )}
+
+          {isRecording && (
+            <button 
+              type="button"
+              onClick={stopRecording}
+              className="text-red-500 hover:text-red-400 transition-colors flex items-center justify-center p-1 scale-110"
+              title="Arrêter et envoyer"
+            >
+              <StopCircle className="w-6 h-6" />
+            </button>
+          )}
+
+          {!isRecording && (
+            <>
+              <button 
+                type="button"
+                onClick={handleGifClick}
+                className="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center justify-center p-1"
+                title="Ajouter un GIF"
+                disabled={isUploading}
+              >
+                <ImageIcon className="w-5 h-5" />
+              </button>
+
+              {showGifPicker && (
+                <GifPicker 
+                  onSelect={handleGifSelect} 
+                  onClose={() => setShowGifPicker(false)} 
+                />
+              )}
+
+              <div className="relative flex items-center justify-center">
+                <button 
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center justify-center p-1"
+                  title="Ajouter un emoji"
+                  disabled={isUploading}
+                >
+                  <SmilePlus className="w-5 h-5" />
+                </button>
+                
+                {showEmojiPicker && (
+                  <div className="absolute right-0 bottom-full mb-4 z-50">
+                    <Suspense fallback={<div className="w-[300px] h-[350px] bg-zinc-800 rounded-lg flex items-center justify-center"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>}>
+                      <EmojiPicker 
+                        theme={'dark' as any} 
+                        onEmojiClick={handleEmojiClick}
+                        lazyLoadEmojis={true}
+                        height={350}
+                        width={300}
+                        customEmojis={serverEmojis.map(e => ({ id: e.name, names: [e.name], imgUrl: e.url }))}
+                      />
+                    </Suspense>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           {content.trim() && !isUploading && (
             <button 
@@ -505,6 +758,12 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
           )}
         </div>
       </form>
+
+      <PollModal 
+        isOpen={isPollModalOpen}
+        onClose={() => setIsPollModalOpen(false)}
+        onSubmit={(pollData) => sendPayload('', null, null, 'poll', pollData)}
+      />
 
       <PromptModal
         isOpen={promptConfig.isOpen}

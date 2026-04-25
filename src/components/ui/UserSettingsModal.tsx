@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Mic, Settings, LogOut, Camera, Play, Square, Bell } from 'lucide-react';
+import { X, Mic, Settings, LogOut, Camera, Play, Square, Bell, Keyboard, Globe } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAppStore } from '../../store/appStore';
 import { useAuthStore } from '../../store/authStore';
 import PromptModal from './PromptModal';
 import { processImageForSupabase } from '../../lib/imageUtils';
+import { useTranslation } from 'react-i18next';
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -12,11 +13,18 @@ interface UserSettingsModalProps {
 }
 
 export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'voice' | 'account' | 'appearance' | 'notifications'>('account');
-  const { voiceSettings, setVoiceSettings, theme, setTheme } = useAppStore();
+  const { t, i18n } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'voice' | 'account' | 'appearance' | 'notifications' | 'keybinds' | 'language'>('account');
+  const { 
+    voiceSettings, setVoiceSettings, 
+    theme, setTheme, 
+    addNotification, 
+    keybinds, setKeybinds,
+    notificationSettings, setNotificationSettings 
+  } = useAppStore();
   const { user } = useAuthStore();
-  const [profile, setProfile] = useState<{username: string, avatar_url: string, status: string}>({
-    username: '', avatar_url: '', status: 'online'
+  const [profile, setProfile] = useState<{username: string, avatar_url: string, status: string, bio: string}>({
+    username: '', avatar_url: '', status: 'online', bio: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
@@ -29,6 +37,27 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
+  // Devices
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
+  const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([]);
+
+  useEffect(() => {
+    // Check permissions and load devices
+    const loadDevices = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setAudioInputs(devices.filter(d => d.kind === 'audioinput'));
+        setAudioOutputs(devices.filter(d => d.kind === 'audiooutput'));
+      } catch (err) {
+        console.error("Error accessing devices:", err);
+      }
+    };
+    if (isOpen && activeTab === 'voice') {
+      loadDevices();
+    }
+  }, [isOpen, activeTab]);
+
   useEffect(() => {
     if (isOpen && user) {
       const fetchProfile = async () => {
@@ -37,7 +66,8 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
           setProfile({
             username: data.username || '',
             avatar_url: data.avatar_url || '',
-            status: data.status || 'online'
+            status: data.status || 'online',
+            bio: data.bio || ''
           });
         }
       };
@@ -57,13 +87,15 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
   const startMicTest = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const constraints: MediaStreamConstraints = {
         audio: {
           echoCancellation: voiceSettings.echoCancellation,
           noiseSuppression: voiceSettings.noiseSuppression,
           autoGainControl: voiceSettings.autoGainControl,
-        } 
-      });
+          ...(voiceSettings.selectedMicrophoneId ? { deviceId: { exact: voiceSettings.selectedMicrophoneId } } : {})
+        }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -103,7 +135,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
       setIsTestingMic(true);
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      alert("Impossible d'accéder au microphone. Veuillez vérifier vos permissions.");
+      addNotification("Impossible d'accéder au microphone. Veuillez vérifier vos permissions.", "error");
     }
   };
 
@@ -153,7 +185,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
     if (!file || !user) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("L'image est trop grande (max 2 MB)");
+      addNotification(t('errors.imageTooLarge', { max: 2 }), "error");
       return;
     }
 
@@ -181,9 +213,9 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
       if (error.message === "GIF_TOO_LARGE") {
-        alert("Ce GIF est trop lourd. Veuillez choisir un GIF plus léger.");
+        addNotification(t('errors.gifTooLarge'), "error");
       } else {
-        alert("Erreur lors du téléchargement de l'image");
+        addNotification(t('errors.imageUploadFailed'), "error");
       }
     } finally {
       setIsSaving(false);
@@ -199,15 +231,16 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
         id: user.id,
         username: profile.username,
         avatar_url: profile.avatar_url,
-        status: profile.status
+        status: profile.status,
+        bio: profile.bio
       });
       
       if (error) throw error;
       
-      alert("Profil mis à jour avec succès !");
+      addNotification(t('common.profileUpdated'), "success");
     } catch (error: any) {
       console.error("Error updating profile:", error);
-      alert(`Erreur lors de la mise à jour : ${error.message}`);
+      addNotification(`${t('errors.updateFailed')}: ${error.message}`, "error");
     } finally {
       setIsSaving(false);
     }
@@ -220,7 +253,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
         {/* Sidebar */}
         <div className="w-full md:w-60 bg-zinc-900/50 flex md:flex-col p-4 border-b md:border-b-0 md:border-r border-zinc-700/50 shrink-0 overflow-x-auto md:overflow-y-auto no-scrollbar gap-2 md:gap-1">
           <div className="hidden md:block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 px-2">
-            Paramètres utilisateur
+            {t('settings.title')}
           </div>
           
           <button
@@ -228,7 +261,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'account' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Settings className="w-4 h-4" />
-            <span className="font-medium">Mon Compte</span>
+            <span className="font-medium">{t('settings.account')}</span>
           </button>
           
           <button
@@ -236,7 +269,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'voice' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Mic className="w-4 h-4" />
-            <span className="font-medium">Voix et Vidéo</span>
+            <span className="font-medium">{t('settings.voice')}</span>
           </button>
 
           <button
@@ -244,15 +277,31 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'appearance' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Settings className="w-4 h-4" />
-            <span className="font-medium">Apparence</span>
+            <span className="font-medium">{t('settings.appearance')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('language')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'language' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Globe className="w-4 h-4" />
+            <span className="font-medium">{t('modals.userSettings.language')}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md md:mb-4 transition-colors whitespace-nowrap ${activeTab === 'notifications' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'notifications' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Bell className="w-4 h-4" />
-            <span className="font-medium">Notifications</span>
+            <span className="font-medium">{t('settings.notifications')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('keybinds')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md md:mb-4 transition-colors whitespace-nowrap ${activeTab === 'keybinds' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Keyboard className="w-4 h-4" />
+            <span className="font-medium">{t('settings.keybinds')}</span>
           </button>
 
           <div className="md:mt-auto md:pt-4 md:border-t border-zinc-700/50 flex items-center">
@@ -261,7 +310,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
               className="flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md text-red-400 hover:bg-red-500/10 transition-colors whitespace-nowrap w-full"
             >
               <LogOut className="w-4 h-4" />
-              <span className="font-medium">Déconnexion</span>
+              <span className="font-medium">{t('settings.logout')}</span>
             </button>
           </div>
         </div>
@@ -273,20 +322,55 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
             className="absolute top-4 right-4 md:top-6 md:right-6 p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 rounded-full transition-colors flex flex-col items-center gap-1 z-10 bg-zinc-800/80 md:bg-transparent"
           >
             <X className="w-5 h-5" />
-            <span className="hidden md:block text-[10px] font-bold uppercase">Échap</span>
+            <span className="hidden md:block text-[10px] font-bold uppercase">{t('common.esc')}</span>
           </button>
 
-          <div className="flex-1 overflow-y-auto p-6 md:p-10">
+          <div className="flex-1 overflow-y-auto pt-6 pl-6 pb-6 pr-16 md:pt-10 md:pl-10 md:pb-10 md:pr-24 custom-scrollbar">
             {activeTab === 'voice' && (
               <div className="max-w-xl">
-                <h2 className="text-xl font-bold text-zinc-100 mb-6">Paramètres de la voix</h2>
+                <h2 className="text-xl font-bold text-zinc-100 mb-6">{t('settings.voice')}</h2>
                 
                 <div className="space-y-6">
+                  {/* Périphériques */}
                   <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
-                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Test du micro</h3>
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.voiceVideo.hardwareDevices')}</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('settings.voiceVideo.inputDevice')}</label>
+                        <select 
+                          className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
+                          value={voiceSettings.selectedMicrophoneId || ''}
+                          onChange={(e) => setVoiceSettings({ selectedMicrophoneId: e.target.value })}
+                        >
+                          <option value="">{t('settings.voiceVideo.default')}</option>
+                          {audioInputs.map(device => (
+                            <option key={device.deviceId} value={device.deviceId}>{device.label || `${t('settings.voiceVideo.inputDevice')} ${device.deviceId.substring(0,5)}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('settings.voiceVideo.outputDevice')}</label>
+                         <select 
+                          className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
+                          value={voiceSettings.selectedSpeakerId || ''}
+                          onChange={(e) => setVoiceSettings({ selectedSpeakerId: e.target.value })}
+                        >
+                          <option value="">{t('settings.voiceVideo.default')}</option>
+                          {audioOutputs.map(device => (
+                            <option key={device.deviceId} value={device.deviceId}>{device.label || `${t('settings.voiceVideo.outputDevice')} ${device.deviceId.substring(0,5)}`}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-zinc-500 mt-1">{t('settings.voiceVideo.audioOutputChangeNote')}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.voiceVideo.micTest')}</h3>
                     <div className="space-y-4">
                       <p className="text-sm text-zinc-400">
-                        Vérifiez que votre micro fonctionne correctement. Parlez pour voir la barre réagir.
+                        {t('settings.voiceVideo.micTestNote')}
                       </p>
                       
                       <div className="flex items-center gap-4">
@@ -301,12 +385,12 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                           {isTestingMic ? (
                             <>
                               <Square className="w-4 h-4 fill-current" />
-                              Arrêter le test
+                              {t('settings.voiceVideo.stopTest')}
                             </>
                           ) : (
                             <>
                               <Play className="w-4 h-4 fill-current" />
-                              Vérifier le micro
+                              {t('settings.voiceVideo.checkMic')}
                             </>
                           )}
                         </button>
@@ -322,13 +406,13 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                   </div>
 
                   <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
-                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Traitement de la voix</h3>
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.voiceVideo.voiceProcessing')}</h3>
                     
                     <div className="space-y-4">
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">Annulation d'écho</div>
-                          <div className="text-xs text-zinc-400">Empêche le micro de capter le son de vos haut-parleurs.</div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.voiceVideo.echoCancellation')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.voiceVideo.echoCancellationDesc')}</div>
                         </div>
                         <div className={`w-10 h-6 rounded-full transition-colors relative ${voiceSettings.echoCancellation ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
                           <input 
@@ -345,8 +429,8 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">Suppression du bruit</div>
-                          <div className="text-xs text-zinc-400">Filtre les bruits de fond (clavier, ventilateur, etc.).</div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.voiceVideo.noiseSuppression')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.voiceVideo.noiseSuppressionDesc')}</div>
                         </div>
                         <div className={`w-10 h-6 rounded-full transition-colors relative ${voiceSettings.noiseSuppression ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
                           <input 
@@ -363,8 +447,8 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">Contrôle automatique du gain</div>
-                          <div className="text-xs text-zinc-400">Ajuste automatiquement le volume de votre micro pour qu'il soit constant.</div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.voiceVideo.autoGainControl')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.voiceVideo.autoGainControlDesc')}</div>
                         </div>
                         <div className={`w-10 h-6 rounded-full transition-colors relative ${voiceSettings.autoGainControl ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
                           <input 
@@ -381,10 +465,10 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <div className="text-zinc-200 font-medium">Sensibilité du micro</div>
+                          <div className="text-zinc-200 font-medium">{t('settings.voiceVideo.micSensitivity')}</div>
                           <div className="text-xs font-mono text-zinc-400 bg-zinc-800 px-2 py-1 rounded">{voiceSettings.micSensitivity}</div>
                         </div>
-                        <p className="text-xs text-zinc-400">Plus la valeur est basse, plus le micro est sensible. (0-100)</p>
+                        <p className="text-xs text-zinc-400">{t('settings.voiceVideo.micSensitivityDesc')}</p>
                         <input 
                           type="range"
                           min="0"
@@ -395,15 +479,15 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                           className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                         />
                         <div className="flex justify-between text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                          <span>Très sensible</span>
-                          <span>Peu sensible</span>
+                          <span>{t('settings.voiceVideo.verySensitive')}</span>
+                          <span>{t('settings.voiceVideo.lessSensitive')}</span>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   <div className="text-sm text-zinc-400 bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-lg">
-                    <p><strong>Note :</strong> Les modifications s'appliqueront lors de votre prochaine connexion à un salon vocal.</p>
+                    <p>{t('settings.voiceVideo.voiceChangeNote')}</p>
                   </div>
                 </div>
               </div>
@@ -411,7 +495,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
             {activeTab === 'account' && (
               <div className="max-w-xl">
-                <h2 className="text-xl font-bold text-zinc-100 mb-6">Mon Compte</h2>
+                <h2 className="text-xl font-bold text-zinc-100 mb-6">{t('settings.account')}</h2>
                 
                 <div className="bg-zinc-900/50 p-6 rounded-lg border border-zinc-700/50 mb-6">
                   <div className="flex gap-6 items-start">
@@ -442,7 +526,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                     <div className="flex-1 space-y-4">
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          Surnom / Pseudo
+                          {t('modals.userProfile.username')}
                         </label>
                         <input
                           type="text"
@@ -451,26 +535,42 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                          {t('modals.userSettings.aboutMe')}
+                        </label>
+                        <textarea
+                          value={profile.bio}
+                          onChange={(e) => setProfile({...profile, bio: e.target.value})}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500 resize-none h-20"
+                          maxLength={200}
+                          placeholder={t('modals.userSettings.aboutMePlaceholder')}
+                        />
+                        <div className="text-right text-[10px] text-zinc-500 mt-1">
+                          {profile.bio.length}/200
+                        </div>
+                      </div>
                       
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          Statut
+                          {t('modals.userProfile.status')}
                         </label>
                         <select
                           value={profile.status}
                           onChange={(e) => setProfile({...profile, status: e.target.value})}
                           className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
                         >
-                          <option value="online">En ligne</option>
-                          <option value="idle">Absent</option>
-                          <option value="dnd">Ne pas déranger</option>
-                          <option value="offline">Hors ligne</option>
+                          <option value="online">{t('modals.userProfile.online')}</option>
+                          <option value="idle">{t('modals.userProfile.idle')}</option>
+                          <option value="dnd">{t('modals.userProfile.dnd')}</option>
+                          <option value="offline">{t('modals.userProfile.offline')}</option>
                         </select>
                       </div>
                       
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          Email
+                          {t('modals.userProfile.email')}
                         </label>
                         <input
                           type="text"
@@ -489,29 +589,29 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                     disabled={isSaving}
                     className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded-md font-medium transition-colors disabled:opacity-50"
                   >
-                    {isSaving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                    {isSaving ? t('modals.userSettings.saving') : t('modals.userSettings.saveChanges')}
                   </button>
                 </div>
               </div>
             )}
             {activeTab === 'appearance' && (
               <div className="max-w-xl">
-                <h2 className="text-xl md:text-2xl font-bold text-white mb-6">Apparence</h2>
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-6">{t('modals.userSettings.appearance')}</h2>
                 
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">Thème</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">{t('settings.appearanceSettings.activeTheme')}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       <button
-                        onClick={() => setTheme('default')}
-                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'default' ? 'border-indigo-500 bg-indigo-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                        onClick={() => setTheme('classic')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'classic' ? 'border-indigo-500 bg-indigo-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
                       >
                         <div className="w-full h-24 bg-zinc-900 rounded-md mb-3 flex items-center justify-center border border-zinc-700">
                           <div className="w-16 h-12 bg-zinc-800 rounded shadow-sm flex items-center justify-center">
                             <div className="w-8 h-2 bg-indigo-500 rounded-full"></div>
                           </div>
                         </div>
-                        <span className="font-medium text-zinc-200">Classique</span>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.classic')}</span>
                       </button>
 
                       <button
@@ -523,36 +623,227 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                             <div className="w-8 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
                           </div>
                         </div>
-                        <span className="font-medium text-zinc-200">Néon Futuriste</span>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.neon')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('ocean')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'ocean' ? 'border-sky-500 bg-sky-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#0A192F] rounded-md mb-3 flex items-center justify-center border border-[#112240]">
+                          <div className="w-16 h-12 bg-[#112240] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-sky-500 rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.ocean')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('forest')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'forest' ? 'border-green-500 bg-green-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#112015] rounded-md mb-3 flex items-center justify-center border border-[#1d3323]">
+                          <div className="w-16 h-12 bg-[#1d3323] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-green-500 rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.forest')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('sunset')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'sunset' ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#2a1717] rounded-md mb-3 flex items-center justify-center border border-[#3f2222]">
+                          <div className="w-16 h-12 bg-[#3f2222] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-orange-500 rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.sunset')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('dracula')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'dracula' ? 'border-purple-500 bg-purple-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#282a36] rounded-md mb-3 flex items-center justify-center border border-[#44475a]">
+                          <div className="w-16 h-12 bg-[#44475a] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-[#bd93f9] rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.dracula', 'Dracula')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('synthwave')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'synthwave' ? 'border-pink-500 bg-pink-500/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#261447] rounded-md mb-3 flex items-center justify-center border border-[#4a2d8a]">
+                          <div className="w-16 h-12 bg-[#2f1b54] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-[#ff7edb] rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.synthwave', 'Synthwave')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('nord')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'nord' ? 'border-[#88c0d0] bg-[#88c0d0]/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#2e3440] rounded-md mb-3 flex items-center justify-center border border-[#434c5e]">
+                          <div className="w-16 h-12 bg-[#3b4252] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-[#81a1c1] rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.nord', 'Nord')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('monokai')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'monokai' ? 'border-[#f92672] bg-[#f92672]/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#272822] rounded-md mb-3 flex items-center justify-center border border-[#49483e]">
+                          <div className="w-16 h-12 bg-[#3e3d32] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-[#a6e22e] rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.monokai', 'Monokai')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTheme('cyberpunk')}
+                        className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all ${theme === 'cyberpunk' ? 'border-[#fcee0a] bg-[#fcee0a]/10' : 'border-zinc-700 bg-zinc-800 hover:border-zinc-500'}`}
+                      >
+                        <div className="w-full h-24 bg-[#0d0221] rounded-md mb-3 flex items-center justify-center border border-[#3b0985]">
+                          <div className="w-16 h-12 bg-[#1e0548] rounded shadow-sm flex items-center justify-center">
+                            <div className="w-8 h-2 bg-[#00ff9f] rounded-full"></div>
+                          </div>
+                        </div>
+                        <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.cyberpunk', 'Cyberpunk')}</span>
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
             )}
+            {activeTab === 'language' && (
+              <div className="max-w-xl">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-6 uppercase tracking-wider">{t('modals.userSettings.language')}</h2>
+                
+                <div className="bg-zinc-900/50 p-6 rounded-lg border border-zinc-700/50">
+                  <p className="text-zinc-400 mb-6">{t('modals.userSettings.langDesc')}</p>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    <button 
+                      onClick={() => {
+                        i18n.changeLanguage('fr');
+                        window.location.reload();
+                      }}
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-all ${i18n.language.startsWith('fr') ? 'bg-indigo-500/10 border-indigo-500 ring-1 ring-indigo-500/50' : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700/50'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden shadow-inner border border-zinc-600/50">
+                          <img src="https://flagcdn.com/w80/fr.png" alt="FR" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-white">Français</div>
+                          <div className="text-xs text-zinc-400">French</div>
+                        </div>
+                      </div>
+                      {i18n.language.startsWith('fr') && <div className="w-3 h-3 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.6)]"></div>}
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        i18n.changeLanguage('en');
+                        window.location.reload();
+                      }}
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-all ${i18n.language.startsWith('en') ? 'bg-indigo-500/10 border-indigo-500 ring-1 ring-indigo-500/50' : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700/50'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden shadow-inner border border-zinc-600/50">
+                          <img src="https://flagcdn.com/w80/us.png" alt="US" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-white">English (US)</div>
+                          <div className="text-xs text-zinc-400">English</div>
+                        </div>
+                      </div>
+                      {i18n.language.startsWith('en') && <div className="w-3 h-3 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.6)]"></div>}
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        i18n.changeLanguage('es');
+                        window.location.reload();
+                      }}
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-all ${i18n.language.startsWith('es') ? 'bg-indigo-500/10 border-indigo-500 ring-1 ring-indigo-500/50' : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-700/50'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden shadow-inner border border-zinc-600/50">
+                          <img src="https://flagcdn.com/w80/es.png" alt="ES" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-white">Español</div>
+                          <div className="text-xs text-zinc-400">Spanish</div>
+                        </div>
+                      </div>
+                      {i18n.language.startsWith('es') && <div className="w-3 h-3 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.6)]"></div>}
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <p className="text-xs text-amber-200">
+                    <strong>Note:</strong> L'application redémarrera pour appliquer les changements de langue de manière optimale.
+                  </p>
+                </div>
+              </div>
+            )}
             
             {activeTab === 'notifications' && (
               <div className="max-w-xl">
-                <h2 className="text-xl md:text-2xl font-bold text-white mb-6">Notifications</h2>
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-6">{t('settings.notifications')}</h2>
                 
                 <div className="space-y-6">
                   <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
-                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Paramètres globaux</h3>
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.notificationsSettings.notificationType')}</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-zinc-200 font-medium">{t('settings.notificationsSettings.receptionPreference')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.notificationsSettings.receptionPreferenceDesc')}</div>
+                        </div>
+                        <select 
+                          value={notificationSettings.preference}
+                          onChange={(e) => setNotificationSettings({ preference: e.target.value as any })}
+                          className="bg-zinc-800 border border-zinc-700 rounded p-1 text-sm text-white outline-none focus:border-indigo-500"
+                        >
+                          <option value="all">{t('settings.notificationsSettings.allMessages')}</option>
+                          <option value="mentions">{t('settings.notificationsSettings.onlyMentions')}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.notificationsSettings.globalSettings')}</h3>
                     
                     <div className="space-y-4">
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">Notifications de bureau</div>
-                          <div className="text-xs text-zinc-400">Recevoir des notifications push lorsque vous n'êtes pas sur l'onglet.</div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.notificationsSettings.desktopNotifications')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.notificationsSettings.desktopNotificationsDesc')}</div>
                         </div>
-                        <div className={`w-10 h-6 rounded-full transition-colors relative ${useAppStore.getState().notificationSettings.desktop ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
+                        <div className={`w-10 h-6 rounded-full transition-colors relative ${notificationSettings.desktop ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
                           <input 
                             type="checkbox" 
                             className="sr-only" 
-                            checked={useAppStore.getState().notificationSettings.desktop} 
-                            onChange={(e) => useAppStore.getState().setNotificationSettings({ desktop: e.target.checked })}
+                            checked={notificationSettings.desktop} 
+                            onChange={(e) => setNotificationSettings({ desktop: e.target.checked })}
                           />
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${useAppStore.getState().notificationSettings.desktop ? 'translate-x-4' : ''}`} />
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationSettings.desktop ? 'translate-x-4' : ''}`} />
                         </div>
                       </label>
 
@@ -560,42 +851,114 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">Sons des messages</div>
-                          <div className="text-xs text-zinc-400">Jouer un son lors de la réception d'un nouveau message.</div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.notificationsSettings.messageSounds')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.notificationsSettings.messageSoundsDesc')}</div>
                         </div>
-                        <div className={`w-10 h-6 rounded-full transition-colors relative ${useAppStore.getState().notificationSettings.sounds ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
+                        <div className={`w-10 h-6 rounded-full transition-colors relative ${notificationSettings.sounds ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
                           <input 
                             type="checkbox" 
                             className="sr-only" 
-                            checked={useAppStore.getState().notificationSettings.sounds} 
-                            onChange={(e) => useAppStore.getState().setNotificationSettings({ sounds: e.target.checked })}
+                            checked={notificationSettings.sounds} 
+                            onChange={(e) => setNotificationSettings({ sounds: e.target.checked })}
                           />
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${useAppStore.getState().notificationSettings.sounds ? 'translate-x-4' : ''}`} />
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationSettings.sounds ? 'translate-x-4' : ''}`} />
                         </div>
                       </label>
                     </div>
                   </div>
 
                   <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
-                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">Mentions</h3>
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.notificationsSettings.mentions')}</h3>
                     <div className="space-y-4">
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">Notifications pour @everyone</div>
-                          <div className="text-xs text-zinc-400">Recevoir des notifications pour les mentions générales.</div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.notificationsSettings.everyoneNotifications')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.notificationsSettings.everyoneNotificationsDesc')}</div>
                         </div>
-                        <div className={`w-10 h-6 rounded-full transition-colors relative ${useAppStore.getState().notificationSettings.everyone ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
+                        <div className={`w-10 h-6 rounded-full transition-colors relative ${notificationSettings.everyone ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
                           <input 
                             type="checkbox" 
                             className="sr-only" 
-                            checked={useAppStore.getState().notificationSettings.everyone} 
-                            onChange={(e) => useAppStore.getState().setNotificationSettings({ everyone: e.target.checked })}
+                            checked={notificationSettings.everyone} 
+                            onChange={(e) => setNotificationSettings({ everyone: e.target.checked })}
                           />
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${useAppStore.getState().notificationSettings.everyone ? 'translate-x-4' : ''}`} />
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationSettings.everyone ? 'translate-x-4' : ''}`} />
                         </div>
                       </label>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'keybinds' && (
+              <div className="max-w-xl">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-6">{t('settings.keybindsSettings.title')}</h2>
+                <p className="text-zinc-400 mb-6">{t('settings.keybindsSettings.description')}</p>
+                
+                <div className="space-y-6">
+                  {/* Mute Keybind */}
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.keybindsSettings.mute')}</h3>
+                    <div className="group">
+                      <div className="text-xs text-zinc-400 mb-2">{t('settings.keybindsSettings.muteDesc')}</div>
+                      <input 
+                        type="text" 
+                        readOnly
+                        value={keybinds.mute}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                        onKeyDown={(e) => {
+                          e.preventDefault();
+                          const keys = [];
+                          if (e.ctrlKey || e.metaKey) keys.push('CommandOrControl');
+                          if (e.altKey) keys.push('Alt');
+                          if (e.shiftKey) keys.push('Shift');
+                          
+                          let key = e.key;
+                          // Handle specialization for Electron
+                          if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') return;
+                          if (key === ' ') key = 'Space';
+                          if (key.length === 1) key = key.toUpperCase();
+                          // Ensure keys like F8 stay F8
+                          
+                          keys.push(key);
+                          const finalShortcut = keys.join('+');
+                          setKeybinds({ mute: finalShortcut });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Deafen Keybind */}
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.keybindsSettings.deafen')}</h3>
+                    <div className="group">
+                      <div className="text-xs text-zinc-400 mb-2">{t('settings.keybindsSettings.deafenDesc')}</div>
+                      <input 
+                        type="text" 
+                        readOnly
+                        value={keybinds.deafen}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                        onKeyDown={(e) => {
+                          e.preventDefault();
+                          const keys = [];
+                          if (e.ctrlKey || e.metaKey) keys.push('CommandOrControl');
+                          if (e.altKey) keys.push('Alt');
+                          if (e.shiftKey) keys.push('Shift');
+                          
+                          let key = e.key;
+                          if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') return;
+                          if (key === ' ') key = 'Space';
+                          if (key.length === 1) key = key.toUpperCase();
+                          
+                          keys.push(key);
+                          const finalShortcut = keys.join('+');
+                          setKeybinds({ deafen: finalShortcut });
+                        }}
+                      />
+                    </div>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -607,10 +970,10 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
         isOpen={isPromptOpen}
         onClose={() => setIsPromptOpen(false)}
         onSubmit={(url) => setProfile({...profile, avatar_url: url})}
-        title="Changer la photo de profil"
-        inputLabel="URL de l'image"
+        title={t('modals.userProfile.changeAvatar')}
+        inputLabel={t('modals.userProfile.imageUrl')}
         placeholder="https://..."
-        submitText="Valider"
+        submitText={t('common.save')}
       />
     </div>
   );

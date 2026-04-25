@@ -1,15 +1,24 @@
 import { useState, useEffect } from 'react';
 
+const previewCache = new Map<string, any>();
+
 export default function LinkPreview({ url }: { url: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMetadata = async () => {
+      if (previewCache.has(url)) {
+        setData(previewCache.get(url));
+        setLoading(false);
+        return;
+      }
+
       try {
         const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`);
         const json = await res.json();
         if (json.status === 'success') {
+          previewCache.set(url, json.data);
           setData(json.data);
         }
       } catch (e) {

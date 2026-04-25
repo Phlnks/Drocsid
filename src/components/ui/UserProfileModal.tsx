@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import UserAvatar from './UserAvatar';
 import socket from '../../lib/socket';
+import { useTranslation } from 'react-i18next';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface UserProfileModalProps {
 }
 
 export default function UserProfileModal({ isOpen, onClose, user }: UserProfileModalProps) {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const { setSelectedServerId, setSelectedDmId } = useAppStore();
   const [isCreatingDM, setIsCreatingDM] = useState(false);
@@ -195,7 +197,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
           className="w-full flex items-center gap-3 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-medium transition-colors"
         >
           <UserPlus className="w-5 h-5" />
-          Ajouter en ami
+          {t('modals.userProfile.addFriend')}
         </button>
       );
     }
@@ -208,7 +210,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
             className="w-full flex items-center gap-3 px-4 py-2.5 bg-zinc-700 text-zinc-400 rounded-md font-medium cursor-not-allowed"
           >
             <Clock className="w-5 h-5" />
-            Demande envoyée
+            {t('modals.userProfile.requestSent')}
           </button>
         );
       } else {
@@ -219,14 +221,14 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
               className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-md transition-colors font-medium"
             >
               <Check className="w-5 h-5" />
-              Accepter
+              {t('modals.userProfile.accept')}
             </button>
             <button 
               onClick={handleRemoveFriend}
               className="flex-1 flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 text-white py-2.5 rounded-md transition-colors font-medium"
             >
               <X className="w-5 h-5" />
-              Ignorer
+              {t('modals.userProfile.ignore')}
             </button>
           </div>
         );
@@ -240,7 +242,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
           className="w-full flex items-center gap-3 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded-md font-medium transition-colors"
         >
           <UserMinus className="w-5 h-5" />
-          Retirer l'ami
+          {t('modals.userProfile.removeFriend')}
         </button>
       );
     }
@@ -270,10 +272,20 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
               {user.username || user.displayName || 'User'}
             </h2>
             <div className="text-sm text-zinc-400 capitalize">
-              {user.status === 'dnd' ? 'Ne pas déranger' : 
-               user.status === 'idle' ? 'Absent' : 
-               user.status === 'offline' ? 'Hors ligne' : 'En ligne'}
+              {user.status === 'dnd' ? t('modals.userProfile.dnd') : 
+               user.status === 'idle' ? t('modals.userProfile.idle') : 
+               user.status === 'offline' ? t('modals.userProfile.offline') : t('modals.userProfile.online')}
             </div>
+            {user.bio && (
+              <div className="mt-4">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                  {t('modals.userSettings.aboutMe')}
+                </div>
+                <div className="text-sm text-zinc-300 bg-zinc-800/50 p-2 rounded border border-zinc-700/50 italic whitespace-pre-wrap break-words">
+                  {user.bio}
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="space-y-2 border-t border-zinc-800 pt-4">
@@ -285,7 +297,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
                   className="w-full flex items-center gap-3 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white rounded-md font-medium transition-colors"
                 >
                   <MessageSquare className="w-5 h-5" />
-                  {isCreatingDM ? 'Création...' : 'Envoyer un message'}
+                  {isCreatingDM ? t('modals.userProfile.calling') : t('modals.userProfile.sendMessage')}
                 </button>
                 <button 
                   onClick={handleCall}
@@ -293,7 +305,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
                   className="w-full flex items-center gap-3 px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded-md font-medium transition-colors"
                 >
                   <Phone className="w-5 h-5" />
-                  Appeler
+                  {t('modals.userProfile.call')}
                 </button>
                 {renderFriendButton()}
               </>

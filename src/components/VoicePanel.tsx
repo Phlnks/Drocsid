@@ -5,8 +5,11 @@ import { useAppStore } from '../store/appStore';
 import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye } from 'lucide-react';
 import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound, playRingtone, stopRingtone } from '../lib/sounds';
 import clsx from 'clsx';
+import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
+import { useTranslation } from 'react-i18next';
 
 export default function VoicePanel() {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const { 
     connectedVoiceChannelId, 
@@ -30,6 +33,8 @@ export default function VoicePanel() {
   const [callDuration, setCallDuration] = useState(0);
   const [isCall, setIsCall] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pendingQuality, setPendingQuality] = useState<any>(null);
   const [streamViewers, setStreamViewers] = useState<any[]>([]);
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -127,7 +132,7 @@ export default function VoicePanel() {
               names.push(profile.username || profile.display_name);
             }
           }
-          setChannelName(names.join(', ') || 'Appel privé');
+          setChannelName(names.join(', ') || t('voice.privateCall'));
         }
       }
     };
@@ -243,22 +248,76 @@ export default function VoicePanel() {
     }
   };
 
-  const handleScreenShare = async (quality: { width: number, height: number, frameRate: number }) => {
+  const handleScreenShare = async (quality: { width: number, height: number, frameRate: number }, sourceId?: string) => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: quality.width },
-          height: { ideal: quality.height },
-          frameRate: { ideal: quality.frameRate }, // Use ideal instead of min which is unsupported in getDisplayMedia
-          displaySurface: 'browser', // Hint that we prefer browser tabs
-          surfaceSwitching: 'include',
-          selfBrowserSurface: 'include',
-          systemAudio: 'include'
-        } as any,
-        audio: true
-      });
+      const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+      let stream: MediaStream;
+
+      if (isElectron && sourceId) {
+        console.log("Attempting Electron screen share with source:", sourceId);
+        
+        // Add a small delay to ensure the picker modal is fully closed and system is ready
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const isScreen = sourceId.startsWith('screen:');
+        
+        try {
+          if (!isScreen) throw new Error("Audio capture is only supported for entire screens");
+          
+          // Attempt 1: Video + System Audio
+          // CRITICAL: audio constraint must NOT have chromeMediaSourceId, only chromeMediaSource
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop'
+              }
+            },
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sourceId,
+                maxWidth: quality.width,
+                maxHeight: quality.height,
+                maxFrameRate: quality.frameRate
+              }
+            }
+          } as any);
+          console.log("Electron video+audio stream obtained successfully");
+        } catch (err) {
+          console.warn("Could not start with audio, falling back to video only.", err);
+          
+          // Attempt 2: Video Only
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sourceId,
+                maxWidth: quality.width,
+                maxHeight: quality.height,
+                maxFrameRate: quality.frameRate
+              }
+            }
+          } as any);
+          console.log("Electron video-only stream obtained successfully");
+        }
+      } else {
+        // Browser standard capture
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: { ideal: quality.width },
+            height: { ideal: quality.height },
+            frameRate: { ideal: quality.frameRate },
+            displaySurface: 'browser',
+            surfaceSwitching: 'include',
+            selfBrowserSurface: 'include',
+            systemAudio: 'include'
+          } as any,
+          audio: true
+        });
+      }
       
-      // Set content hint and apply additional constraints to prevent background freezing
+      console.log("Screen share stream obtained:", stream.id);
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
         if ('contentHint' in videoTrack) {
@@ -269,6 +328,7 @@ export default function VoicePanel() {
       playScreenShareStartSound();
       setScreenShareQuality(quality);
       setShowQualityMenu(false);
+      setShowPicker(false);
       
       const useAppStoreState = useAppStore.getState();
       useAppStoreState.setLocalScreenShareStream(stream);
@@ -312,6 +372,17 @@ export default function VoicePanel() {
     }
   };
 
+  const startScreenShareFlow = (quality: { width: number, height: number, frameRate: number }) => {
+    const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+    if (isElectron) {
+      setPendingQuality(quality);
+      setShowPicker(true);
+      setShowQualityMenu(false);
+    } else {
+      handleScreenShare(quality);
+    }
+  };
+
   const toggleScreenShare = () => {
     if (window.innerWidth < 768) return; // Prevent on mobile
     
@@ -345,6 +416,9 @@ export default function VoicePanel() {
     }
   };
 
+  const isAfk = channelName.endsWith(' [AFK]');
+  const displayChannelName = isAfk ? channelName.replace(' [AFK]', '') : channelName;
+
   return (
     <div className="bg-zinc-900 border-t border-zinc-800 p-2 flex flex-col gap-2 shrink-0 relative">
       {/* Hidden video to keep screen share alive */}
@@ -361,15 +435,15 @@ export default function VoicePanel() {
           <SignalHigh className="w-4 h-4" />
           <div className="flex flex-col">
             <span className="text-xs font-bold">
-              {isCall ? `In Call - ${formatDuration(callDuration)}` : 'Voice Connected'}
+              {isCall ? t('voice.inCall', { duration: formatDuration(callDuration) }) : t('voice.voiceConnected')}
             </span>
-            <span className="text-[10px] text-zinc-400 truncate max-w-[120px]">{channelName}</span>
+            <span className="text-[10px] text-zinc-400 truncate max-w-[120px]">{displayChannelName}</span>
           </div>
         </div>
         <button 
           onClick={handleDisconnect}
           className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-500 transition-colors"
-          title="Disconnect"
+          title={t('voice.disconnect')}
         >
           <PhoneOff className="w-4 h-4" />
         </button>
@@ -382,7 +456,7 @@ export default function VoicePanel() {
             className="w-full flex items-center justify-center gap-2 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-md text-xs font-medium transition-colors border border-indigo-500/20"
           >
             <MonitorOff className="w-3 h-3" />
-            Quitter le stream ({viewingScreenShares.size})
+            {t('voice.leaveStreamCount', { count: viewingScreenShares.size })}
           </button>
         </div>
       )}
@@ -391,8 +465,9 @@ export default function VoicePanel() {
         <div className="relative flex-1 hidden md:block">
           <button 
             onClick={toggleScreenShare}
-            className={`w-full flex items-center justify-center py-1.5 rounded-md transition-colors ${isScreenSharing ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}
-            title="Partager l'écran"
+            disabled={isAfk}
+            className={`w-full flex items-center justify-center py-1.5 rounded-md transition-colors ${isScreenSharing ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'} ${isAfk ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isScreenSharing ? t('voice.stopSharing') : (isAfk ? t('voice.afkRestricted') : t('voice.shareScreen'))}
           >
             {isScreenSharing ? <MonitorOff className="w-4 h-4" /> : <MonitorUp className="w-4 h-4" />}
           </button>
@@ -405,13 +480,17 @@ export default function VoicePanel() {
         </div>
         <button 
           onClick={toggleMute}
-          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${isVoiceMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'} ${isDeafened ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={isAfk}
+          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${isVoiceMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'} ${isDeafened || isAfk ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={isAfk ? t('voice.afkRestricted') : ''}
         >
           {isVoiceMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
         </button>
         <button 
           onClick={toggleDeafen}
-          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${isDeafened ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}
+          disabled={isAfk}
+          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${isDeafened ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'} ${isAfk ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={isAfk ? t('voice.afkRestricted') : ''}
         >
           {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
         </button>
@@ -421,31 +500,37 @@ export default function VoicePanel() {
         <div className="absolute bottom-full left-2 mb-2 w-48 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg overflow-hidden z-50 hidden md:block">
           <div className="px-3 py-2 border-b border-zinc-700 bg-zinc-900/50 flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-zinc-400" />
-            <span className="text-xs font-medium text-zinc-300">Qualité du stream</span>
+            <span className="text-xs font-medium text-zinc-300">{t('voice.qualityTitle')}</span>
           </div>
           <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
-            N'oubliez pas de cocher "Partager l'audio du système" dans la fenêtre de partage.
+            {t('voice.audioNote')}
           </div>
           <button 
-            onClick={() => handleScreenShare({ width: 1280, height: 720, frameRate: 30 })}
+            onClick={() => startScreenShareFlow({ width: 1280, height: 720, frameRate: 30 })}
             className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
           >
-            Standard (720p 30fps)
+            {t('voice.standard')}
           </button>
           <button 
-            onClick={() => handleScreenShare({ width: 1920, height: 1080, frameRate: 60 })}
+            onClick={() => startScreenShareFlow({ width: 1920, height: 1080, frameRate: 60 })}
             className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
           >
-            Haute (1080p 60fps) - Jeux
+            {t('voice.high')}
           </button>
           <button 
-            onClick={() => handleScreenShare({ width: 2560, height: 1440, frameRate: 60 })}
+            onClick={() => startScreenShareFlow({ width: 2560, height: 1440, frameRate: 60 })}
             className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
           >
-            Ultra (1440p 60fps)
+            {t('voice.ultra')}
           </button>
         </div>
       )}
+
+      <ScreenSharePickerModal 
+        isOpen={showPicker}
+        onClose={() => setShowPicker(false)}
+        onSelect={(sourceId) => handleScreenShare(pendingQuality, sourceId)}
+      />
     </div>
   );
 }

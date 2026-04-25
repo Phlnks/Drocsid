@@ -5,6 +5,7 @@ import { Volume2, MicOff, UserMinus, Ban, PhoneOff, MonitorUp, Moon, Settings } 
 import { useAppStore } from '../store/appStore';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
+import { useTranslation } from 'react-i18next';
 
 import { playScreenShareJoinSound, playScreenShareLeaveSound } from '../lib/sounds';
 
@@ -38,6 +39,7 @@ export default function VoiceChannelItem({
   hasManageChannels,
   onRename
 }: Props) {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const { speakingUsers, remoteScreenShares, localScreenShareStream, viewingScreenShares, setViewingScreenShares, selectedServerId, voiceParticipants: allVoiceParticipants } = useAppStore();
   const participants = allVoiceParticipants[channel.id] || [];
@@ -125,6 +127,9 @@ export default function VoiceChannelItem({
     }
   };
 
+  const isAfk = channel.name.endsWith(' [AFK]');
+  const displayName = isAfk ? channel.name.replace(' [AFK]', '') : channel.name;
+
   return (
     <div 
       className="mb-[2px]"
@@ -142,8 +147,8 @@ export default function VoiceChannelItem({
           isDragOver && hasMoveMembers && "ring-2 ring-indigo-500 bg-zinc-800/80"
         )}
       >
-        {channel.type === 'AFK' ? <Moon className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        <span className="truncate flex-1">{channel.name}</span>
+        {isAfk ? <Moon className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        <span className="truncate flex-1">{displayName}</span>
         {hasManageChannels && onRename && (
           <button 
             onClick={(e) => { e.stopPropagation(); onRename(channel); }}
@@ -195,7 +200,7 @@ export default function VoiceChannelItem({
                         "p-1.5 rounded-md transition-colors",
                         isViewing ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"
                       )}
-                      title={isViewing ? "Fermer le stream" : "Regarder le stream"}
+                      title={isViewing ? t('common.closeStream') : t('common.watchStream')}
                     >
                       <MonitorUp className="w-4 h-4" />
                     </button>

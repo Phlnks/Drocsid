@@ -4,11 +4,104 @@ import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
 import Auth from './components/Auth';
 import Layout from './components/Layout';
+import Toaster from './components/ui/Toaster';
 import socket from './lib/socket';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+
+import { useTranslation } from 'react-i18next';
 
 export default function App() {
-  const { user, isAuthReady, setUser, setAuthReady } = useAuthStore();
-  const { theme, setOnlineUserIds } = useAppStore();
+  const { t } = useTranslation();
+  const { user, isAuthReady, setUser, setAuthReady, setCurrentUserProfile } = useAuthStore();
+  const { theme, setTheme, setOnlineUserIds, addNotification } = useAppStore();
+
+  useEffect(() => {
+    // Migration: If theme is 'default', change it to 'classic'
+    if (theme === 'default' as any) {
+      setTheme('classic');
+      localStorage.setItem('drocsid-theme', 'classic');
+    }
+  }, [theme, setTheme]);
+
+  useEffect(() => {
+    // Handle Capacitor Deep Links
+    const setupDeeplinks = async () => {
+      CapApp.addListener('appUrlOpen', async (data: any) => {
+        console.log('App opened with URL:', data.url);
+        const url = new URL(data.url);
+        
+        // Supabase OAuth returns data in the hash (e.g. #access_token=...)
+        const hash = url.hash || (data.url.includes('#') ? data.url.split('#')[1] : null);
+        
+        if (hash) {
+          const params = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+
+          if (accessToken && refreshToken) {
+            console.log('Found OAuth tokens in URL, setting session...');
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (!error) {
+              console.log('Session set successfully, closing browser');
+              await Browser.close();
+            } else {
+              console.error('Error setting session:', error);
+            }
+          }
+        }
+      });
+    };
+
+    setupDeeplinks();
+
+    // Check URL for invite code
+    const path = window.location.pathname;
+    const match = path.match(/^\/invite\/([a-zA-Z0-9]+)$/);
+    if (match) {
+      const code = match[1];
+      sessionStorage.setItem('pending_invite', code);
+      window.history.replaceState(null, '', '/');
+    }
+
+    // Electron Global Shortcuts (Push-to-Talk alternative)
+    if ((window as any).electron) {
+      // Send initial keybinds to Electron background
+      const initialKeybinds = useAppStore.getState().keybinds;
+      (window as any).electron.updateShortcuts(initialKeybinds);
+
+      const handleToggleMute = () => {
+        const currentState = useAppStore.getState();
+        if (!currentState.isDeafened && currentState.connectedVoiceChannelId) {
+          const newState = !currentState.isVoiceMuted;
+          currentState.setIsVoiceMuted(newState);
+        }
+      };
+
+      const handleToggleDeafen = () => {
+        const currentState = useAppStore.getState();
+        if (currentState.connectedVoiceChannelId) {
+          const newState = !currentState.isDeafened;
+          currentState.setIsDeafened(newState);
+          if (newState && !currentState.isVoiceMuted) {
+             currentState.setIsVoiceMuted(true); // Deafening also mutes
+          }
+        }
+      };
+
+      (window as any).electron.onToggleMute(handleToggleMute);
+      (window as any).electron.onToggleDeafen(handleToggleDeafen);
+      
+      return () => {
+        (window as any).electron.removeToggleMute(handleToggleMute);
+        (window as any).electron.removeToggleDeafen(handleToggleDeafen);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -31,6 +124,40 @@ export default function App() {
 
       socket.on('online-users', handleOnlineUsers);
       
+      // Check for pending invite
+      const pendingInvite = sessionStorage.getItem('pending_invite');
+      if (pendingInvite) {
+        sessionStorage.removeItem('pending_invite');
+        const joinServer = async () => {
+          try {
+            const { data: invite, error } = await supabase.from('invites').select('*').eq('code', pendingInvite).maybeSingle();
+            if (error || !invite) {
+              addNotification(t('app.invalidInvite'), "error");
+              return;
+            }
+            
+            const serverId = invite.server_id;
+            const { data: existingMember } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
+            
+            if (!existingMember) {
+              const { error: insertError } = await supabase.from('server_members').insert({
+                server_id: serverId,
+                user_id: user.id,
+                roles: ['member']
+              });
+              if (insertError) throw insertError;
+            }
+            // Use the store hook directly inside the component? No, we already destructured what we need?
+            // Actually, we need setSelectedServerId. We don't have it destructured.
+            useAppStore.getState().setSelectedServerId(serverId);
+          } catch (e) {
+            console.error("Error joining server via link:", e);
+            addNotification(t('app.errorJoinLink'), "error");
+          }
+        };
+        joinServer();
+      }
+
       return () => {
         socket.off('connect', handleConnect);
         socket.off('online-users', handleOnlineUsers);
@@ -39,52 +166,73 @@ export default function App() {
   }, [user, setOnlineUserIds]);
 
   useEffect(() => {
-    if (theme === 'neon') {
-      document.documentElement.classList.add('theme-neon');
-    } else {
-      document.documentElement.classList.remove('theme-neon');
+    // Remove all possible theme classes
+    document.documentElement.classList.remove('theme-neon', 'theme-ocean', 'theme-forest', 'theme-sunset', 'theme-dracula', 'theme-synthwave', 'theme-nord', 'theme-monokai', 'theme-cyberpunk');
+    
+    // Add the selected theme class if it's not classic
+    if (theme && theme !== 'classic') {
+      document.documentElement.classList.add(`theme-${theme}`);
     }
   }, [theme]);
 
   useEffect(() => {
+    if (!user) return;
+
+    // Fetch initial profile
+    const fetchProfile = async () => {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      if (data) {
+        setCurrentUserProfile(data);
+      } else if (!error || error.code === 'PGRST116') {
+        // Profile missing, ensure it exists
+        const { data: upsertedData } = await supabase.from('profiles').upsert({
+          id: user.id,
+          username: user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
+          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+          status: 'online'
+        }).select().maybeSingle();
+        if (upsertedData) setCurrentUserProfile(upsertedData);
+      }
+    };
+    fetchProfile();
+
+    // Global profile subscription for current user
+    const channel = supabase.channel(`profile_${user.id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles', 
+        filter: `id=eq.${user.id}` 
+      }, (payload) => {
+        setCurrentUserProfile((prev: any) => ({ ...prev, ...payload.new }));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  useEffect(() => {
     // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthReady(true);
-      
-      // Test connection and ensure profile exists
       if (session?.user) {
-        supabase.from('profiles').select('id').eq('id', session.user.id).maybeSingle().then(({ data, error }) => {
-          if (error && error.code === 'PGRST116') {
-            // Profile missing, create it using upsert to be safe
-            console.log("Profile missing, creating for user:", session.user.id);
-            supabase.from('profiles').upsert({
-              id: session.user.id,
-              username: session.user.user_metadata?.username || session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
-              avatar_url: session.user.user_metadata?.avatar_url,
-              status: 'online'
-            }).then(({ error: upsertError }) => {
-              if (upsertError) console.error("Error ensuring profile exists:", upsertError);
-              else console.log("Profile ensured successfully");
-            });
-          } else if (error) {
-            // If it's a 406 error, it means columns are missing, but we still want to know
-            console.error("Supabase connection test failed (check if columns exist):", error);
-          } else {
-            console.log("Supabase connection test successful, profile exists");
-          }
-        });
+        setUser(session.user);
       }
+      setAuthReady(true);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (!session?.user) {
+        setCurrentUserProfile(null);
+      }
       setAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser, setAuthReady]);
+  }, []); // Empty array to prevent infinite loop
 
   const isInIframe = window.self !== window.top;
 
@@ -102,10 +250,10 @@ export default function App() {
         <div className="max-w-md w-full space-y-8">
           <div className="space-y-4">
             <h1 className="text-4xl font-bold text-white tracking-tight">
-              Prêt à discuter ?
+              {t('app.readyToChat')}
             </h1>
             <p className="text-zinc-400 text-lg">
-              Pour une expérience optimale et pour permettre la connexion Google, l'application doit être ouverte dans un nouvel onglet.
+              {t('app.openInNewTab')}
             </p>
           </div>
           
@@ -116,17 +264,22 @@ export default function App() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-            Lancer l'application
+            {t('app.launchApp')}
           </button>
           
           <p className="text-zinc-500 text-sm">
-            Une fois ouvert, vous pourrez vous connecter en toute sécurité.
+            {t('app.secureLogin')}
           </p>
         </div>
       </div>
     );
   }
 
-  return user ? <Layout /> : <Auth />;
+  return (
+    <>
+      <Toaster />
+      {user ? <Layout /> : <Auth />}
+    </>
+  );
 }
 
