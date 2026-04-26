@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
+import { useInstanceStore } from './store/instanceStore';
 import Auth from './components/Auth';
 import Layout from './components/Layout';
+import { InstanceSetupScreen } from './components/InstanceSetupScreen';
 import Toaster from './components/ui/Toaster';
 import socket from './lib/socket';
 import { App as CapApp } from '@capacitor/app';
@@ -15,6 +17,9 @@ export default function App() {
   const { t } = useTranslation();
   const { user, isAuthReady, setUser, setAuthReady, setCurrentUserProfile } = useAuthStore();
   const { theme, setTheme, setOnlineUserIds, addNotification } = useAppStore();
+  const { isCurrentInstanceValid } = useInstanceStore();
+
+  const isInstanceValid = isCurrentInstanceValid();
 
   useEffect(() => {
     // Migration: If theme is 'default', change it to 'classic'
@@ -61,9 +66,11 @@ export default function App() {
 
     // Check URL for invite code
     const path = window.location.pathname;
-    const match = path.match(/^\/invite\/([a-zA-Z0-9]+)$/);
-    if (match) {
+    // More robust regex to handle trailing slashes or query parameters
+    const match = path.match(/\/invite\/([a-zA-Z0-9]+)(?:[\/#?].*)?$/);
+    if (match && match[1]) {
       const code = match[1];
+      console.log("Detected invite code in URL:", code);
       sessionStorage.setItem('pending_invite', code);
       window.history.replaceState(null, '', '/');
     }
@@ -103,10 +110,15 @@ export default function App() {
     }
   }, []);
 
+  const identifiedUserId = useRef<string | null>(null);
+
   useEffect(() => {
     if (user) {
       const handleConnect = () => {
-        socket.emit('identify', user.id);
+        if (user && identifiedUserId.current !== user.id) {
+          socket.emit('identify', user.id);
+          identifiedUserId.current = user.id;
+        }
       };
 
       socket.on('connect', handleConnect);
@@ -132,6 +144,13 @@ export default function App() {
           try {
             const { data: invite, error } = await supabase.from('invites').select('*').eq('code', pendingInvite).maybeSingle();
             if (error || !invite) {
+              addNotification(t('app.invalidInvite'), "error");
+              return;
+            }
+
+            // Check if expired (if the table had expires_at, but based on schema view it has uses/max_uses)
+            // Wait, schema view showed: code, server_id, creator_id, uses, max_uses, created_at
+            if (invite.max_uses > 0 && invite.uses >= invite.max_uses) {
               addNotification(t('app.invalidInvite'), "error");
               return;
             }
@@ -223,9 +242,13 @@ export default function App() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth Event:", event);
+      if (session?.user) {
+        // Use the store's stable setUser which now has internal checks
+        setUser(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
         setCurrentUserProfile(null);
       }
       setAuthReady(true);
@@ -241,6 +264,15 @@ export default function App() {
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  if (!isInstanceValid) {
+    return (
+      <>
+        <InstanceSetupScreen />
+        <Toaster />
+      </>
     );
   }
 

@@ -198,8 +198,16 @@ export default function ChatArea() {
     return () => window.removeEventListener('keydown', handleGlobalEsc);
   }, []);
 
+  const lastChannelIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!selectedChannelId || !selectedServerId || !user) return;
+
+    // Only reset state if channel or server actually changed
+    if (lastChannelIdRef.current === selectedChannelId) {
+      return;
+    }
+    lastChannelIdRef.current = selectedChannelId;
 
     // Reset state immediately to prevent flickering
     setMessageLimit(100);

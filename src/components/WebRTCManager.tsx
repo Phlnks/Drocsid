@@ -679,16 +679,22 @@ export default function WebRTCManager() {
       let stream: MediaStream | null = null;
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const constraints: MediaStreamConstraints = {
-            audio: {
-              echoCancellation: voiceSettings.echoCancellation,
-              noiseSuppression: voiceSettings.noiseSuppression,
-              autoGainControl: voiceSettings.autoGainControl,
-              ...(voiceSettings.selectedMicrophoneId ? { deviceId: { exact: voiceSettings.selectedMicrophoneId } } : {})
-            },
-            video: false
-          };
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          // Reuse existing active stream if available to prevent "blinks"
+          if (localStreamRef.current && localStreamRef.current.active) {
+            stream = localStreamRef.current;
+            console.log("WebRTCManager: Reusing existing active localStream");
+          } else {
+            const constraints: MediaStreamConstraints = {
+              audio: {
+                echoCancellation: voiceSettings.echoCancellation,
+                noiseSuppression: voiceSettings.noiseSuppression,
+                autoGainControl: voiceSettings.autoGainControl,
+                ...(voiceSettings.selectedMicrophoneId ? { deviceId: { exact: voiceSettings.selectedMicrophoneId } } : {})
+              },
+              video: false
+            };
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+          }
         } else {
           console.warn("navigator.mediaDevices.getUserMedia is not supported in this browser.");
         }
@@ -934,17 +940,26 @@ export default function WebRTCManager() {
       isMounted = false;
       if (cleanupFns) cleanupFns();
       
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(t => t.stop());
-        localStreamRef.current = null;
-        setLocalStream(null);
-      }
-      
-      if (localScreenShareStreamRef.current) {
-        localScreenShareStreamRef.current.getTracks().forEach(t => t.stop());
-        localScreenShareStreamRef.current = null;
-        setLocalScreenShareStream(null);
-        setIsScreenSharing(false);
+      const currentState = useAppStore.getState();
+      const isLeavingChannel = !currentState.connectedVoiceChannelId || currentState.connectedVoiceChannelId !== channelId;
+      const isLoggedOut = !useAuthStore.getState().user;
+
+      if (isLeavingChannel || isLoggedOut) {
+        console.log("WebRTCManager: Cleaning up media tracks (leaving channel or logged out)");
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(t => t.stop());
+          localStreamRef.current = null;
+          setLocalStream(null);
+        }
+        
+        if (localScreenShareStreamRef.current) {
+          localScreenShareStreamRef.current.getTracks().forEach(t => t.stop());
+          localScreenShareStreamRef.current = null;
+          setLocalScreenShareStream(null);
+          setIsScreenSharing(false);
+        }
+      } else {
+        console.log("WebRTCManager: Component re-mount, preserving media tracks");
       }
       
       peersRef.current.forEach(pc => pc.close());
@@ -957,7 +972,9 @@ export default function WebRTCManager() {
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
       
-      socket.emit('leave-voice-channel', { channelId, userId: myUid });
+      if (isLeavingChannel || isLoggedOut) {
+        socket.emit('leave-voice-channel', { channelId, userId: myUid });
+      }
     };
   }, [connectedVoiceChannelId, currentUser]);
 

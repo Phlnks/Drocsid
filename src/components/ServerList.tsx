@@ -116,10 +116,19 @@ export default function ServerList() {
     }
   };
 
-  const handleJoinServer = async (inviteCode: string) => {
+  const handleJoinServer = async (rawCode: string) => {
     if (!user) return;
 
     try {
+      // Extract code from URL if a full link was provided
+      let inviteCode = rawCode.trim();
+      if (inviteCode.includes('/invite/')) {
+        const parts = inviteCode.split('/invite/');
+        inviteCode = parts[parts.length - 1].split(/[?#]/)[0]; // Handle trailing queries/hashes
+      }
+
+      console.log("Attempting to join with code:", inviteCode);
+
       // Find invite
       const { data: invite, error: inviteError } = await supabase.from('invites')
         .select('*')
@@ -127,6 +136,12 @@ export default function ServerList() {
         .maybeSingle();
       
       if (inviteError || !invite) {
+        addNotification(t('app.serverList.invalidInvite'), "error");
+        return;
+      }
+
+      // Check max uses
+      if (invite.max_uses > 0 && invite.uses >= invite.max_uses) {
         addNotification(t('app.serverList.invalidInvite'), "error");
         return;
       }

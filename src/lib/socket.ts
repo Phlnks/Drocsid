@@ -1,14 +1,32 @@
 import { io } from "socket.io-client";
 
-// Allow overriding the backend URL via environment variable
-let backendUrl = window.location.origin;
+// Load initial config from localStorage to support instance switching
+const getInitialSocketUrl = () => {
+  const currentId = localStorage.getItem('drocsid-current-instance-id') || 'default';
+  const instancesRaw = localStorage.getItem('drocsid-instances');
+  
+  if (instancesRaw) {
+    try {
+      const instances = JSON.parse(instancesRaw);
+      const current = instances.find((i: any) => i.id === currentId);
+      if (current) {
+        return current.socketUrl;
+      }
+    } catch (e) {
+      console.error('Failed to parse instances for socket initialization', e);
+    }
+  }
 
-if (import.meta.env.VITE_BACKEND_URL) {
-  backendUrl = import.meta.env.VITE_BACKEND_URL;
-} else if (window.location.origin === 'file://') {
-  // Fallback for built Electron app if VITE_BACKEND_URL is missing
-  backendUrl = 'http://localhost:3000'; 
-}
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return import.meta.env.VITE_BACKEND_URL;
+  } else if (window.location.origin === 'file://') {
+    // Fallback for built Electron app if VITE_BACKEND_URL is missing
+    return 'http://localhost:3000'; 
+  }
+  return window.location.origin;
+};
+
+const backendUrl = getInitialSocketUrl();
 
 const socket = io(backendUrl, {
   autoConnect: true,

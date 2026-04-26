@@ -1,4 +1,33 @@
 {
+  "setup": {
+    "title": "Bienvenue sur Drocsid",
+    "subtitle": "Pour commencer, vous devez configurer votre première instance (Backend).",
+    "description": "Drocsid est une plateforme décentralisée. Vous pouvez vous connecter à n'importe quel serveur compatible Supabase + Socket.io.",
+    "createFirst": "Configurer ma première instance",
+    "importJson": "Importer une configuration",
+    "useDefault": "Utiliser les variables d'environnement (si présentes)"
+  },
+  "instances": {
+    "title": "Gestion des instances",
+    "description": "Vous pouvez configurer plusieurs backends (Supabase + Socket) et basculer entre eux.",
+    "warning": "Attention : changer d'instance vous connectera à une autre base de données. Vos amis, serveurs et messages seront ceux de cette nouvelle instance.",
+    "addInstance": "Ajouter une instance",
+    "editInstance": "Modifier l'instance",
+    "name": "Nom de l'instance",
+    "supabaseUrl": "URL Supabase",
+    "supabaseKey": "Clé Supabase (Anon Key)",
+    "socketUrl": "URL du Socket (Backend)",
+    "recent": "RÉCENTES",
+    "favorites": "FAVORIS",
+    "others": "AUTRES",
+    "current": "Actuelle",
+    "switch": "Basculer",
+    "deleteConfirm": "Supprimer cette instance ?",
+    "default": "Défaut",
+    "save": "Enregistrer l'instance",
+    "placeholderName": "Ma Super Instance",
+    "switchConfirm": "Êtes-vous sûr de vouloir basculer vers {{name}} ? L'application va redémarrer."
+  },
   "common": {
     "cancel": "Annuler",
     "save": "Enregistrer",
@@ -279,7 +308,8 @@
       "saveChanges": "Enregistrer les modifications",
       "saving": "Enregistrement...",
       "appearance": "Apparence",
-      "theme": "Thème"
+      "theme": "Thème",
+      "instances": "Instances (Backends)"
     },
     "userProfile": {
       "username": "Nom d'utilisateur",

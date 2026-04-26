@@ -3,13 +3,14 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Hash, Plus, Settings, ChevronDown, ChevronRight, LogOut } from 'lucide-react';
+import { Hash, Plus, Settings, ChevronDown, ChevronRight, LogOut, Database } from 'lucide-react';
 import clsx from 'clsx';
 import socket from '../lib/socket';
 import CreateChannelModal from './ui/CreateChannelModal';
 import UserSettingsModal from './ui/UserSettingsModal';
 import ServerSettingsModal from './ui/ServerSettingsModal';
 import RenameChannelModal from './ui/RenameChannelModal';
+import { InstanceSettingsModal } from './InstanceSettingsModal';
 import VoicePanel from './VoicePanel';
 import VoiceChannelItem from './VoiceChannelItem';
 import UserAvatar from './ui/UserAvatar';
@@ -39,6 +40,7 @@ export default function ChannelList() {
   const [channelToRename, setChannelToRename] = useState<any>(null);
   const [selectedCategoryIdForNewChannel, setSelectedCategoryIdForNewChannel] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [draggedChannelId, setDraggedChannelId] = useState<string | null>(null);
@@ -686,9 +688,14 @@ export default function ChannelList() {
                currentUserProfile?.status === 'offline' ? t('common.offline') : t('common.online')}
             </div>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
-            <Settings className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100" title={t('instances.title')}>
+              <Database className="w-4 h-4" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -711,6 +718,10 @@ export default function ChannelList() {
       <UserSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+      <InstanceSettingsModal
+        isOpen={isInstanceSettingsOpen}
+        onClose={() => setIsInstanceSettingsOpen(false)}
       />
       {server && (
         <ServerSettingsModal

@@ -202,12 +202,19 @@ export const useAppStore = create<AppState>((set) => ({
     set({ theme });
   },
   setOnlineUserIds: (ids: string[]) => set({ onlineUserIds: ids }),
-  setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => ({
-    voiceParticipants: {
-      ...state.voiceParticipants,
-      [channelId]: participants
+  setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
+    // Check if participants significantly changed to avoid unnecessary re-renders
+    const current = state.voiceParticipants[channelId];
+    if (JSON.stringify(current) === JSON.stringify(participants)) {
+      return state;
     }
-  })),
+    return {
+      voiceParticipants: {
+        ...state.voiceParticipants,
+        [channelId]: participants
+      }
+    };
+  }),
   setHighlightedMessageId: (id) => set({ highlightedMessageId: id }),
   setDraft: (id, content) => set((state) => {
     const newDrafts = { ...state.drafts, [id]: content };

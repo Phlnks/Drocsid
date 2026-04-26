@@ -29,7 +29,7 @@ async function startServer() {
     pingTimeout: 120000  // 120 seconds
   });
 
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Track online users: userId -> Set of socketIds
   const onlineUsers = new Map<string, Set<string>>();

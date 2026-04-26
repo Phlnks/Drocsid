@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { MessageSquare, Search, User, Settings, Pin, Save } from 'lucide-react';
+import { MessageSquare, Search, User, Settings, Pin, Save, Database } from 'lucide-react';
 import clsx from 'clsx';
 import VoicePanel from './VoicePanel';
 import UserSettingsModal from './ui/UserSettingsModal';
+import { InstanceSettingsModal } from './InstanceSettingsModal';
 import UserAvatar from './ui/UserAvatar';
 import UserContextMenu from './ui/UserContextMenu';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ export default function DMSidebar() {
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number, dmId?: string } | null>(null);
   const [pinnedDmIds, setPinnedDmIds] = useState<string[]>(JSON.parse(localStorage.getItem(`drocsid-pinned-dms-${user?.id}`) || '[]'));
 
@@ -397,14 +399,23 @@ export default function DMSidebar() {
                currentUserProfile?.status === 'offline' ? t('modals.userProfile.offline') : t('modals.userProfile.online')}
             </div>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
-            <Settings className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100" title={t('instances.title')}>
+              <Database className="w-4 h-4" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
       <UserSettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+      <InstanceSettingsModal
+        isOpen={isInstanceSettingsOpen}
+        onClose={() => setIsInstanceSettingsOpen(false)}
       />
 
       {contextMenu && (

@@ -236,8 +236,16 @@ export default function DMChatArea() {
     };
   }, [updateLastRead]);
 
+  const lastDmIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!selectedDmId || !user) return;
+
+    // Only reset state if DM actually changed
+    if (lastDmIdRef.current === selectedDmId) {
+      return;
+    }
+    lastDmIdRef.current = selectedDmId;
 
     // Reset state immediately to prevent flickering
     setMessageLimit(100);

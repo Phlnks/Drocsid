@@ -1,4 +1,33 @@
 {
+  "setup": {
+    "title": "Bienvenido a Drocsid",
+    "subtitle": "Para comenzar, debes configurar tu primera instancia (Backend).",
+    "description": "Drocsid es una plataforma descentralizada. Puedes conectarte a cualquier servidor compatible con Supabase + Socket.io.",
+    "createFirst": "Configurar mi primera instancia",
+    "importJson": "Importar una configuración",
+    "useDefault": "Usar variables de entorno (si están presentes)"
+  },
+  "instances": {
+    "title": "Gestión de instancias",
+    "description": "Puedes configurar varios backends (Supabase + Socket) et cambiar entre ellos.",
+    "warning": "Atención: cambiar de instancia te conectará a otra base de datos. Tus amigos, servidores y mensajes serán los de esta nueva instancia.",
+    "addInstance": "Añadir instancia",
+    "editInstance": "Editar instancia",
+    "name": "Nombre de la instancia",
+    "supabaseUrl": "URL de Supabase",
+    "supabaseKey": "Clave de Supabase (Anon Key)",
+    "socketUrl": "URL de Socket (Backend)",
+    "recent": "RECIENTES",
+    "favorites": "FAVORITOS",
+    "others": "OTROS",
+    "current": "Actual",
+    "switch": "Cambiar",
+    "deleteConfirm": "¿Eliminar esta instancia?",
+    "default": "Predeterminada",
+    "save": "Guardar instancia",
+    "placeholderName": "Mi Super Instancia",
+    "switchConfirm": "¿Estás seguro de que quieres cambiar a {{name}}? La aplicación se reiniciará."
+  },
   "common": {
     "cancel": "Cancelar",
     "save": "Guardar",
@@ -279,7 +308,8 @@
       "saveChanges": "Guardar cambios",
       "saving": "Guardando...",
       "appearance": "Apariencia",
-      "theme": "Tema"
+      "theme": "Tema",
+      "instances": "Instancias (Backends)"
     },
     "userProfile": {
       "username": "Nombre de usuario",
