@@ -56,6 +56,7 @@
     "group": "Groupe",
     "open": "Ouvrir",
     "loading": "Chargement...",
+    "noMembers": "Aucun membre trouvé.",
     "channels": "Salons",
     "text": "textuel",
     "voice": "vocal",

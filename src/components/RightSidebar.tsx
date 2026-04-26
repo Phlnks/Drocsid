@@ -13,6 +13,8 @@ import { useTranslation } from 'react-i18next';
 export default function RightSidebar() {
   const { t } = useTranslation();
   const [users, setUsers] = useState<any[]>([]);
+  const [serverRoles, setServerRoles] = useState<any[]>([]);
+  const [serverMembers, setServerMembers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'notifications'>('users');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadDMs, setUnreadDMs] = useState<any[]>([]);
@@ -25,20 +27,51 @@ export default function RightSidebar() {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const { data, error } = await supabase.from('profiles').select('*');
-      if (data) setUsers(data);
+      if (selectedServerId) {
+        // Fetch server specific data
+        const [rolesRes, membersRes] = await Promise.all([
+          supabase.from('roles').select('*').eq('server_id', selectedServerId).order('order', { ascending: true }),
+          supabase.from('server_members').select('*').eq('server_id', selectedServerId)
+        ]);
+
+        if (rolesRes.data) setServerRoles(rolesRes.data);
+        if (membersRes.data) setServerMembers(membersRes.data);
+
+        // Fetch profiles for these members
+        if (membersRes.data) {
+          const memberIds = membersRes.data.map(m => m.user_id);
+          const { data: profiles } = await supabase.from('profiles').select('*').in('id', memberIds);
+          if (profiles) setUsers(profiles);
+        }
+      } else {
+        // Default DM view / all users (or maybe just friends, but current code fetches all)
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (data) setUsers(data);
+        setServerRoles([]);
+        setServerMembers([]);
+      }
     };
 
     fetchUsers();
 
-    const channel = supabase.channel('profiles_changes')
+    const profilesSub = supabase.channel('profiles_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchUsers())
       .subscribe();
 
+    const membersSub = supabase.channel('members_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: selectedServerId ? `server_id=eq.${selectedServerId}` : undefined }, () => fetchUsers())
+      .subscribe();
+
+    const rolesSub = supabase.channel('roles_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles', filter: selectedServerId ? `server_id=eq.${selectedServerId}` : undefined }, () => fetchUsers())
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profilesSub);
+      supabase.removeChannel(membersSub);
+      supabase.removeChannel(rolesSub);
     };
-  }, []);
+  }, [selectedServerId]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -132,8 +165,92 @@ export default function RightSidebar() {
     return user.status || 'online';
   };
 
-  const onlineUsers = users.filter(u => getDisplayStatus(u) !== 'offline');
-  const offlineUsers = users.filter(u => getDisplayStatus(u) === 'offline');
+  const getGroupedUsers = () => {
+    const onlineUsers = users.filter(u => onlineUserIds.includes(u.id));
+    const offlineUsers = users.filter(u => !onlineUserIds.includes(u.id));
+
+    if (!selectedServerId) {
+      const groups = [];
+      if (onlineUsers.length > 0) {
+        groups.push({
+          id: 'online',
+          name: t('friends.onlineCount', { count: onlineUsers.length }),
+          users: onlineUsers,
+          isOffline: false
+        });
+      }
+      if (offlineUsers.length > 0) {
+        groups.push({
+          id: 'offline',
+          name: t('friends.offlineCount', { count: offlineUsers.length }),
+          users: offlineUsers,
+          isOffline: true
+        });
+      }
+      return groups;
+    }
+
+    // Server view: Group by role
+    const groups: { id: string, name: string, users: any[], isOffline: boolean }[] = [];
+    const onlineIdSet = new Set(onlineUserIds);
+    
+    // Maps userId to its highest role (the one with the lowest order)
+    const userHighestRole = new Map<string, any>();
+    serverMembers.forEach(member => {
+      if (!member.roles || member.roles.length === 0) return;
+      const roles = serverRoles.filter(r => member.roles.includes(r.id)).sort((a, b) => (a.order || 0) - (b.order || 0));
+      if (roles.length > 0) {
+        userHighestRole.set(member.user_id, roles[0]);
+      }
+    });
+
+    // Online users grouped by roles
+    serverRoles.forEach(role => {
+      const membersInRole = users.filter(u => {
+        const highestRole = userHighestRole.get(u.id);
+        return highestRole?.id === role.id && onlineIdSet.has(u.id);
+      }).sort((a, b) => a.username.localeCompare(b.username));
+      
+      if (membersInRole.length > 0) {
+        groups.push({
+          id: role.id,
+          name: `${role.name} — ${membersInRole.length}`,
+          users: membersInRole,
+          isOffline: false
+        });
+      }
+    });
+
+    // Members with no role and online
+    const membersWithNoRoleOnline = users.filter(u => !userHighestRole.has(u.id) && onlineIdSet.has(u.id))
+      .sort((a, b) => a.username.localeCompare(b.username));
+    
+    if (membersWithNoRoleOnline.length > 0) {
+      groups.push({
+        id: 'online-no-role',
+        name: `${t('common.online')} — ${membersWithNoRoleOnline.length}`,
+        users: membersWithNoRoleOnline,
+        isOffline: false
+      });
+    }
+
+    // Finally, offline members
+    const offlineMembers = users.filter(u => !onlineIdSet.has(u.id))
+      .sort((a, b) => a.username.localeCompare(b.username));
+    
+    if (offlineMembers.length > 0) {
+      groups.push({
+        id: 'offline',
+        name: `${t('common.offline')} — ${offlineMembers.length}`,
+        users: offlineMembers,
+        isOffline: true
+      });
+    }
+
+    return groups;
+  };
+
+  const groupedUsers = getGroupedUsers();
 
   const handleContextMenu = (e: React.MouseEvent, user: any) => {
     e.preventDefault();
@@ -185,62 +302,49 @@ export default function RightSidebar() {
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
           {activeTab === 'users' ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                  {t('friends.onlineCount', { count: onlineUsers.length })}
-                </h3>
-                <div className="space-y-2">
-                  {onlineUsers.map(user => {
-                    const status = getDisplayStatus(user);
-                    return (
-                      <div 
-                        key={user.id} 
-                        onClick={() => setSelectedUser(user)}
-                        onContextMenu={(e) => handleContextMenu(e, user)}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors cursor-pointer"
-                      >
-                        <UserAvatar 
-                          user={{
-                            username: user.username,
-                            avatar_url: user.avatar_url,
-                            status: status
-                          }} 
-                          size="md" 
-                        />
-                        <span className="text-sm font-medium text-zinc-300">{user.username}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {offlineUsers.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-6">
-                    {t('friends.offlineCount', { count: offlineUsers.length })}
+            <div className="space-y-6">
+              {groupedUsers.map(group => (
+                <div key={group.id}>
+                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                    {group.name}
                   </h3>
-                  <div className="space-y-2">
-                    {offlineUsers.map(user => (
-                      <div 
-                        key={user.id} 
-                        onClick={() => setSelectedUser(user)}
-                        onContextMenu={(e) => handleContextMenu(e, user)}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors opacity-60 cursor-pointer"
-                      >
-                        <UserAvatar 
-                          user={{
-                            username: user.username,
-                            avatar_url: user.avatar_url,
-                            status: 'offline'
-                          }} 
-                          size="md" 
-                          className="opacity-60"
-                        />
-                        <span className="text-sm font-medium text-zinc-400">{user.username}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-1">
+                    {group.users.map(user => {
+                      const status = getDisplayStatus(user);
+                      return (
+                        <div 
+                          key={user.id} 
+                          onClick={() => setSelectedUser(user)}
+                          onContextMenu={(e) => handleContextMenu(e, user)}
+                          className={clsx(
+                            "flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors cursor-pointer group",
+                            group.isOffline && "opacity-60"
+                          )}
+                        >
+                          <UserAvatar 
+                            user={{
+                              username: user.username,
+                              avatar_url: user.avatar_url,
+                              status: group.isOffline ? 'offline' : status
+                            }} 
+                            size="md" 
+                            className={group.isOffline ? "opacity-60" : ""}
+                          />
+                          <span className={clsx(
+                            "text-sm font-medium truncate shrink",
+                            group.isOffline ? "text-zinc-400" : "text-zinc-300"
+                          )}>
+                            {user.username}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
+              ))}
+              {groupedUsers.length === 0 && (
+                <div className="text-center py-10 text-zinc-500 text-sm">
+                  {t('common.noMembers')}
                 </div>
               )}
             </div>
