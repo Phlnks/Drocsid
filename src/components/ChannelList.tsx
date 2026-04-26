@@ -190,7 +190,7 @@ export default function ChannelList() {
         setIsDeafened(true);
       }
       
-      setConnectedVoiceChannelId(channel.id);
+      setConnectedVoiceChannelId(channel.id, selectedServerId);
       setSelectedChannelId(channel.id);
     } else {
       setSelectedChannelId(channel.id);

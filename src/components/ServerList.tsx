@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { Plus, Compass } from 'lucide-react';
+import { Plus, Compass, Volume2 } from 'lucide-react';
 import DrocsidLogo from './ui/DrocsidLogo';
 import clsx from 'clsx';
 import AddServerModal from './ui/AddServerModal';
@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 export default function ServerList() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { selectedServerId, setSelectedServerId, addNotification, mutedServers, toggleMuteServer } = useAppStore();
+  const { selectedServerId, setSelectedServerId, addNotification, mutedServers, toggleMuteServer, connectedVoiceServerId } = useAppStore();
   const [servers, setServers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, serverId: string } | null>(null);
@@ -239,9 +239,20 @@ export default function ServerList() {
               )}
             </div>
             {mutedServers.includes(server.id) && (
-              <div className="absolute -bottom-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800">
-                <div className="w-2 h-2 bg-red-500 rounded-full" title={t('app.serverList.muted')} />
+              <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800 z-10">
+                <div className="w-2 h-2 bg-zinc-500 rounded-full" title={t('app.serverList.muted')} />
               </div>
+            )}
+            {connectedVoiceServerId && servers.find(s => s.id === server.id) && (
+              (() => {
+                const isVoiceInThisServer = connectedVoiceServerId === server.id;
+                if (!isVoiceInThisServer) return null;
+                return (
+                  <div className="absolute -bottom-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800 z-10 shadow-lg">
+                    <Volume2 className="w-3 h-3 text-emerald-500" />
+                  </div>
+                );
+              })()
             )}
           </motion.div>
         ))}

@@ -38,6 +38,7 @@ interface AppState {
   selectedChannelId: string | null;
   selectedDmId: string | null;
   connectedVoiceChannelId: string | null;
+  connectedVoiceServerId: string | null;
   isVoiceMuted: boolean;
   isDeafened: boolean;
   voiceSettings: VoiceSettings;
@@ -64,7 +65,7 @@ interface AppState {
   setSelectedServerId: (id: string | null) => void;
   setSelectedChannelId: (id: string | null) => void;
   setSelectedDmId: (id: string | null) => void;
-  setConnectedVoiceChannelId: (id: string | null) => void;
+  setConnectedVoiceChannelId: (id: string | null, serverId?: string | null) => void;
   setIsVoiceMuted: (muted: boolean) => void;
   setIsDeafened: (deafened: boolean) => void;
   setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
@@ -95,6 +96,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedChannelId: null,
   selectedDmId: null,
   connectedVoiceChannelId: null,
+  connectedVoiceServerId: null,
   isVoiceMuted: false,
   isDeafened: false,
   voiceSettings: JSON.parse(localStorage.getItem('drocsid-voice-settings') || '{"echoCancellation":true,"noiseSuppression":true,"autoGainControl":true,"micSensitivity":10}'),
@@ -124,7 +126,7 @@ export const useAppStore = create<AppState>((set) => ({
   }),
   setSelectedChannelId: (id) => set({ selectedChannelId: id, selectedDmId: null, activeStreamFocus: null, isMobileNavOpen: false }),
   setSelectedDmId: (id) => set({ selectedDmId: id, selectedServerId: null, selectedChannelId: null, activeStreamFocus: null, isMobileNavOpen: false }),
-  setConnectedVoiceChannelId: (id) => set({ connectedVoiceChannelId: id }),
+  setConnectedVoiceChannelId: (id, serverId = null) => set({ connectedVoiceChannelId: id, connectedVoiceServerId: serverId }),
   setIsVoiceMuted: (muted) => set({ isVoiceMuted: muted }),
   setIsDeafened: (deafened) => set({ isDeafened: deafened }),
   setVoiceSettings: (settings) => set((state) => {
