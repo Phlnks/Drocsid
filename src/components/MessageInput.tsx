@@ -410,6 +410,31 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       const eventName = isDM ? 'new-dm-message' : 'new-message';
       socket.emit(eventName, newMessage);
 
+      // Handle mentions
+      const mentionRegex = /@(\S+)/g;
+      const contentStr = textToSend.trim();
+      const mentions = [...contentStr.matchAll(mentionRegex)].map(m => m[1]);
+      
+      if (mentions.length > 0) {
+        const uniqueMentions = [...new Set(mentions)];
+        const mentionedUsers = users.filter(u => uniqueMentions.includes(u.username) && u.id !== user.id);
+        
+        for (const mentionedUser of mentionedUsers) {
+          await supabase.from('notifications').insert({
+            user_id: mentionedUser.id,
+            type: 'mention',
+            data: {
+              is_dm: isDM,
+              server_id: serverId,
+              channel_id: channelId,
+              message_id: newMessage.id,
+              author_name: user?.user_metadata?.username || 'Utilisateur',
+              content: contentStr
+            }
+          });
+        }
+      }
+
       // Clear draft after successful send if it was not optimistically cleared
       if (fileToSend || gifUrl) {
         setDraft(channelId, '');

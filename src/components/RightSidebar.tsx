@@ -13,6 +13,8 @@ import { useTranslation } from 'react-i18next';
 export default function RightSidebar() {
   const { t } = useTranslation();
   const [users, setUsers] = useState<any[]>([]);
+  const [serverMembers, setServerMembers] = useState<any[]>([]);
+  const [serverRoles, setServerRoles] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'notifications'>('users');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadDMs, setUnreadDMs] = useState<any[]>([]);
@@ -22,6 +24,35 @@ export default function RightSidebar() {
   
   const { user: currentUser } = useAuthStore();
   const { setSelectedServerId, setSelectedChannelId, setSelectedDmId, setIsRightSidebarOpen, selectedDmId, onlineUserIds, selectedServerId, setHighlightedMessageId } = useAppStore();
+
+  useEffect(() => {
+    if (!selectedServerId) {
+      setServerMembers([]);
+      setServerRoles([]);
+      return;
+    }
+
+    const fetchServerData = async () => {
+      const [membersRes, rolesRes] = await Promise.all([
+        supabase.from('server_members').select('*').eq('server_id', selectedServerId),
+        supabase.from('roles').select('*').eq('server_id', selectedServerId).order('order', { ascending: true })
+      ]);
+      
+      if (membersRes.data) setServerMembers(membersRes.data);
+      if (rolesRes.data) setServerRoles(rolesRes.data);
+    };
+
+    fetchServerData();
+
+    const channel = supabase.channel(`server_data_${selectedServerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: `server_id=eq.${selectedServerId}` }, () => fetchServerData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles', filter: `server_id=eq.${selectedServerId}` }, () => fetchServerData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedServerId]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -132,9 +163,6 @@ export default function RightSidebar() {
     return user.status || 'online';
   };
 
-  const onlineUsers = users.filter(u => getDisplayStatus(u) !== 'offline');
-  const offlineUsers = users.filter(u => getDisplayStatus(u) === 'offline');
-
   const handleContextMenu = (e: React.MouseEvent, user: any) => {
     e.preventDefault();
     setContextMenu({
@@ -143,6 +171,174 @@ export default function RightSidebar() {
       x: e.clientX,
       y: e.clientY
     });
+  };
+
+  // Organize users for rendering
+  const renderUsers = () => {
+    if (selectedServerId) {
+      // Server mode: Group by role
+      const serverUsers = users.filter(u => serverMembers.some(sm => sm.user_id === u.id));
+      const groupedUsers: Record<string, { roleName: string, color: string, order: number, users: any[] }> = {};
+      const offlineGroup: any[] = [];
+      const defaultOnlineGroup: any[] = [];
+
+      serverUsers.forEach(user => {
+        const status = getDisplayStatus(user);
+        if (status === 'offline') {
+          offlineGroup.push(user);
+          return;
+        }
+
+        const memberData = serverMembers.find(sm => sm.user_id === user.id);
+        const userRolesId = memberData?.roles || [];
+        // Find highest role (lowest order)
+        const userRoles = serverRoles.filter(r => userRolesId.includes(r.id)).sort((a, b) => a.order - b.order);
+        
+        if (userRoles.length > 0) {
+          const primaryRole = userRoles[0];
+          if (!groupedUsers[primaryRole.id]) {
+            groupedUsers[primaryRole.id] = { roleName: primaryRole.name, color: primaryRole.color, order: primaryRole.order, users: [] };
+          }
+          groupedUsers[primaryRole.id].users.push(user);
+        } else {
+          defaultOnlineGroup.push(user);
+        }
+      });
+
+      const sortedRoleGroups = Object.values(groupedUsers).sort((a, b) => a.order - b.order);
+
+      return (
+        <div className="space-y-4">
+          {sortedRoleGroups.map(group => (
+            <div key={group.roleName}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: group.color || '#99aab5' }}>
+                {group.roleName} - {group.users.length}
+              </h3>
+              <div className="space-y-2">
+                {group.users.map(user => (
+                  <div 
+                    key={user.id} 
+                    onClick={() => setSelectedUser(user)}
+                    onContextMenu={(e) => handleContextMenu(e, user)}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                  >
+                    <UserAvatar 
+                      user={{ username: user.username, avatar_url: user.avatar_url, status: getDisplayStatus(user) }} 
+                      size="md" 
+                    />
+                    <span className="text-sm font-medium" style={{ color: group.color || '#d4d4d8' }}>{user.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {defaultOnlineGroup.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                {t('common.online')} - {defaultOnlineGroup.length}
+              </h3>
+              <div className="space-y-2">
+                {defaultOnlineGroup.map(user => (
+                  <div 
+                    key={user.id} 
+                    onClick={() => setSelectedUser(user)}
+                    onContextMenu={(e) => handleContextMenu(e, user)}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                  >
+                    <UserAvatar 
+                      user={{ username: user.username, avatar_url: user.avatar_url, status: getDisplayStatus(user) }} 
+                      size="md" 
+                    />
+                    <span className="text-sm font-medium text-zinc-300">{user.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {offlineGroup.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-6">
+                {t('friends.offlineCount', { count: offlineGroup.length })}
+              </h3>
+              <div className="space-y-2">
+                {offlineGroup.map(user => (
+                  <div 
+                    key={user.id} 
+                    onClick={() => setSelectedUser(user)}
+                    onContextMenu={(e) => handleContextMenu(e, user)}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors opacity-60 cursor-pointer"
+                  >
+                    <UserAvatar 
+                      user={{ username: user.username, avatar_url: user.avatar_url, status: 'offline' }} 
+                      size="md" 
+                      className="opacity-60"
+                    />
+                    <span className="text-sm font-medium text-zinc-400">{user.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    } else {
+      // DM / Friends mode: Group by Online / Offline
+      const onlineUsers = users.filter(u => getDisplayStatus(u) !== 'offline');
+      const offlineUsers = users.filter(u => getDisplayStatus(u) === 'offline');
+
+      return (
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+              {t('friends.onlineCount', { count: onlineUsers.length })}
+            </h3>
+            <div className="space-y-2">
+              {onlineUsers.map(user => (
+                <div 
+                  key={user.id} 
+                  onClick={() => setSelectedUser(user)}
+                  onContextMenu={(e) => handleContextMenu(e, user)}
+                  className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                >
+                  <UserAvatar 
+                    user={{ username: user.username, avatar_url: user.avatar_url, status: getDisplayStatus(user) }} 
+                    size="md" 
+                  />
+                  <span className="text-sm font-medium text-zinc-300">{user.username}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {offlineUsers.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-6">
+                {t('friends.offlineCount', { count: offlineUsers.length })}
+              </h3>
+              <div className="space-y-2">
+                {offlineUsers.map(user => (
+                  <div 
+                    key={user.id} 
+                    onClick={() => setSelectedUser(user)}
+                    onContextMenu={(e) => handleContextMenu(e, user)}
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors opacity-60 cursor-pointer"
+                  >
+                    <UserAvatar 
+                      user={{ username: user.username, avatar_url: user.avatar_url, status: 'offline' }} 
+                      size="md" 
+                      className="opacity-60"
+                    />
+                    <span className="text-sm font-medium text-zinc-400">{user.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
   };
 
   return (
@@ -185,65 +381,7 @@ export default function RightSidebar() {
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
           {activeTab === 'users' ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                  {t('friends.onlineCount', { count: onlineUsers.length })}
-                </h3>
-                <div className="space-y-2">
-                  {onlineUsers.map(user => {
-                    const status = getDisplayStatus(user);
-                    return (
-                      <div 
-                        key={user.id} 
-                        onClick={() => setSelectedUser(user)}
-                        onContextMenu={(e) => handleContextMenu(e, user)}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors cursor-pointer"
-                      >
-                        <UserAvatar 
-                          user={{
-                            username: user.username,
-                            avatar_url: user.avatar_url,
-                            status: status
-                          }} 
-                          size="md" 
-                        />
-                        <span className="text-sm font-medium text-zinc-300">{user.username}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {offlineUsers.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 mt-6">
-                    {t('friends.offlineCount', { count: offlineUsers.length })}
-                  </h3>
-                  <div className="space-y-2">
-                    {offlineUsers.map(user => (
-                      <div 
-                        key={user.id} 
-                        onClick={() => setSelectedUser(user)}
-                        onContextMenu={(e) => handleContextMenu(e, user)}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-zinc-800/50 transition-colors opacity-60 cursor-pointer"
-                      >
-                        <UserAvatar 
-                          user={{
-                            username: user.username,
-                            avatar_url: user.avatar_url,
-                            status: 'offline'
-                          }} 
-                          size="md" 
-                          className="opacity-60"
-                        />
-                        <span className="text-sm font-medium text-zinc-400">{user.username}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            renderUsers()
           ) : (
             <div className="space-y-4 flex-1">
               <div className="flex items-center justify-between mb-2">
@@ -296,7 +434,9 @@ export default function RightSidebar() {
 
               {notifications.length > 0 ? (
                 <div className="space-y-3">
-                  {notifications.map(notif => (
+                  {notifications.map(notif => {
+                    const data = notif.data || {};
+                    return (
                     <div 
                       key={notif.id} 
                       className={clsx(
@@ -306,18 +446,18 @@ export default function RightSidebar() {
                       onClick={() => {
                         markAsRead(notif.id);
                         jumpToMessage({
-                          type: notif.is_dm ? 'dm' : 'channel',
-                          serverId: notif.server_id,
-                          channelId: notif.channel_id,
-                          dmId: notif.channel_id,
-                          id: notif.message_id
+                          type: data.is_dm ? 'dm' : 'channel',
+                          serverId: data.server_id,
+                          channelId: data.channel_id,
+                          dmId: data.channel_id,
+                          id: data.message_id
                         });
                       }}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2 text-xs text-zinc-400">
                           <AtSign className="w-3 h-3 text-indigo-400" />
-                          <span>{t('notifications.mentionedBy')} <span className="font-medium text-zinc-300">{notif.author_name}</span></span>
+                          <span>{t('notifications.mentionedBy')} <span className="font-medium text-zinc-300">{data.author_name}</span></span>
                         </div>
                         {!notif.read && (
                           <button 
@@ -333,7 +473,7 @@ export default function RightSidebar() {
                         )}
                       </div>
                       <p className="text-sm text-zinc-300 line-clamp-3 break-words mb-2">
-                        {notif.content}
+                        {data.content}
                       </p>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-[10px] text-zinc-500">
@@ -344,7 +484,7 @@ export default function RightSidebar() {
                         </span>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               ) : unreadDMsList.length === 0 ? (
                 <div className="text-center py-10 text-zinc-500 text-sm">

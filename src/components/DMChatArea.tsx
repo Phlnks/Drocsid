@@ -361,6 +361,10 @@ export default function DMChatArea() {
 
         if (message.author_id !== user.id) {
           playMessageSound();
+        } else {
+          setTimeout(() => {
+            virtuosoRef.current?.scrollToIndex({ index: 9999999, align: 'end', behavior: 'smooth' });
+          }, 100);
         }
       }
     };

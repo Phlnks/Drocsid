@@ -57,9 +57,10 @@ export default function NotificationManager() {
     const notifSub = supabase.channel(`global_notifs_${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, async (payload) => {
         const n = payload.new as any;
+        const data = n.data || {};
         
         // Don't notify if server is muted
-        if (n.server_id && mutedServers.includes(n.server_id)) return;
+        if (data.server_id && mutedServers.includes(data.server_id)) return;
 
         if (!n.notified) {
           // If preference is 'mentions', we only notify if it's actually an @mention (which is what this table stores)
@@ -69,7 +70,8 @@ export default function NotificationManager() {
             playMessageSound();
           }
           
-          showDesktopNotification(`Mention de ${n.author_name}`, n.content);
+          const authorName = data.author_name || "Quelqu'un";
+          showDesktopNotification(`Mention de ${authorName}`, data.content);
           
           // Mark as notified so we don't trigger it again
           supabase.from('notifications').update({ notified: true }).eq('id', n.id).then();
