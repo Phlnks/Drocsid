@@ -387,11 +387,8 @@ export default function DMSidebar() {
             size="md" 
           />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="text-sm font-semibold text-zinc-100 truncate">
-                {currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || t('common.me')}
-              </div>
-              <span className="text-[9px] px-1 bg-zinc-800 text-zinc-500 rounded font-bold uppercase tracking-widest border border-zinc-700/50">Beta</span>
+            <div className="text-sm font-semibold text-zinc-100 truncate">
+              {currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || t('common.me')}
             </div>
             <div className="text-xs text-zinc-400 truncate capitalize">
               {currentUserProfile?.status === 'dnd' ? t('modals.userProfile.dnd') : 

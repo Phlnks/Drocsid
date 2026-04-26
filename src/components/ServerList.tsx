@@ -188,7 +188,7 @@ export default function ServerList() {
         <motion.div 
           onClick={() => setSelectedServerId(null)}
           className={clsx(
-            "relative group cursor-pointer flex items-center justify-center w-full"
+            "relative group cursor-pointer flex flex-col items-center justify-center w-full gap-1"
           )}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -205,6 +205,7 @@ export default function ServerList() {
           )}>
             <DrocsidLogo className="w-12 h-12" />
           </div>
+          <span className="text-[9px] px-1 bg-indigo-500/10 text-indigo-400 rounded-sm font-bold tracking-tight border border-indigo-500/20 leading-none py-0.5 select-none shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">BETA</span>
         </motion.div>
         
         <div className="w-8 h-[2px] bg-zinc-800 rounded-full my-1" />
