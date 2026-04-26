@@ -26,12 +26,10 @@ export default function VoicePanel() {
     setActiveStreamFocus,
     localScreenShareStream,
     setSelectedDmId,
-    setSelectedServerId,
-    setSelectedChannelId
+    setSelectedServerId
   } = useAppStore();
   
   const [channelName, setChannelName] = useState('Voice Channel');
-  const [connectedServerId, setConnectedServerId] = useState<string | null>(null);
   const [callDuration, setCallDuration] = useState(0);
   const [isCall, setIsCall] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -116,10 +114,9 @@ export default function VoicePanel() {
 
     const fetchChannelInfo = async () => {
       // Fetch channel name
-      const { data: channel } = await supabase.from('channels').select('name, server_id').eq('id', connectedVoiceChannelId).maybeSingle();
+      const { data: channel } = await supabase.from('channels').select('name').eq('id', connectedVoiceChannelId).maybeSingle();
       if (channel) {
         setChannelName(channel.name);
-        setConnectedServerId(channel.server_id);
         setIsCall(false);
       } else {
         // Might be a DM call
@@ -311,13 +308,12 @@ export default function VoicePanel() {
             width: { ideal: quality.width },
             height: { ideal: quality.height },
             frameRate: { ideal: quality.frameRate },
-            displaySurface: 'monitor',
+            displaySurface: 'browser',
+            surfaceSwitching: 'include',
+            selfBrowserSurface: 'include',
+            systemAudio: 'include'
           } as any,
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          }
+          audio: true
         });
       }
       
@@ -417,10 +413,6 @@ export default function VoicePanel() {
     if (isCall && connectedVoiceChannelId) {
       setSelectedServerId(null);
       setSelectedDmId(connectedVoiceChannelId);
-    } else if (!isCall && connectedVoiceChannelId && connectedServerId) {
-      setSelectedServerId(connectedServerId);
-      setSelectedChannelId(connectedVoiceChannelId);
-      setSelectedDmId(null);
     }
   };
 
@@ -434,7 +426,10 @@ export default function VoicePanel() {
       
       <div className="flex items-center justify-between px-2">
         <div 
-          className="flex items-center gap-2 text-emerald-500 cursor-pointer hover:opacity-80 transition-opacity"
+          className={clsx(
+            "flex items-center gap-2 text-emerald-500",
+            isCall && "cursor-pointer hover:opacity-80 transition-opacity"
+          )}
           onClick={handlePanelClick}
         >
           <SignalHigh className="w-4 h-4" />
