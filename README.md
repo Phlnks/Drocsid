@@ -17,6 +17,8 @@
 - **📱 Responsive & Desktop**: Works perfectly in your browser or as a native desktop application via Electron.
 - **🖼️ Media Gallery**: Advanced media preview with full-screen gallery support, keyboard navigation (arrows), and direct download.
 - **👁️ Read Receipts (DM)**: Real-time read indicators showing your friends' avatars on the last message they've read in private conversations.
+- **📝 Personal Notes**: A dedicated space ("Mes notes") in your DMs to keep track of your own thoughts, links, and snippets.
+- **👥 Categorized Member List**: Server members are automatically grouped by roles in the right sidebar, respecting the role hierarchy order.
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -111,6 +113,49 @@ To enable these features on mobile:
 - **Android**: Foreground services are handled via Capacitor plugins.
 - **iOS**: Requires the Apple Developer Program for Push (APNs) and CallKit for background audio.
 
+
+## 🏗️ Multi-Instance Architecture
+
+Drocsid is built with a **decentralized mindset**. Unlike platforms that lock you into a single database, Drocsid supports **Multiple Instances**:
+
+- **Switch Backends**: Effortlessly switch between different Supabase backends (Private, Corporate, Community).
+- **Independent Data**: Each instance has its own users, servers, and history.
+- **Portability**: Your application remains the same, but the "home" it connects to follows you.
+- **Local Persistence**: Instances are securely stored in your local storage, allowing you to jump between communities in seconds.
+
+## 🚀 Deployment on Render
+
+To deploy the web version of Drocsid on [Render](https://render.com/):
+
+### 1. Create a Web Service
+- Connect your GitHub repository to Render.
+- Select **Static Site** (or Web Service if you need a proxy, but Static Site is preferred for the Vite build).
+
+### 2. Build Settings
+- **Build Command**: `npm run build`
+- **Publish Directory**: `dist`
+
+### 3. Environment Variables
+Add the following variables in the Render dashboard:
+- `VITE_SUPABASE_URL`: Your Supabase Project URL.
+- `VITE_SUPABASE_PUBLISHABLE_KEY`: Your Supabase Anon Key.
+- `VITE_BACKEND_URL`: The URL where your app is hosted (e.g., `https://drocsid-app.onrender.com`).
+
+### 4. Client-Side Routing (Crucial)
+Since Drocsid is a Single Page Application (SPA), ensure you configure **Redirects/Rewrites** in Render:
+- **Source**: `/*`
+- **Destination**: `/index.html`
+- **Action**: Rewrite
+- **Status**: 200
+
+## 🛡️ Advanced Security & Hierarchy
+
+Drocsid implements a "Zero-Trust" mindset for server management:
+
+- **Strict Role Ordering**: Roles have an `order` field. Users can only perform actions (Kick, Ban, Mute, Move) on members whose highest role has a *numerically higher* order (lower priority) than their own.
+- **Permission inheritance**: Permissions are additive across all roles assigned to a member.
+- **System Constraints**: Even an administrator cannot delete the "Owner" of a server.
+- **Audit Logs**: All sensitive actions (channel creation, member bans, etc.) are logged in the `server_logs` table for transparency.
 
 ## 🤝 Connecting to a Private Backend
 
