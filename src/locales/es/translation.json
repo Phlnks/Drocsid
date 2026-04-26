@@ -92,7 +92,7 @@
     "requestInProgress": "Ya hay una solicitud en curso.",
     "addFriendSuccess": "¡Solicitud de amistad enviada!",
     "friendsCount": "AMIGOS — {{count}}",
-    "savedMessages": "Mensajes guardados",
+    "savedMessages": "Mis notas",
     "pinned": "Fijados",
     "noDirectMessages": "No hay mensajes directos",
     "directMessages": "MENSAJES DIRECTOS",
@@ -518,7 +518,7 @@
     "sidebar": {
       "directMessages": "Mensajes directos",
       "friends": "Amigos",
-      "savedMessages": "Mensajes guardados",
+      "savedMessages": "Mis notas",
       "pinned": "FIJADOS",
       "members": "Miembros"
     },

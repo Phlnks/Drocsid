@@ -92,7 +92,7 @@
     "requestInProgress": "Une demande est déjà en cours.",
     "addFriendSuccess": "Demande d'ami envoyée !",
     "friendsCount": "AMIS — {{count}}",
-    "savedMessages": "Messages enregistrés",
+    "savedMessages": "Mes notes",
     "pinned": "Épinglés",
     "noDirectMessages": "Aucun message privé",
     "directMessages": "MESSAGES PRIVÉS",
@@ -525,7 +525,7 @@
     "sidebar": {
       "directMessages": "Messages privés",
       "friends": "Amis",
-      "savedMessages": "Messages enregistrés",
+      "savedMessages": "Mes notes",
       "pinned": "ÉPINGLÉS",
       "members": "Membres"
     },

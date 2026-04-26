@@ -273,7 +273,7 @@ export default function DMChatArea() {
           setOtherUsers([]);
           setOtherUser({ 
             id: user.id,
-            username: 'Messages enregistrés', 
+            username: t('friends.savedMessages'), 
             avatar_url: 'https://www.gstatic.com/images/branding/product/1x/keep_48dp.png',
             status: 'online',
             is_saved_messages: true
@@ -702,7 +702,7 @@ export default function DMChatArea() {
               <span className="font-semibold text-zinc-100">
                 {otherUsers.length > 1 
                   ? otherUsers.map(u => u.username || u.displayName).join(', ')
-                  : (otherUser?.username || otherUser?.displayName || (otherUser?.is_saved_messages ? t('channelList.savedMessages') : t('common.loading')))}
+                  : (otherUser?.username || otherUser?.displayName || (otherUser?.is_saved_messages ? t('friends.savedMessages') : t('common.loading')))}
               </span>
             </div>
             <div className="flex items-center gap-2">

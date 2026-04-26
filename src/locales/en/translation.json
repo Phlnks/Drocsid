@@ -93,7 +93,7 @@
     "requestInProgress": "A request is already in progress.",
     "addFriendSuccess": "Friend request sent!",
     "friendsCount": "FRIENDS — {{count}}",
-    "savedMessages": "Saved Messages",
+    "savedMessages": "My Notes",
     "pinned": "Pinned",
     "noDirectMessages": "No direct messages",
     "directMessages": "DIRECT MESSAGES",
@@ -529,7 +529,7 @@
     "sidebar": {
       "directMessages": "Direct Messages",
       "friends": "Friends",
-      "savedMessages": "Saved Messages",
+      "savedMessages": "My Notes",
       "pinned": "PINNED",
       "members": "Members"
     },
