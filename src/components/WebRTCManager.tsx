@@ -252,7 +252,7 @@ export default function WebRTCManager() {
         artist: 'Drocsid',
         album: status,
         artwork: [
-          { src: 'logo.png', sizes: '512x512', type: 'image/png' }
+          { src: '/logo.png', sizes: '512x512', type: 'image/png' }
         ]
       });
 
