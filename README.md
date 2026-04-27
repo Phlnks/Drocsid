@@ -19,6 +19,7 @@
 - **👁️ Read Receipts (DM)**: Real-time read indicators showing your friends' avatars on the last message they've read in private conversations.
 - **📝 Personal Notes**: A dedicated space ("Mes notes") in your DMs to keep track of your own thoughts, links, and snippets.
 - **👥 Categorized Member List**: Server members are automatically grouped by roles in the right sidebar, respecting the role hierarchy order.
+- **🌍 Multi-language Support**: Full support for English, French, and Spanish, with automatic detection and manual switching.
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -27,6 +28,15 @@ Speed up your workflow with these native shortcuts:
 - **`Arrow Up (↑)`**: Edit your last sent message (when the input is empty).
 - **`Esc`**: Cancel the current action (cancel reply, cancel edit, or close modals/gallery).
 - **`Arrows (←/→)`**: Navigate between images in the Media Gallery.
+
+## 🌍 Internationalization
+
+Drocsid is built with global reach in mind, using **i18next** for a localized experience:
+
+- **Supported Languages**: English, French, and Spanish.
+- **Automatic Detection**: The app detects your browser's language on the first visit.
+- **Manual Switching**: Easily switch languages in the **User Settings** menu.
+- **Dynamic Updates**: Real-time updates of the interface without needing a page refresh.
 
 ## 🛠️ Backend Setup (Supabase)
 
