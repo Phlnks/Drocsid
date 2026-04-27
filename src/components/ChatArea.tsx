@@ -107,11 +107,28 @@ export default function ChatArea() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
-  const loadMore = () => {
-    if (hasMore && !isFetchingMore && messages.length >= messageLimit) {
-      setIsFetchingMore(true);
-      setMessageLimit(prev => prev + 50);
+  const loadMore = async () => {
+    if (!hasMore || isFetchingMore || messages.length === 0 || !selectedChannelId) return;
+    
+    setIsFetchingMore(true);
+    const oldestTimestamp = messages[0].created_at;
+    
+    const { data: moreMessages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('channel_id', selectedChannelId)
+      .lt('created_at', oldestTimestamp)
+      .order('created_at', { ascending: false })
+      .limit(50);
+      
+    if (moreMessages && moreMessages.length > 0) {
+      const sorted = [...moreMessages].reverse();
+      setMessages(prev => [...sorted, ...prev]);
+      if (moreMessages.length < 50) setHasMore(false);
+    } else {
+      setHasMore(false);
     }
+    setIsFetchingMore(false);
   };
 
   const scrollToBottom = () => {
@@ -239,17 +256,20 @@ export default function ChatArea() {
       const { data: membersData } = await supabase.from('server_members').select('*').eq('server_id', selectedServerId);
       if (membersData) setServerMembers(membersData);
 
-      // Fetch Users
-      const { data: usersData } = await supabase.from('profiles').select('*');
-      if (usersData) {
-        const uMap: Record<string, any> = {};
-        usersData.forEach(u => uMap[u.id] = u);
-        setUsersMap(uMap);
-        
-        // Get last read for this channel
-        const myProfile = usersData.find(u => u.id === user.id);
-        if (myProfile?.last_read?.[selectedChannelId]) {
-          setLastReadTimestamp(myProfile.last_read[selectedChannelId]);
+      // Fetch Users - Only fetch profiles for members of this server
+      if (membersData && membersData.length > 0) {
+        const memberIds = membersData.map(m => m.user_id);
+        const { data: usersData } = await supabase.from('profiles').select('*').in('id', memberIds);
+        if (usersData) {
+          const uMap: Record<string, any> = {};
+          usersData.forEach(u => uMap[u.id] = u);
+          setUsersMap(uMap);
+          
+          // Get last read for this channel
+          const myProfile = usersData.find(u => u.id === user.id);
+          if (myProfile?.last_read?.[selectedChannelId]) {
+            setLastReadTimestamp(myProfile.last_read[selectedChannelId]);
+          }
         }
       }
 
@@ -259,12 +279,12 @@ export default function ChatArea() {
         .select('*')
         .eq('channel_id', selectedChannelId)
         .order('created_at', { ascending: false })
-        .limit(messageLimit);
+        .limit(50);
       
       if (messagesData) {
         const sortedMessages = [...messagesData].reverse();
         setMessages(sortedMessages);
-        if (messagesData.length < messageLimit) setHasMore(false);
+        if (messagesData.length < 50) setHasMore(false);
 
         if (initialLoadRef.current && messagesData.length > 0) {
           // Increase delay to ensure DOM is ready
@@ -374,7 +394,7 @@ export default function ChatArea() {
       socket.emit('leave-channel', selectedChannelId);
       supabase.removeChannel(serverSub);
     };
-  }, [selectedChannelId, selectedServerId, user, messageLimit]);
+  }, [selectedChannelId, selectedServerId, user]);
 
   const handleDelete = async (msgId: string) => {
     try {

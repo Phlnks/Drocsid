@@ -222,7 +222,9 @@ interface InstanceCardProps {
 
 const InstanceCard: React.FC<InstanceCardProps> = ({ instance, isCurrent, onSwitch, onEdit, onDelete, onFavorite, t }) => {
   return (
-    <div className={`p-4 rounded-md border flex items-center justify-between transition-all group ${
+    <div 
+      onDoubleClick={!isCurrent ? onSwitch : undefined}
+      className={`p-4 rounded-md border flex items-center justify-between transition-all group cursor-pointer ${
       isCurrent ? 'bg-[#35373c] border-[#5865F2]' : 'bg-[#2b2d31] border-[#1e1f22] hover:bg-[#35373c]'
     }`}>
       <div className="flex items-center gap-3">

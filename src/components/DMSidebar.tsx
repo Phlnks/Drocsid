@@ -9,6 +9,7 @@ import UserSettingsModal from './ui/UserSettingsModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import UserAvatar from './ui/UserAvatar';
 import UserContextMenu from './ui/UserContextMenu';
+import { useInstanceStore } from '../store/instanceStore';
 import { useTranslation } from 'react-i18next';
 
 export default function DMSidebar() {
@@ -397,7 +398,20 @@ export default function DMSidebar() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100" title={t('instances.title')}>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} 
+              className={clsx(
+                "p-2 rounded-md transition-colors",
+                useInstanceStore.getState().isCurrentInstanceValid() 
+                  ? "text-emerald-500 hover:bg-emerald-500/10" 
+                  : "text-red-500 hover:bg-red-500/10"
+              )} 
+              title={
+                useInstanceStore.getState().isCurrentInstanceValid()
+                  ? t('instances.connectedTo', { name: useInstanceStore.getState().getCurrentInstance()?.name })
+                  : t('instances.notConnected')
+              }
+            >
               <Database className="w-4 h-4" />
             </button>
             <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">

@@ -37,16 +37,23 @@ export default function RightSidebar() {
         if (rolesRes.data) setServerRoles(rolesRes.data);
         if (membersRes.data) setServerMembers(membersRes.data);
 
-        // Fetch profiles for these members
-        if (membersRes.data) {
+        // Fetch profiles only for these members
+        if (membersRes.data && membersRes.data.length > 0) {
           const memberIds = membersRes.data.map(m => m.user_id);
           const { data: profiles } = await supabase.from('profiles').select('*').in('id', memberIds);
           if (profiles) setUsers(profiles);
         }
       } else {
-        // Default DM view / all users (or maybe just friends, but current code fetches all)
-        const { data, error } = await supabase.from('profiles').select('*');
-        if (data) setUsers(data);
+        // In DM view, only fetch profiles for DMs you are part of
+        const { data: dms } = await supabase.from('dms').select('participants').contains('participants', [currentUser?.id]);
+        if (dms) {
+          const participants = new Set<string>();
+          dms.forEach(dm => dm.participants.forEach((p: string) => participants.add(p)));
+          if (participants.size > 0) {
+            const { data: profiles } = await supabase.from('profiles').select('*').in('id', Array.from(participants));
+            if (profiles) setUsers(profiles);
+          }
+        }
         setServerRoles([]);
         setServerMembers([]);
       }
@@ -55,7 +62,14 @@ export default function RightSidebar() {
     fetchUsers();
 
     const profilesSub = supabase.channel('profiles_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchUsers())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
+        if (payload.eventType === 'UPDATE') {
+          setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
+        } else {
+          // For INSERT or DELETE, re-fetching is safer
+          fetchUsers();
+        }
+      })
       .subscribe();
 
     const membersSub = supabase.channel('members_changes')

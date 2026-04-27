@@ -98,7 +98,13 @@ export default function MessageContent({ content }: { content: string }) {
               if (alt?.startsWith('custom_emoji:')) {
                 return <img src={src} title={alt.replace('custom_emoji:', '')} className="w-6 h-6 inline-block align-middle mx-0.5" alt={alt.replace('custom_emoji:', '')} />;
               }
-              return <img src={src} alt={alt} className="rounded-md max-w-full max-h-80 object-contain" referrerPolicy="no-referrer" />;
+              return <img 
+                        src={src} 
+                        alt={alt} 
+                        className="rounded-md max-w-full max-h-80 object-contain" 
+                        referrerPolicy="no-referrer" 
+                        loading="lazy"
+                      />;
             }
           }}
         >
@@ -107,26 +113,28 @@ export default function MessageContent({ content }: { content: string }) {
       </div>
 
       {youtubeIds.map(id => (
-        <div key={id} className="mt-2 max-w-[400px] rounded-md overflow-hidden border border-zinc-700/50">
+        <div key={id} className="mt-2 max-w-[400px] rounded-md overflow-hidden border border-zinc-700/50 aspect-video bg-zinc-900/50">
           <iframe
             width="100%"
-            height="225"
+            height="100%"
             src={`https://www.youtube.com/embed/${id}`}
             title="YouTube video player"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            loading="lazy"
           ></iframe>
         </div>
       ))}
 
       {imageUrls.map(url => (
-        <div key={url} className="mt-2 max-w-md">
+        <div key={url} className="mt-2 max-w-md bg-zinc-900/50 rounded-md min-h-[100px] flex items-center justify-center">
           <img 
             src={url} 
             alt="Embedded" 
             className="rounded-md max-h-80 object-contain"
             referrerPolicy="no-referrer"
+            loading="lazy"
           />
         </div>
       ))}

@@ -26,7 +26,9 @@
     "default": "Défaut",
     "save": "Enregistrer l'instance",
     "placeholderName": "Ma Super Instance",
-    "switchConfirm": "Êtes-vous sûr de vouloir basculer vers {{name}} ? L'application va redémarrer."
+    "switchConfirm": "Êtes-vous sûr de vouloir basculer vers {{name}} ? L'application va redémarrer.",
+    "connectedTo": "Connecté à l'instance '{{name}}'",
+    "notConnected": "Non connecté à une instance"
   },
   "common": {
     "cancel": "Annuler",

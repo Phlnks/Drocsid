@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { Plus, Compass, Volume2 } from 'lucide-react';
+import { Plus, Compass, Volume2, BellOff } from 'lucide-react';
 import DrocsidLogo from './ui/DrocsidLogo';
 import clsx from 'clsx';
 import AddServerModal from './ui/AddServerModal';
@@ -239,8 +239,8 @@ export default function ServerList() {
               )}
             </div>
             {mutedServers.includes(server.id) && (
-              <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800 z-10">
-                <div className="w-2 h-2 bg-zinc-500 rounded-full" title={t('app.serverList.muted')} />
+              <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800 z-10" title={t('app.serverList.muted')}>
+                <BellOff className="w-3 h-3 text-red-500" />
               </div>
             )}
             {connectedVoiceServerId && servers.find(s => s.id === server.id) && (

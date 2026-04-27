@@ -121,11 +121,28 @@ export default function DMChatArea() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
-  const loadMore = () => {
-    if (hasMore && !isFetchingMore && messages.length >= messageLimit) {
-      setIsFetchingMore(true);
-      setMessageLimit(prev => prev + 50);
+  const loadMore = async () => {
+    if (!hasMore || isFetchingMore || messages.length === 0 || !selectedDmId) return;
+    
+    setIsFetchingMore(true);
+    const oldestTimestamp = messages[0].created_at;
+    
+    const { data: moreMessages, error } = await supabase
+      .from('dm_messages')
+      .select('*')
+      .eq('dm_id', selectedDmId)
+      .lt('created_at', oldestTimestamp)
+      .order('created_at', { ascending: false })
+      .limit(50);
+      
+    if (moreMessages && moreMessages.length > 0) {
+      const sorted = [...moreMessages].reverse();
+      setMessages(prev => [...sorted, ...prev]);
+      if (moreMessages.length < 50) setHasMore(false);
+    } else {
+      setHasMore(false);
     }
+    setIsFetchingMore(false);
   };
 
   const scrollToBottom = () => {
@@ -293,17 +310,19 @@ export default function DMChatArea() {
       const { data: callData } = await supabase.from('calls').select('*').eq('id', selectedDmId).maybeSingle();
       setActiveCall(callData);
 
-      // Fetch Users
-      const { data: usersData } = await supabase.from('profiles').select('*');
-      if (usersData) {
-        const uMap: Record<string, any> = {};
-        usersData.forEach(u => uMap[u.id] = u);
-        setUsersMap(uMap);
+      // Fetch Users - Only fetch profiles for participants of this DM
+      if (dmData && dmData.participants && dmData.participants.length > 0) {
+        const { data: usersData } = await supabase.from('profiles').select('*').in('id', dmData.participants);
+        if (usersData) {
+          const uMap: Record<string, any> = {};
+          usersData.forEach(u => uMap[u.id] = u);
+          setUsersMap(uMap);
 
-        // Get last read for this DM
-        const currentUserProfile = usersData.find(u => u.id === user.id);
-        if (currentUserProfile?.last_read?.[selectedDmId]) {
-          setLastReadTimestamp(currentUserProfile.last_read[selectedDmId]);
+          // Get last read for this DM
+          const currentUserProfile = usersData.find(u => u.id === user.id);
+          if (currentUserProfile?.last_read?.[selectedDmId]) {
+            setLastReadTimestamp(currentUserProfile.last_read[selectedDmId]);
+          }
         }
       }
 
@@ -313,12 +332,12 @@ export default function DMChatArea() {
         .select('*')
         .eq('dm_id', selectedDmId)
         .order('created_at', { ascending: false })
-        .limit(messageLimit);
+        .limit(50);
       
       if (messagesData) {
         const sortedMessages = [...messagesData].reverse();
         setMessages(sortedMessages);
-        if (messagesData.length < messageLimit) setHasMore(false);
+        if (messagesData.length < 50) setHasMore(false);
 
         if (isInitialLoading) {
           if (messagesData.length > 0) {
@@ -464,7 +483,7 @@ export default function DMChatArea() {
       socket.emit('leave-channel', selectedDmId);
       supabase.removeChannel(dmSub);
     };
-  }, [selectedDmId, user, messageLimit]);
+  }, [selectedDmId, user]);
 
   const handleDelete = async (msgId: string) => {
     try {

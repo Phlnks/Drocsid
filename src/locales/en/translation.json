@@ -26,7 +26,9 @@
     "default": "Default",
     "save": "Save Instance",
     "placeholderName": "My Awesome Instance",
-    "switchConfirm": "Are you sure you want to switch to {{name}}? The application will restart."
+    "switchConfirm": "Are you sure you want to switch to {{name}}? The application will restart.",
+    "connectedTo": "Connected to instance '{{name}}'",
+    "notConnected": "Not connected to an instance"
   },
   "common": {
     "cancel": "Cancel",

@@ -26,7 +26,9 @@
     "default": "Predeterminada",
     "save": "Guardar instancia",
     "placeholderName": "Mi Super Instancia",
-    "switchConfirm": "¿Estás seguro de que quieres cambiar a {{name}}? La aplicación se reiniciará."
+    "switchConfirm": "¿Estás seguro de que quieres cambiar a {{name}}? La aplicación se reiniciará.",
+    "connectedTo": "Conectado a la instancia '{{name}}'",
+    "notConnected": "No conectado a una instancia"
   },
   "common": {
     "cancel": "Cancelar",
