@@ -291,7 +291,7 @@ export default function DMChatArea() {
           setOtherUser({ 
             id: user.id,
             username: t('friends.savedMessages'), 
-            avatar_url: 'https://www.gstatic.com/images/branding/product/1x/keep_48dp.png',
+            avatar_url: 'SAVED_MESSAGES_ICON',
             status: 'online',
             is_saved_messages: true
           });
