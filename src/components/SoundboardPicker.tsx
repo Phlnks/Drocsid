@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Volume2, Search, X, Smile } from 'lucide-react';
+import { Volume2, VolumeX, Volume1, Search, X, Smile } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -17,14 +17,22 @@ interface SoundboardPickerProps {
 export default function SoundboardPicker({ isOpen, onClose, channelId, serverId }: SoundboardPickerProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { setServerSettingsModal } = useAppStore();
+  const { 
+    setServerSettingsModal, 
+    soundboardVolume, 
+    isSoundboardMuted, 
+    setSoundboardVolume, 
+    setIsSoundboardMuted 
+  } = useAppStore();
   const [search, setSearch] = useState('');
   const [sounds, setSounds] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [canUseSoundboard, setCanUseSoundboard] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !serverId) return;
+    setShowVolumeSlider(false); // Reset when reopening
 
     const fetchSoundsAndPerms = async () => {
       setIsLoading(true);
@@ -74,8 +82,11 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     });
 
     // We can also play it locally immediately for feedback
-    const audio = new Audio(sound.url);
-    audio.play().catch(console.error);
+    if (!isSoundboardMuted) {
+      const audio = new Audio(sound.url);
+      audio.volume = soundboardVolume;
+      audio.play().catch(console.error);
+    }
     
     // Optionally close picker or keep it open for multi-sound
     // onClose();
@@ -88,9 +99,44 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
   return (
     <div className="absolute bottom-full left-0 mb-2 w-[300px] h-[400px] bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl flex flex-col overflow-hidden z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200">
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
-        <div className="flex items-center gap-2">
-          <Volume2 className="w-4 h-4 text-zinc-400" />
+        <div className="flex items-center gap-2 relative">
+          <button 
+            onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+            className={clsx(
+              "transition-colors", 
+              isSoundboardMuted ? "text-red-400 hover:text-red-300" : "text-zinc-400 hover:text-zinc-100"
+            )}
+            title={t('soundboard.volumeControl', 'Volume de la soundboard')}
+          >
+            {isSoundboardMuted || soundboardVolume === 0 ? <VolumeX className="w-4 h-4" /> : 
+             soundboardVolume < 0.5 ? <Volume1 className="w-4 h-4" /> : 
+             <Volume2 className="w-4 h-4" />}
+          </button>
+          
           <span className="text-sm font-bold text-zinc-100">{t('soundboard.title', 'Soundboard')}</span>
+          
+          {showVolumeSlider && (
+            <div className="absolute top-full left-0 mt-2 p-3 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl flex items-center gap-3 z-[110] animate-in fade-in zoom-in-95 duration-100">
+               <button 
+                 onClick={() => setIsSoundboardMuted(!isSoundboardMuted)}
+                 className={clsx("p-1 rounded transition-colors", isSoundboardMuted ? "text-red-400 bg-red-400/10" : "text-zinc-500 hover:text-zinc-100 hover:bg-zinc-700")}
+               >
+                 {isSoundboardMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+               </button>
+               <input 
+                 type="range"
+                 min="0"
+                 max="1"
+                 step="0.01"
+                 value={soundboardVolume}
+                 onChange={(e) => setSoundboardVolume(parseFloat(e.target.value))}
+                 className="w-24 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+               />
+               <span className="text-[10px] text-zinc-400 font-mono w-6 text-right">
+                 {Math.round(soundboardVolume * 100)}%
+               </span>
+            </div>
+          )}
         </div>
         <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
           <X className="w-4 h-4" />

@@ -66,6 +66,8 @@ interface AppState {
   highlightedMessageId: string | null;
   notifications: Notification[];
   drafts: Record<string, string>;
+  soundboardVolume: number;
+  isSoundboardMuted: boolean;
   serverSettingsModal: {
     isOpen: boolean;
     serverId: string | null;
@@ -86,6 +88,8 @@ interface AppState {
   setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   setNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   setAppSettings: (settings: Partial<AppState['appSettings']>) => void;
+  setSoundboardVolume: (volume: number) => void;
+  setIsSoundboardMuted: (muted: boolean) => void;
   setServerSettingsModal: (config: Partial<AppState['serverSettingsModal']>) => void;
   toggleMuteServer: (serverId: string) => void;
   toggleMuteDm: (dmId: string) => void;
@@ -137,6 +141,8 @@ export const useAppStore = create<AppState>((set) => ({
   highlightedMessageId: null,
   notifications: [],
   drafts: JSON.parse(localStorage.getItem('drocsid-drafts') || '{}'),
+  soundboardVolume: JSON.parse(localStorage.getItem('drocsid-soundboard-volume') || '0.5'),
+  isSoundboardMuted: JSON.parse(localStorage.getItem('drocsid-soundboard-muted') || 'false'),
   serverSettingsModal: {
     isOpen: false,
     serverId: null,
@@ -238,6 +244,14 @@ export const useAppStore = create<AppState>((set) => ({
   setIsMobileNavOpen: (isOpen) => set((state) => ({
     isMobileNavOpen: typeof isOpen === 'function' ? isOpen(state.isMobileNavOpen) : isOpen
   })),
+  setSoundboardVolume: (volume) => set(() => {
+    localStorage.setItem('drocsid-soundboard-volume', JSON.stringify(volume));
+    return { soundboardVolume: volume };
+  }),
+  setIsSoundboardMuted: (muted) => set(() => {
+    localStorage.setItem('drocsid-soundboard-muted', JSON.stringify(muted));
+    return { isSoundboardMuted: muted };
+  }),
   setTheme: (theme) => {
     localStorage.setItem('drocsid-theme', theme);
     set({ theme });

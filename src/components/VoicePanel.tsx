@@ -29,7 +29,9 @@ export default function VoicePanel() {
     localScreenShareStream,
     setSelectedDmId,
     setSelectedServerId,
-    selectedServerId
+    selectedServerId,
+    soundboardVolume,
+    isSoundboardMuted
   } = useAppStore();
   
   const [channelName, setChannelName] = useState('Voice Channel');
@@ -50,8 +52,10 @@ export default function VoicePanel() {
     if (!connectedVoiceChannelId) return;
 
     const handleSoundPlayed = (data: { soundId: string, channelId: string, userId: string, soundUrl: string }) => {
-      if (data.channelId === connectedVoiceChannelId && !isDeafened && data.userId !== currentUser?.id) {
+      // Check if user is in the same channel, not deafened, not the player (already played locally), and soundboard is not muted locally
+      if (data.channelId === connectedVoiceChannelId && !isDeafened && data.userId !== currentUser?.id && !isSoundboardMuted) {
         const audio = new Audio(data.soundUrl);
+        audio.volume = soundboardVolume;
         audio.play().catch(console.error);
       }
     };
@@ -60,7 +64,7 @@ export default function VoicePanel() {
     return () => {
       socket.off('soundboard-sound-played', handleSoundPlayed);
     };
-  }, [connectedVoiceChannelId, isDeafened, currentUser]);
+  }, [connectedVoiceChannelId, isDeafened, currentUser, isSoundboardMuted, soundboardVolume]);
 
   useEffect(() => {
     if (localVideoRef.current && localScreenShareStream) {
