@@ -38,7 +38,8 @@ export default function DMChatArea() {
     setIsMobileNavOpen, 
     highlightedMessageId: globalHighlightedMessageId, 
     setHighlightedMessageId: setGlobalHighlightedMessageId,
-    voiceParticipants: voiceParticipantsMap
+    voiceParticipants: voiceParticipantsMap,
+    appSettings
   } = useAppStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [otherUsers, setOtherUsers] = useState<any[]>([]);
@@ -593,7 +594,7 @@ export default function DMChatArea() {
   const getDayLabel = (date: Date) => {
     if (isToday(date)) return t('chatArea.today');
     if (isYesterday(date)) return t('chatArea.yesterday');
-    return format(date, 'd MMMM yyyy', { locale: dateLocale });
+    return format(date, appSettings.dateFormat, { locale: dateLocale });
   };
 
   const MessageSkeleton = () => (
@@ -972,7 +973,7 @@ export default function DMChatArea() {
                   </div>
                 ) : (
                   <div className="w-10 flex-shrink-0 text-xs text-zinc-500 opacity-0 group-hover:opacity-100 text-center pt-1 flex items-center justify-center gap-1">
-                    {format(new Date(msg.created_at), 'HH:mm')}
+                    {format(new Date(msg.created_at), appSettings.timeFormat)}
                     {isOwner && (
                       isRead ? <CheckCheck className="w-3 h-3 text-blue-400" /> : <Check className="w-3 h-3 text-zinc-500" />
                     )}
@@ -990,7 +991,11 @@ export default function DMChatArea() {
                         {userData.username}
                       </span>
                       <span className="text-xs text-zinc-400 flex items-center gap-1">
-                        {format(new Date(msg.created_at), 'dd/MM/yyyy HH:mm')}
+                        {isToday(new Date(msg.created_at)) 
+                          ? `${t('chatArea.today')} ${format(new Date(msg.created_at), appSettings.timeFormat)}`
+                          : isYesterday(new Date(msg.created_at))
+                          ? `${t('chatArea.yesterday')} ${format(new Date(msg.created_at), appSettings.timeFormat)}`
+                          : format(new Date(msg.created_at), `${appSettings.dateFormat} ${appSettings.timeFormat}`)}
                         {isOwner && (
                           isRead ? <CheckCheck className="w-3 h-3 text-blue-400" /> : <Check className="w-3 h-3 text-zinc-500" />
                         )}

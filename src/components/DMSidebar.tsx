@@ -4,7 +4,6 @@ import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { MessageSquare, Search, User, Settings, Pin, Save, Database } from 'lucide-react';
 import clsx from 'clsx';
-import VoicePanel from './VoicePanel';
 import UserSettingsModal from './ui/UserSettingsModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import UserAvatar from './ui/UserAvatar';
@@ -19,8 +18,6 @@ export default function DMSidebar() {
   const [dms, setDms] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number, dmId?: string } | null>(null);
   const [pinnedDmIds, setPinnedDmIds] = useState<string[]>(JSON.parse(localStorage.getItem(`drocsid-pinned-dms-${user?.id}`) || '[]'));
 
@@ -264,7 +261,7 @@ export default function DMSidebar() {
 
   return (
     <>
-      <div className="flex-1 md:w-60 bg-zinc-900 flex flex-col flex-shrink-0 border-r border-zinc-800">
+      <div className="flex-1 md:w-60 bg-zinc-900 flex flex-col flex-shrink-0">
         <div className="h-12 border-b border-zinc-800 flex items-center px-4 shadow-sm">
           <div className="relative w-full">
             <input
@@ -371,64 +368,7 @@ export default function DMSidebar() {
             </>
           )}
         </div>
-        
-        {connectedVoiceChannelId && <VoicePanel />}
-
-        {/* User Profile Area at bottom of sidebar */}
-        <div 
-          className="h-14 bg-zinc-950/50 flex items-center px-2 flex-shrink-0 gap-2 cursor-pointer hover:bg-zinc-800 transition-colors"
-          onClick={() => setIsSettingsOpen(true)}
-        >
-          <UserAvatar 
-            user={{
-              username: currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || t('common.me'),
-              avatarUrl: currentUserProfile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '',
-              status: currentUserProfile?.status || 'online'
-            }} 
-            size="md" 
-          />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-zinc-100 truncate">
-              {currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || t('common.me')}
-            </div>
-            <div className="text-xs text-zinc-400 truncate capitalize">
-              {currentUserProfile?.status === 'dnd' ? t('modals.userProfile.dnd') : 
-               currentUserProfile?.status === 'idle' ? t('modals.userProfile.idle') : 
-               currentUserProfile?.status === 'offline' ? t('modals.userProfile.offline') : t('modals.userProfile.online')}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} 
-              className={clsx(
-                "p-2 rounded-md transition-colors",
-                useInstanceStore.getState().isCurrentInstanceValid() 
-                  ? "text-emerald-500 hover:bg-emerald-500/10" 
-                  : "text-red-500 hover:bg-red-500/10"
-              )} 
-              title={
-                useInstanceStore.getState().isCurrentInstanceValid()
-                  ? t('instances.connectedTo', { name: useInstanceStore.getState().getCurrentInstance()?.name })
-                  : t('instances.notConnected')
-              }
-            >
-              <Database className="w-4 h-4" />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
       </div>
-      <UserSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
-      <InstanceSettingsModal
-        isOpen={isInstanceSettingsOpen}
-        onClose={() => setIsInstanceSettingsOpen(false)}
-      />
-
       {contextMenu && (
         <UserContextMenu
           userId={contextMenu.userId}

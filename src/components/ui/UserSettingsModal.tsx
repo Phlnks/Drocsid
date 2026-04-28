@@ -14,13 +14,14 @@ interface UserSettingsModalProps {
 
 export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'voice' | 'account' | 'appearance' | 'notifications' | 'keybinds' | 'language'>('account');
+  const [activeTab, setActiveTab] = useState<'voice' | 'account' | 'appearance' | 'notifications' | 'keybinds' | 'language' | 'application'>('account');
   const { 
     voiceSettings, setVoiceSettings, 
     theme, setTheme, 
     addNotification, 
     keybinds, setKeybinds,
-    notificationSettings, setNotificationSettings 
+    notificationSettings, setNotificationSettings,
+    appSettings, setAppSettings
   } = useAppStore();
   const { user } = useAuthStore();
   const [profile, setProfile] = useState<{username: string, avatar_url: string, status: string, bio: string}>({
@@ -278,6 +279,14 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
           >
             <Settings className="w-4 h-4" />
             <span className="font-medium">{t('settings.appearance')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('application')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'application' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Play className="w-4 h-4 rotate-90" />
+            <span className="font-medium">{t('settings.application')}</span>
           </button>
 
           <button
@@ -801,6 +810,67 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
               </div>
             )}
             
+            {activeTab === 'application' && (
+              <div className="max-w-xl">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-6 tracking-tight">{t('settings.application')}</h2>
+                
+                <div className="space-y-6">
+                  {/* Startup - Only show if Electron */}
+                  {((window as any).electron || true) && (
+                    <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                      <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.applicationSettings.windowStartup')}</h3>
+                      
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div className="flex-1 pr-4">
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">{t('settings.applicationSettings.launchAtStartup')}</div>
+                          <div className="text-xs text-zinc-400">{t('settings.applicationSettings.launchAtStartupDesc')}</div>
+                        </div>
+                        <div className={`w-10 h-6 shrink-0 rounded-full transition-colors relative ${appSettings.launchAtStartup ? 'bg-emerald-500' : 'bg-zinc-600'}`}>
+                          <input 
+                            type="checkbox" 
+                            className="sr-only" 
+                            checked={appSettings.launchAtStartup} 
+                            onChange={(e) => setAppSettings({ launchAtStartup: e.target.checked })}
+                          />
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${appSettings.launchAtStartup ? 'translate-x-4' : ''}`} />
+                        </div>
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">{t('settings.applicationSettings.dateTimeFormat')}</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('settings.applicationSettings.dateFormat')}</label>
+                        <select 
+                          className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
+                          value={appSettings.dateFormat}
+                          onChange={(e) => setAppSettings({ dateFormat: e.target.value as any })}
+                        >
+                          <option value="dd/MM/yyyy">{t('settings.applicationSettings.example', { value: '28/04/2026' })}</option>
+                          <option value="MM/dd/yyyy">{t('settings.applicationSettings.example', { value: '04/28/2026' })}</option>
+                          <option value="yyyy-MM-dd">{t('settings.applicationSettings.example', { value: '2026-04-28' })}</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">{t('settings.applicationSettings.timeFormat')}</label>
+                        <select 
+                          className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
+                          value={appSettings.timeFormat}
+                          onChange={(e) => setAppSettings({ timeFormat: e.target.value as any })}
+                        >
+                          <option value="HH:mm">{t('settings.applicationSettings.example', { value: '16:45' })}</option>
+                          <option value="hh:mm a">{t('settings.applicationSettings.example', { value: '04:45 PM' })}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {activeTab === 'notifications' && (
               <div className="max-w-xl">
                 <h2 className="text-xl md:text-2xl font-bold text-white mb-6">{t('settings.notifications')}</h2>

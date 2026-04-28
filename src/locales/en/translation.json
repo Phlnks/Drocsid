@@ -131,6 +131,16 @@
     "logout": "Log Out",
     "language": "Language",
     "languageDescription": "Choose the application language.",
+    "application": "Application",
+    "applicationSettings": {
+      "windowStartup": "WINDOW STARTUP",
+      "launchAtStartup": "Open Drocsid on startup",
+      "launchAtStartupDesc": "Automatically starts the application when you log into Windows.",
+      "dateTimeFormat": "DATE & TIME FORMAT",
+      "dateFormat": "Date Format",
+      "timeFormat": "Time Format",
+      "example": "Example: {{value}}"
+    },
     "voiceVideo": {
       "hardwareDevices": "HARDWARE DEVICES",
       "inputDevice": "INPUT DEVICE",

@@ -420,7 +420,7 @@ export default function VoicePanel() {
   const displayChannelName = isAfk ? channelName.replace(' [AFK]', '') : channelName;
 
   return (
-    <div className="bg-zinc-900 border-t border-zinc-800 p-2 flex flex-col gap-2 shrink-0 relative">
+    <div className="bg-zinc-950 border-t border-zinc-800 p-2 flex flex-col gap-2 shrink-0 relative">
       {/* Hidden video to keep screen share alive */}
       <video ref={localVideoRef} autoPlay playsInline muted className="absolute w-[1px] h-[1px] opacity-0 pointer-events-none" />
       

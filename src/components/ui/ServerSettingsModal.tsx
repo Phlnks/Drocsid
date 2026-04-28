@@ -221,7 +221,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
       if (error) throw error;
 
       logAction('server_update', t('serverSettings.serverUpdatedLog'));
-      addNotification(t('common.profileUpdated'), "success");
+      addNotification(t('common.savedSuccessfully'), "success");
     } catch (error: any) {
       console.error("Error updating server:", error);
       addNotification(t('errors.updateFailed'), "error");
@@ -259,12 +259,25 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
         console.warn("Storage upload failed, falling back to base64 compression", uploadError);
         const base64 = await processImageForSupabase(file, 200);
         setIconUrl(base64);
+        
+        // Also update database immediately
+        await supabase.from('servers').update({ 
+          icon_url: base64 
+        }).eq('id', server.id);
+        
+        addNotification(t('common.imageUploaded'), "success");
       } else {
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
           .getPublicUrl(filePath);
 
         setIconUrl(publicUrl);
+        
+        // Also update database immediately
+        await supabase.from('servers').update({ 
+          icon_url: publicUrl 
+        }).eq('id', server.id);
+        
         addNotification(t('common.imageUploaded'), "success");
       }
     } catch (error: any) {

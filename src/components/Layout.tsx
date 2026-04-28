@@ -15,9 +15,11 @@ import MobileVoiceControl from './MobileVoiceControl';
 import NotificationManager from './NotificationManager';
 import { useAppStore } from '../store/appStore';
 import socket from '../lib/socket';
+import UserControlPanel from './UserControlPanel';
+import VoicePanel from './VoicePanel';
 
 export default function Layout() {
-  const { selectedServerId, selectedDmId, activeStreamFocus, isRightSidebarOpen, isMobileNavOpen, setVoiceParticipants } = useAppStore();
+  const { selectedServerId, selectedDmId, activeStreamFocus, isRightSidebarOpen, isMobileNavOpen, setVoiceParticipants, connectedVoiceChannelId } = useAppStore();
 
   useEffect(() => {
     socket.emit('request-voice-states');
@@ -42,13 +44,19 @@ export default function Layout() {
       <MobileVoiceControl />
       
       {/* Navigation (ServerList + ChannelList/DMSidebar) */}
-      <div className={`flex h-full w-full md:w-auto ${isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
-        <ServerList />
-        {selectedServerId === null ? (
-          <DMSidebar />
-        ) : (
-          <ChannelList />
-        )}
+      <div className={`flex flex-col h-full w-full md:w-[312px] bg-zinc-950 flex-shrink-0 border-r border-zinc-800/50 ${isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <ServerList />
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+            {selectedServerId === null ? (
+              <DMSidebar />
+            ) : (
+              <ChannelList />
+            )}
+          </div>
+        </div>
+        {connectedVoiceChannelId && <VoicePanel />}
+        <UserControlPanel />
       </div>
 
       {/* Main Content (ChatArea/DMChatArea/FriendsDashboard) */}

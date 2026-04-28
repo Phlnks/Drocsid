@@ -61,6 +61,11 @@ interface AppState {
   highlightedMessageId: string | null;
   notifications: Notification[];
   drafts: Record<string, string>;
+  appSettings: {
+    launchAtStartup: boolean;
+    dateFormat: 'dd/MM/yyyy' | 'MM/dd/yyyy' | 'yyyy-MM-dd';
+    timeFormat: 'HH:mm' | 'hh:mm a';
+  };
   
   setSelectedServerId: (id: string | null) => void;
   setSelectedChannelId: (id: string | null) => void;
@@ -70,6 +75,7 @@ interface AppState {
   setIsDeafened: (deafened: boolean) => void;
   setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   setNotificationSettings: (settings: Partial<NotificationSettings>) => void;
+  setAppSettings: (settings: Partial<AppState['appSettings']>) => void;
   toggleMuteServer: (serverId: string) => void;
   toggleMuteDm: (dmId: string) => void;
   setKeybinds: (keybinds: Partial<Keybinds>) => void;
@@ -119,6 +125,7 @@ export const useAppStore = create<AppState>((set) => ({
   notifications: [],
   drafts: JSON.parse(localStorage.getItem('drocsid-drafts') || '{}'),
   keybinds: JSON.parse(localStorage.getItem('drocsid-keybinds') || '{"mute": "CommandOrControl+Shift+M", "deafen": "CommandOrControl+Shift+D"}'),
+  appSettings: JSON.parse(localStorage.getItem('drocsid-app-settings') || '{"launchAtStartup":false,"dateFormat":"dd/MM/yyyy","timeFormat":"HH:mm"}'),
   
   setSelectedServerId: (id) => set((state) => {
     if (state.selectedServerId === id && id !== null) return state;
@@ -138,6 +145,17 @@ export const useAppStore = create<AppState>((set) => ({
     const newSettings = { ...state.notificationSettings, ...settings };
     localStorage.setItem('drocsid-notification-settings', JSON.stringify(newSettings));
     return { notificationSettings: newSettings };
+  }),
+  setAppSettings: (settings) => set((state) => {
+    const newSettings = { ...state.appSettings, ...settings };
+    localStorage.setItem('drocsid-app-settings', JSON.stringify(newSettings));
+    
+    // Notify Electron about startup preference if it changed
+    if ((window as any).electron && settings.hasOwnProperty('launchAtStartup')) {
+        (window as any).electron.setLaunchAtStartup(newSettings.launchAtStartup);
+    }
+    
+    return { appSettings: newSettings };
   }),
   toggleMuteServer: (serverId) => set((state) => {
     const isMuted = state.mutedServers.includes(serverId);

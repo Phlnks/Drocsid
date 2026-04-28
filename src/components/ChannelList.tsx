@@ -11,7 +11,6 @@ import UserSettingsModal from './ui/UserSettingsModal';
 import ServerSettingsModal from './ui/ServerSettingsModal';
 import RenameChannelModal from './ui/RenameChannelModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
-import VoicePanel from './VoicePanel';
 import VoiceChannelItem from './VoiceChannelItem';
 import UserAvatar from './ui/UserAvatar';
 import { playConnectSound } from '../lib/sounds';
@@ -40,8 +39,6 @@ export default function ChannelList() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [channelToRename, setChannelToRename] = useState<any>(null);
   const [selectedCategoryIdForNewChannel, setSelectedCategoryIdForNewChannel] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
   const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [draggedChannelId, setDraggedChannelId] = useState<string | null>(null);
@@ -540,7 +537,7 @@ export default function ChannelList() {
 
   return (
     <>
-      <div className="flex-1 md:w-60 bg-zinc-900 flex-shrink-0 flex flex-col border-r border-zinc-800 relative">
+      <div className="flex-1 md:w-60 bg-zinc-900 flex-shrink-0 flex flex-col relative">
         <div 
           className="h-12 border-b border-zinc-800 flex items-center justify-between px-4 font-semibold text-zinc-100 shadow-sm transition-colors cursor-pointer hover:bg-zinc-800/50"
           onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
@@ -608,7 +605,6 @@ export default function ChannelList() {
         </AnimatePresence>
         
         <div className="flex-1 overflow-y-auto p-2">
-          {/* Uncategorized Channels */}
           {channelsByCategory.uncategorized.length > 0 && (
             <div className="mb-4">
               {channelsByCategory.uncategorized.map(renderChannel)}
@@ -661,53 +657,6 @@ export default function ChannelList() {
             </div>
           )}
         </div>
-
-        {connectedVoiceChannelId && <VoicePanel />}
-
-        <div 
-          className="h-14 bg-zinc-950 flex items-center px-2 gap-2 mt-auto shrink-0 cursor-pointer hover:bg-zinc-800 transition-colors"
-          onClick={() => setIsSettingsOpen(true)}
-        >
-          <UserAvatar 
-            user={{
-              username: currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || t('common.user'),
-              avatarUrl: currentUserProfile?.avatar_url || user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '',
-              status: currentUserProfile?.status || 'online'
-            }} 
-            size="md" 
-          />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold truncate text-zinc-100">
-              {currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || t('common.user')}
-            </div>
-            <div className="text-xs text-zinc-400 truncate capitalize">
-              {currentUserProfile?.status === 'dnd' ? t('common.dnd') : 
-               currentUserProfile?.status === 'idle' ? t('common.idle') : 
-               currentUserProfile?.status === 'offline' ? t('common.offline') : t('common.online')}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button 
-              onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} 
-              className={clsx(
-                "p-2 rounded-md transition-colors",
-                useInstanceStore.getState().isCurrentInstanceValid() 
-                  ? "text-emerald-500 hover:bg-emerald-500/10" 
-                  : "text-red-500 hover:bg-red-500/10"
-              )} 
-              title={
-                useInstanceStore.getState().isCurrentInstanceValid()
-                  ? t('instances.connectedTo', { name: useInstanceStore.getState().getCurrentInstance()?.name })
-                  : t('instances.notConnected')
-              }
-            >
-              <Database className="w-4 h-4" />
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100">
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
       </div>
 
       <CreateChannelModal
@@ -725,14 +674,6 @@ export default function ChannelList() {
         }}
         onSubmit={handleRenameChannel}
         initialName={channelToRename?.name || ''}
-      />
-      <UserSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
-      <InstanceSettingsModal
-        isOpen={isInstanceSettingsOpen}
-        onClose={() => setIsInstanceSettingsOpen(false)}
       />
       {server && (
         <ServerSettingsModal

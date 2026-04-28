@@ -130,6 +130,16 @@
     "logout": "Déconnexion",
     "language": "Langue",
     "languageDescription": "Choisissez la langue de l'application.",
+    "application": "Application",
+    "applicationSettings": {
+      "windowStartup": "DÉMARRAGE WINDOWS",
+      "launchAtStartup": "Lancer Drocsid au démarrage",
+      "launchAtStartupDesc": "Lance automatiquement l'application lorsque vous vous connectez à Windows.",
+      "dateTimeFormat": "FORMAT DATE ET HEURE",
+      "dateFormat": "Format de date",
+      "timeFormat": "Format d'heure",
+      "example": "Exemple : {{value}}"
+    },
     "voiceVideo": {
       "hardwareDevices": "PÉRIPHÉRIQUES MATÉRIELS",
       "inputDevice": "MICROPHONE (ENTRÉE)",
