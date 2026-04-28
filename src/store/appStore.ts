@@ -175,7 +175,7 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem('drocsid-app-settings', JSON.stringify(newSettings));
     
     // Notify Electron about startup preference if it changed
-    if ((window as any).electron && settings.hasOwnProperty('launchAtStartup')) {
+    if ((window as any).electron && typeof (window as any).electron.setLaunchAtStartup === 'function' && settings.hasOwnProperty('launchAtStartup')) {
         (window as any).electron.setLaunchAtStartup(newSettings.launchAtStartup);
     }
     
@@ -205,7 +205,7 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem('drocsid-keybinds', JSON.stringify(newKeybinds));
     
     // Notify Electron immediately
-    if ((window as any).electron) {
+    if ((window as any).electron && typeof (window as any).electron.updateShortcuts === 'function') {
         (window as any).electron.updateShortcuts(newKeybinds);
     }
     

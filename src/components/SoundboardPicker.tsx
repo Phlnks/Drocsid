@@ -47,16 +47,30 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
         if (user) {
           const { data: member } = await supabase.from('server_members').select('roles').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
           if (member) {
-            // Check if owner or has USE_SOUNDBOARD / ADMINISTRATOR
+            // Fetch server owner
             const { data: serverInfo } = await supabase.from('servers').select('owner_id').eq('id', serverId).maybeSingle();
             const isOwner = serverInfo?.owner_id === user.id;
 
             if (isOwner) {
               setCanUseSoundboard(true);
             } else {
-              const { data: roles } = await supabase.from('roles').select('*').in('id', member.roles || []);
-              const hasPerm = roles?.some(r => r.permissions?.includes('USE_SOUNDBOARD') || r.permissions?.includes('ADMINISTRATOR'));
-              setCanUseSoundboard(!!hasPerm);
+              // Fetch all roles for this server to avoid "in" query issues
+              const { data: allRoles } = await supabase.from('roles').select('*').eq('server_id', serverId);
+              
+              if (allRoles) {
+                // Filter roles that the member actually has
+                const memberRoleIds = member.roles || [];
+                const memberRoles = allRoles.filter(r => memberRoleIds.includes(r.id));
+                
+                const hasPerm = memberRoles.some(r => 
+                  r.permissions?.includes('USE_SOUNDBOARD') || 
+                  r.permissions?.includes('ADMINISTRATOR') ||
+                  r.permissions?.includes('MANAGE_SERVER')
+                );
+                setCanUseSoundboard(!!hasPerm);
+              } else {
+                setCanUseSoundboard(false);
+              }
             }
           }
         }
