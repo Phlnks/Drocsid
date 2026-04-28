@@ -23,7 +23,6 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const [iconUrl, setIconUrl] = useState(server?.icon_url || '');
   const [customEmojis, setCustomEmojis] = useState<{name: string, url: string}[]>(server?.custom_emojis || []);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
   const [invites, setInvites] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
@@ -213,14 +212,19 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const handleUpdateServer = async () => {
     if (!serverName.trim()) return;
     setIsSaving(true);
-    setSaveSuccess(false);
     try {
-      await supabase.from('servers').update({ name: serverName, icon_url: iconUrl }).eq('id', server.id);
+      const { error } = await supabase.from('servers').update({ 
+        name: serverName, 
+        icon_url: iconUrl 
+      }).eq('id', server.id);
+      
+      if (error) throw error;
+
       logAction('server_update', t('serverSettings.serverUpdatedLog'));
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
+      addNotification(t('common.profileUpdated'), "success");
+    } catch (error: any) {
       console.error("Error updating server:", error);
+      addNotification(t('errors.updateFailed'), "error");
     } finally {
       setIsSaving(false);
     }
@@ -241,9 +245,15 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `server-icons/${server.id}/${fileName}`;
 
+      // Convert to ArrayBuffer for better compatibility in Windows/Electron app
+      const arrayBuffer = await file.arrayBuffer();
+
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, arrayBuffer, {
+          contentType: file.type,
+          upsert: true
+        });
 
       if (uploadError) {
         console.warn("Storage upload failed, falling back to base64 compression", uploadError);
@@ -255,6 +265,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
           .getPublicUrl(filePath);
 
         setIconUrl(publicUrl);
+        addNotification(t('common.imageUploaded'), "success");
       }
     } catch (error: any) {
       console.error("Error uploading icon:", error);
@@ -794,20 +805,10 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                     <button
                       onClick={handleUpdateServer}
                       disabled={isSaving}
-                      className={clsx(
-                        "px-4 py-2 rounded-md font-medium transition-colors",
-                        saveSuccess 
-                          ? "bg-emerald-500 text-white" 
-                          : "bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50"
-                      )}
+                      className="px-6 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md font-medium transition-colors disabled:opacity-50"
                     >
-                      {isSaving ? t('serverSettings.saving') : saveSuccess ? t('common.saved') : t('serverSettings.saveChanges')}
+                      {isSaving ? t('serverSettings.saving') : t('serverSettings.saveChanges')}
                     </button>
-                    {saveSuccess && (
-                      <span className="text-emerald-500 text-sm font-medium animate-fade-in">
-                        {t('common.savedSuccessfully')}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>

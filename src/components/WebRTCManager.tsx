@@ -183,6 +183,8 @@ export default function WebRTCManager() {
           // Force negotiation if it doesn't fire automatically
           if (pc.signalingState === 'stable') {
             pc.onnegotiationneeded?.(new Event('negotiationneeded'));
+          } else {
+            console.log("PC signaling state not stable, negotiation deferred:", pc.signalingState);
           }
         });
       } else if (!localScreenShareStream && localScreenShareStreamRef.current) {
@@ -515,7 +517,9 @@ export default function WebRTCManager() {
 
     const servers = {
       iceServers: [
-        { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
+        { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+        { urls: ['stun:stun3.l.google.com:19302', 'stun:stun4.l.google.com:19302'] },
+        { urls: ['stun:stun.services.mozilla.com'] }
       ]
     };
 
