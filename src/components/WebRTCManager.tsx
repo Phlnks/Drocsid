@@ -7,7 +7,7 @@ import socket from '../lib/socket';
 
 function AudioPlayer({ stream }: { key?: any, stream: any }) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { isDeafened, voiceSettings } = useAppStore();
+  const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted } = useAppStore();
   
   useEffect(() => {
     if (audioRef.current && stream) {
@@ -22,9 +22,15 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.muted = isDeafened;
+      audioRef.current.muted = isDeafened || isVoiceVolumeMuted;
     }
-  }, [isDeafened]);
+  }, [isDeafened, isVoiceVolumeMuted]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = voiceVolume;
+    }
+  }, [voiceVolume]);
 
   useEffect(() => {
     if (audioRef.current && voiceSettings.selectedSpeakerId && (audioRef.current as any).setSinkId) {

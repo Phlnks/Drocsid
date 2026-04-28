@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Volume2, VolumeX, Volume1, Search, X, Smile } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
@@ -114,23 +115,31 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     <div className="absolute bottom-full left-0 mb-2 w-[300px] h-[400px] bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl flex flex-col overflow-hidden z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200">
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
         <div className="flex items-center gap-2 relative">
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowVolumeSlider(!showVolumeSlider)}
             className={clsx(
-              "transition-colors", 
+              "transition-colors group", 
               isSoundboardMuted ? "text-red-400 hover:text-red-300" : "text-zinc-400 hover:text-zinc-100"
             )}
             title={t('soundboard.volumeControl', 'Volume de la soundboard')}
           >
-            {isSoundboardMuted || soundboardVolume === 0 ? <VolumeX className="w-4 h-4" /> : 
-             soundboardVolume < 0.5 ? <Volume1 className="w-4 h-4" /> : 
-             <Volume2 className="w-4 h-4" />}
-          </button>
+            {isSoundboardMuted || soundboardVolume === 0 ? <VolumeX className="w-4 h-4 transition-transform group-hover:scale-110" /> : 
+             soundboardVolume < 0.5 ? <Volume1 className="w-4 h-4 transition-transform group-hover:scale-110" /> : 
+             <Volume2 className="w-4 h-4 transition-transform group-hover:scale-110" />}
+          </motion.button>
           
           <span className="text-sm font-bold text-zinc-100">{t('soundboard.title', 'Soundboard')}</span>
           
-          {showVolumeSlider && (
-            <div className="absolute top-full left-0 mt-2 p-3 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl flex items-center gap-3 z-[110] animate-in fade-in zoom-in-95 duration-100">
+          <AnimatePresence>
+            {showVolumeSlider && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="absolute top-full left-0 mt-2 p-3 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl flex items-center gap-3 z-[110]"
+              >
                <button 
                  onClick={() => setIsSoundboardMuted(!isSoundboardMuted)}
                  className={clsx("p-1 rounded transition-colors", isSoundboardMuted ? "text-red-400 bg-red-400/10" : "text-zinc-500 hover:text-zinc-100 hover:bg-zinc-700")}
@@ -149,8 +158,9 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
                <span className="text-[10px] text-zinc-400 font-mono w-6 text-right">
                  {Math.round(soundboardVolume * 100)}%
                </span>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300">
           <X className="w-4 h-4" />

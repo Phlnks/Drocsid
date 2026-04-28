@@ -68,6 +68,8 @@ interface AppState {
   drafts: Record<string, string>;
   soundboardVolume: number;
   isSoundboardMuted: boolean;
+  voiceVolume: number;
+  isVoiceVolumeMuted: boolean;
   serverSettingsModal: {
     isOpen: boolean;
     serverId: string | null;
@@ -90,6 +92,8 @@ interface AppState {
   setAppSettings: (settings: Partial<AppState['appSettings']>) => void;
   setSoundboardVolume: (volume: number) => void;
   setIsSoundboardMuted: (muted: boolean) => void;
+  setVoiceVolume: (volume: number) => void;
+  setIsVoiceVolumeMuted: (muted: boolean) => void;
   setServerSettingsModal: (config: Partial<AppState['serverSettingsModal']>) => void;
   toggleMuteServer: (serverId: string) => void;
   toggleMuteDm: (dmId: string) => void;
@@ -143,6 +147,8 @@ export const useAppStore = create<AppState>((set) => ({
   drafts: JSON.parse(localStorage.getItem('drocsid-drafts') || '{}'),
   soundboardVolume: JSON.parse(localStorage.getItem('drocsid-soundboard-volume') || '0.5'),
   isSoundboardMuted: JSON.parse(localStorage.getItem('drocsid-soundboard-muted') || 'false'),
+  voiceVolume: JSON.parse(localStorage.getItem('drocsid-voice-volume') || '1.0'),
+  isVoiceVolumeMuted: JSON.parse(localStorage.getItem('drocsid-voice-volume-muted') || 'false'),
   serverSettingsModal: {
     isOpen: false,
     serverId: null,
@@ -251,6 +257,14 @@ export const useAppStore = create<AppState>((set) => ({
   setIsSoundboardMuted: (muted) => set(() => {
     localStorage.setItem('drocsid-soundboard-muted', JSON.stringify(muted));
     return { isSoundboardMuted: muted };
+  }),
+  setVoiceVolume: (volume) => set(() => {
+    localStorage.setItem('drocsid-voice-volume', JSON.stringify(volume));
+    return { voiceVolume: volume };
+  }),
+  setIsVoiceVolumeMuted: (muted) => set(() => {
+    localStorage.setItem('drocsid-voice-volume-muted', JSON.stringify(muted));
+    return { isVoiceVolumeMuted: muted };
   }),
   setTheme: (theme) => {
     localStorage.setItem('drocsid-theme', theme);

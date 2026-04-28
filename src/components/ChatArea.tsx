@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { Hash, Volume2, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, ArrowDown, Users, ArrowLeft, Check, Loader2, Pin, Bell, Plus } from 'lucide-react';
+import { Hash, Volume2, Volume1, VolumeX, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, ArrowDown, Users, ArrowLeft, Check, Loader2, Pin, Bell, Plus } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
@@ -27,7 +27,22 @@ import { useTranslation } from 'react-i18next';
 export default function ChatArea() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
-  const { selectedChannelId, selectedServerId, isRightSidebarOpen, setIsRightSidebarOpen, setIsMobileNavOpen, connectedVoiceChannelId, highlightedMessageId: globalHighlightedMessageId, setHighlightedMessageId: setGlobalHighlightedMessageId, appSettings } = useAppStore();
+  const { 
+    selectedChannelId, 
+    selectedServerId, 
+    isRightSidebarOpen, 
+    setIsRightSidebarOpen, 
+    setIsMobileNavOpen, 
+    connectedVoiceChannelId, 
+    highlightedMessageId: globalHighlightedMessageId, 
+    setHighlightedMessageId: setGlobalHighlightedMessageId, 
+    appSettings,
+    voiceVolume,
+    setVoiceVolume,
+    isVoiceVolumeMuted,
+    setIsVoiceVolumeMuted
+  } = useAppStore();
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [channel, setChannel] = useState<any>(null);
   const [server, setServer] = useState<any>(null);
@@ -585,7 +600,52 @@ export default function ChatArea() {
                 <ArrowLeft className="w-5 h-5" />
               </button>
               {channel?.type === 'VOICE' ? (
-                <Volume2 className="w-5 h-5 text-zinc-400 mr-2" />
+                <div className="relative flex items-center">
+                  <motion.button 
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+                    className={clsx(
+                      "p-1 mr-2 rounded transition-colors group",
+                      isVoiceVolumeMuted ? "text-red-400 hover:text-red-300" : "text-zinc-400 hover:text-zinc-100"
+                    )}
+                    title={t('voice.volumeControl', 'Volume du vocal')}
+                  >
+                    {isVoiceVolumeMuted || voiceVolume === 0 ? <VolumeX className="w-5 h-5 transition-transform group-hover:scale-110" /> : 
+                     voiceVolume < 0.5 ? <Volume1 className="w-5 h-5 transition-transform group-hover:scale-110" /> : 
+                     <Volume2 className="w-5 h-5 transition-transform group-hover:scale-110" />}
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {showVolumeSlider && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute top-full left-0 mt-2 p-3 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl flex items-center gap-3 z-[110]"
+                      >
+                         <button 
+                           onClick={() => setIsVoiceVolumeMuted(!isVoiceVolumeMuted)}
+                           className={clsx("p-1 rounded transition-colors", isVoiceVolumeMuted ? "text-red-400 bg-red-400/10" : "text-zinc-500 hover:text-zinc-100 hover:bg-zinc-700")}
+                         >
+                           {isVoiceVolumeMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                         </button>
+                         <input 
+                           type="range" 
+                           min="0" 
+                           max="1" 
+                           step="0.01" 
+                           value={voiceVolume}
+                           onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                           className="w-24 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                         />
+                         <span className="text-[10px] font-mono text-zinc-400 w-8">
+                           {Math.round(voiceVolume * 100)}%
+                         </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               ) : (
                 <Hash className="w-5 h-5 text-zinc-400 mr-2" />
               )}
