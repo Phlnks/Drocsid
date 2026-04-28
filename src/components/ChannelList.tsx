@@ -28,7 +28,9 @@ export default function ChannelList() {
     setConnectedVoiceChannelId,
     setIsVoiceMuted,
     setIsDeafened,
-    addNotification
+    addNotification,
+    serverSettingsModal,
+    setServerSettingsModal
   } = useAppStore();
   const [channels, setChannels] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -39,7 +41,6 @@ export default function ChannelList() {
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [channelToRename, setChannelToRename] = useState<any>(null);
   const [selectedCategoryIdForNewChannel, setSelectedCategoryIdForNewChannel] = useState<string | null>(null);
-  const [isServerSettingsOpen, setIsServerSettingsOpen] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [draggedChannelId, setDraggedChannelId] = useState<string | null>(null);
   const [dragOverChannelId, setDragOverChannelId] = useState<string | null>(null);
@@ -565,7 +566,7 @@ export default function ChannelList() {
                     className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white flex items-center justify-between group"
                     onClick={() => {
                       setIsServerMenuOpen(false);
-                      setIsServerSettingsOpen(true);
+                      setServerSettingsModal({ isOpen: true, serverId: selectedServerId, initialTab: 'overview' });
                     }}
                   >
                     {t('channelList.serverSettings')}
@@ -677,9 +678,10 @@ export default function ChannelList() {
       />
       {server && (
         <ServerSettingsModal
-          isOpen={isServerSettingsOpen}
-          onClose={() => setIsServerSettingsOpen(false)}
+          isOpen={serverSettingsModal.isOpen && serverSettingsModal.serverId === selectedServerId}
+          onClose={() => setServerSettingsModal({ isOpen: false })}
           server={server}
+          initialTab={serverSettingsModal.initialTab || 'overview'}
         />
       )}
     </>

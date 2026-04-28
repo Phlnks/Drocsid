@@ -18,6 +18,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
   const { 
     voiceSettings, setVoiceSettings, 
     theme, setTheme, 
+    customTheme, setCustomTheme,
     addNotification, 
     keybinds, setKeybinds,
     notificationSettings, setNotificationSettings,
@@ -162,6 +163,16 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
     } else {
       startMicTest();
     }
+  };
+
+  const handleRandomTheme = () => {
+    const randomHex = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+    setCustomTheme({
+      primaryColor: randomHex,
+      intensity: Math.floor(Math.random() * 60) + 40, // 40-100%
+      appearance: Math.random() > 0.3 ? 'dark' : 'light' // Predominantly dark
+    });
+    setTheme('custom');
   };
 
   useEffect(() => {
@@ -730,6 +741,92 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                         </div>
                         <span className="font-medium text-zinc-200">{t('settings.appearanceSettings.cyberpunk', 'Cyberpunk')}</span>
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-8 border-t border-zinc-700/50">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white shrink-0">
+                        <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-xl">🎨</span>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white leading-tight">{t('settings.appearanceSettings.customThemeTitle', 'Crée ton propre thème')}</h3>
+                        <p className="text-sm text-zinc-400">{t('settings.appearanceSettings.customThemeDesc', 'Donne du style à ton espace avec une infinité de combinaisons de couleurs.')}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-700/50 space-y-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button 
+                          onClick={() => setTheme('custom')}
+                          className={`py-3 px-4 rounded-lg font-bold transition-all shadow-lg ${theme === 'custom' ? 'bg-indigo-500 text-white shadow-indigo-500/20' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`}
+                        >
+                          {t('settings.appearanceSettings.customThemeBtn', 'Vas-y, essaie !')}
+                        </button>
+                        <button 
+                          onClick={handleRandomTheme}
+                          className="py-3 px-4 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 font-bold transition-all border border-zinc-700 flex items-center justify-center gap-2"
+                        >
+                          <span className="text-lg">🎲</span>
+                          {t('settings.appearanceSettings.surpriseMe', 'Surprends-moi !')}
+                        </button>
+                      </div>
+
+                      {theme === 'custom' && (
+                        <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">{t('settings.appearanceSettings.appearance', 'Apparence')}</label>
+                            <div className="grid grid-cols-2 gap-3 bg-zinc-800 p-1 rounded-lg">
+                              <button 
+                                onClick={() => setCustomTheme({ appearance: 'dark' })}
+                                className={`py-2 rounded-md flex items-center justify-center gap-2 transition-all ${customTheme.appearance === 'dark' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                              >
+                                🌙 {t('common.dark', 'Sombre')}
+                              </button>
+                              <button 
+                                onClick={() => setCustomTheme({ appearance: 'light' })}
+                                className={`py-2 rounded-md flex items-center justify-center gap-2 transition-all ${customTheme.appearance === 'light' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+                              >
+                                ☀️ {t('common.light', 'Clair')}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">{t('settings.appearanceSettings.colors', 'Couleurs')}</label>
+                            <div className="flex items-center gap-3">
+                               <div className="relative">
+                                 <input 
+                                   type="color" 
+                                   value={customTheme.primaryColor}
+                                   onChange={(e) => setCustomTheme({ primaryColor: e.target.value })}
+                                   className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none outline-none appearance-none p-0 overflow-hidden"
+                                 />
+                               </div>
+                               <div className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-zinc-100 font-mono text-sm uppercase">
+                                 {customTheme.primaryColor}
+                               </div>
+                            </div>
+                          </div>
+
+                          <div>
+                             <div className="flex items-center justify-between mb-3">
+                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t('settings.appearanceSettings.intensity', 'Intensité de la couleur')}</label>
+                                <span className="text-sm font-bold text-zinc-300">{customTheme.intensity}%</span>
+                             </div>
+                             <input 
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={customTheme.intensity}
+                                onChange={(e) => setCustomTheme({ intensity: parseInt(e.target.value) })}
+                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                             />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

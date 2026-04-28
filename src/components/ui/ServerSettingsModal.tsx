@@ -14,14 +14,22 @@ interface ServerSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   server: any;
+  initialTab?: 'overview' | 'roles' | 'members' | 'invites' | 'channels' | 'emojis' | 'logs' | 'soundboard';
 }
 
-export default function ServerSettingsModal({ isOpen, onClose, server }: ServerSettingsModalProps) {
+export default function ServerSettingsModal({ isOpen, onClose, server, initialTab }: ServerSettingsModalProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'overview' | 'roles' | 'members' | 'invites' | 'channels' | 'emojis' | 'logs'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'roles' | 'members' | 'invites' | 'channels' | 'emojis' | 'logs' | 'soundboard'>('overview');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, isOpen]);
   const [serverName, setServerName] = useState(server?.name || '');
   const [iconUrl, setIconUrl] = useState(server?.icon_url || '');
   const [customEmojis, setCustomEmojis] = useState<{name: string, url: string}[]>(server?.custom_emojis || []);
+  const [soundboardSounds, setSoundboardSounds] = useState<{name: string, emoji: string, url: string}[]>(server?.soundboard_sounds || []);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
   const [invites, setInvites] = useState<any[]>([]);
@@ -63,7 +71,9 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
     { id: 'READ_MESSAGES', label: t('serverSettings.perms.READ_MESSAGES.label'), description: t('serverSettings.perms.READ_MESSAGES.description') },
     { id: 'CONNECT', label: t('serverSettings.perms.CONNECT.label'), description: t('serverSettings.perms.CONNECT.description') },
     { id: 'SPEAK', label: t('serverSettings.perms.SPEAK.label'), description: t('serverSettings.perms.SPEAK.description') },
-    { id: 'MOVE_MEMBERS', label: t('serverSettings.perms.MOVE_MEMBERS.label'), description: t('serverSettings.perms.MOVE_MEMBERS.description') }
+    { id: 'MOVE_MEMBERS', label: t('serverSettings.perms.MOVE_MEMBERS.label'), description: t('serverSettings.perms.MOVE_MEMBERS.description') },
+    { id: 'MANAGE_SOUNDBOARD', label: t('serverSettings.perms.MANAGE_SOUNDBOARD.label', 'Gérer le soundboard'), description: t('serverSettings.perms.MANAGE_SOUNDBOARD.description', 'Permet d\'ajouter et supprimer des sons au soundboard.') },
+    { id: 'USE_SOUNDBOARD', label: t('serverSettings.perms.USE_SOUNDBOARD.label', 'Utiliser le soundboard'), description: t('serverSettings.perms.USE_SOUNDBOARD.description', 'Permet de jouer des sons du soundboard.') }
   ];
 
   useEffect(() => {
@@ -172,21 +182,25 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
   const isOwner = server?.owner_id === user?.id;
   let hasKickMembers = isOwner;
   let hasBanMembers = isOwner;
+  let hasManageSoundboard = isOwner;
 
   if (currentUserMember && Array.isArray(currentUserMember.roles)) {
     if (currentUserMember.roles.includes('owner')) {
       hasKickMembers = true;
       hasBanMembers = true;
+      hasManageSoundboard = true;
     } else {
       const userRoles = roles.filter(r => currentUserMember.roles.includes(r.id));
       for (const role of userRoles) {
         if (role.permissions?.includes('ADMINISTRATOR')) {
           hasKickMembers = true;
           hasBanMembers = true;
+          hasManageSoundboard = true;
           break;
         }
         if (role.permissions?.includes('KICK_MEMBERS')) hasKickMembers = true;
         if (role.permissions?.includes('BAN_MEMBERS')) hasBanMembers = true;
+        if (role.permissions?.includes('MANAGE_SOUNDBOARD')) hasManageSoundboard = true;
       }
     }
   }
@@ -344,6 +358,61 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
     await supabase.from('servers').update({ custom_emojis: newEmojis }).eq('id', server.id);
     addNotification(t('serverSettings.emojiDeleted'), "success");
     logAction('emoji_delete', t('serverSettings.emojiDeletedLog', { name: emoji.name }));
+  };
+
+  const handleSoundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Limit to 5MB and audio files
+    if (file.size > 5 * 1024 * 1024) {
+      addNotification(t('errors.fileTooLarge', { max: 5 }), "error");
+      return;
+    }
+
+    if (!file.type.startsWith('audio/')) {
+      addNotification(t('errors.invalidFileType'), "error");
+      return;
+    }
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const soundName = file.name.split('.')[0].replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `server-sounds/${server.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('soundboard')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('soundboard')
+        .getPublicUrl(filePath);
+
+      // Add to soundboard sounds list
+      const newSounds = [...soundboardSounds, { name: soundName, emoji: '🔊', url: publicUrl }];
+      setSoundboardSounds(newSounds);
+      await supabase.from('servers').update({ soundboard_sounds: newSounds }).eq('id', server.id);
+      
+      addNotification(t('serverSettings.soundAdded', 'Son ajouté au soundboard'), "success");
+      logAction('sound_add', t('serverSettings.soundAddedLog', { name: soundName }));
+    } catch (error) {
+      console.error("Error uploading sound:", error);
+      addNotification(t('errors.soundUploadFailed', 'Échec de l\'upload du son'), "error");
+    }
+    
+    if (e.target) e.target.value = '';
+  };
+
+  const handleDeleteSound = async (index: number) => {
+    const sound = soundboardSounds[index];
+    const newSounds = soundboardSounds.filter((_, i) => i !== index);
+    setSoundboardSounds(newSounds);
+    await supabase.from('servers').update({ soundboard_sounds: newSounds }).eq('id', server.id);
+    addNotification(t('serverSettings.soundDeleted', 'Son supprimé'), "success");
+    logAction('sound_delete', t('serverSettings.soundDeletedLog', { name: sound.name }));
   };
 
   const handleDeleteServer = async () => {
@@ -716,6 +785,14 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
           >
             <Smile className="w-4 h-4" />
             <span className="font-medium">{t('serverSettings.emojis')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('soundboard')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'soundboard' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Volume2 className="w-4 h-4" />
+            <span className="font-medium">{t('serverSettings.soundboard', 'Soundboard')}</span>
           </button>
 
           <button
@@ -1412,7 +1489,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                         title={t('serverSettings.deleteEmoji')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                       </button>
                     </div>
                   ))}
                   
@@ -1421,6 +1498,62 @@ export default function ServerSettingsModal({ isOpen, onClose, server }: ServerS
                       <Smile className="w-8 h-8 mb-2 opacity-50" />
                       <p>{t('serverSettings.noCustomEmojis')}</p>
                       <p className="text-xs mt-1">{t('serverSettings.maxEmojiSize')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'soundboard' && (
+              <div className="max-w-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-zinc-100">{t('serverSettings.soundboardTitle', 'Soundboard')}</h2>
+                    <p className="text-sm text-zinc-400 mt-1">{t('serverSettings.soundboardDesc', 'Ajoute des sons que tout le monde peut jouer dans les salons vocaux.')}</p>
+                  </div>
+                  {hasManageSoundboard && (
+                    <div>
+                      <input
+                        type="file"
+                        id="sound-upload"
+                        accept="audio/*"
+                        className="hidden"
+                        onChange={handleSoundUpload}
+                      />
+                      <label
+                        htmlFor="sound-upload"
+                        className="cursor-pointer bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-block"
+                      >
+                        {t('serverSettings.addSound', 'Ajouter un son')}
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {soundboardSounds.map((sound, index) => (
+                    <div key={index} className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg p-3 flex flex-col items-center gap-2 group relative">
+                      <div className="w-10 h-10 flex items-center justify-center text-2xl bg-zinc-800 rounded">
+                        {sound.emoji || '🔊'}
+                      </div>
+                      <span className="text-xs text-zinc-300 font-medium truncate w-full text-center">{sound.name}</span>
+                      {hasManageSoundboard && (
+                        <button
+                          onClick={() => handleDeleteSound(index)}
+                          className="absolute top-1 right-1 p-1 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors opacity-0 group-hover:opacity-100"
+                          title={t('serverSettings.deleteSound', 'Supprimer le son')}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {soundboardSounds.length === 0 && (
+                    <div className="col-span-full py-8 text-center border-2 border-dashed border-zinc-700 rounded-lg text-zinc-500 flex flex-col items-center">
+                      <Volume2 className="w-8 h-8 mb-2 opacity-50" />
+                      <p>{t('serverSettings.noSounds', 'Aucun son dans le soundboard')}</p>
+                      <p className="text-xs mt-1">{t('serverSettings.maxSoundSize', 'Taille max: 5 Mo')}</p>
                     </div>
                   )}
                 </div>

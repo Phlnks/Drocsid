@@ -198,6 +198,7 @@ ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS reactions JSONB DEFAULT '{}'::j
 ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE servers ADD COLUMN IF NOT EXISTS custom_emojis JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE servers ADD COLUMN IF NOT EXISTS soundboard_sounds JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE calls ALTER COLUMN id SET DEFAULT uuid_generate_v4();
 ALTER TABLE calls ADD CONSTRAINT calls_dm_id_key UNIQUE (dm_id);
 ALTER TABLE voice_participants ADD COLUMN IF NOT EXISTS is_streaming BOOLEAN DEFAULT FALSE;
@@ -455,6 +456,10 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('soundboard', 'soundboard', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
 -- Storage Rules
 DROP POLICY IF EXISTS "Allow public read access" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated uploads" ON storage.objects;
@@ -462,14 +467,14 @@ DROP POLICY IF EXISTS "Allow authenticated updates" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated deletes" ON storage.objects;
 
 CREATE POLICY "Allow public read access" ON storage.objects 
-FOR SELECT USING (bucket_id IN ('chat-attachments', 'avatars'));
+FOR SELECT USING (bucket_id IN ('chat-attachments', 'avatars', 'soundboard'));
 
 CREATE POLICY "Allow authenticated uploads" ON storage.objects 
-FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('chat-attachments', 'avatars'));
+FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('chat-attachments', 'avatars', 'soundboard'));
 
 CREATE POLICY "Allow authenticated updates" ON storage.objects 
-FOR UPDATE TO authenticated USING (bucket_id IN ('chat-attachments', 'avatars'));
+FOR UPDATE TO authenticated USING (bucket_id IN ('chat-attachments', 'avatars', 'soundboard'));
 
 CREATE POLICY "Allow authenticated deletes" ON storage.objects 
-FOR DELETE TO authenticated USING (bucket_id IN ('chat-attachments', 'avatars'));
+FOR DELETE TO authenticated USING (bucket_id IN ('chat-attachments', 'avatars', 'soundboard'));
 

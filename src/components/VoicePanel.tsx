@@ -2,10 +2,12 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2 } from 'lucide-react';
 import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound, playRingtone, stopRingtone } from '../lib/sounds';
 import clsx from 'clsx';
 import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
+import SoundboardPicker from './SoundboardPicker';
+import socket from '../lib/socket';
 import { useTranslation } from 'react-i18next';
 
 export default function VoicePanel() {
@@ -26,7 +28,8 @@ export default function VoicePanel() {
     setActiveStreamFocus,
     localScreenShareStream,
     setSelectedDmId,
-    setSelectedServerId
+    setSelectedServerId,
+    selectedServerId
   } = useAppStore();
   
   const [channelName, setChannelName] = useState('Voice Channel');
@@ -34,12 +37,30 @@ export default function VoicePanel() {
   const [isCall, setIsCall] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [showSoundboard, setShowSoundboard] = useState(false);
   const [pendingQuality, setPendingQuality] = useState<any>(null);
   const [streamViewers, setStreamViewers] = useState<any[]>([]);
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
   const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
+
+  // Soundboard listener
+  useEffect(() => {
+    if (!connectedVoiceChannelId) return;
+
+    const handleSoundPlayed = (data: { soundId: string, channelId: string, userId: string, soundUrl: string }) => {
+      if (data.channelId === connectedVoiceChannelId && !isDeafened && data.userId !== currentUser?.id) {
+        const audio = new Audio(data.soundUrl);
+        audio.play().catch(console.error);
+      }
+    };
+
+    socket.on('soundboard-sound-played', handleSoundPlayed);
+    return () => {
+      socket.off('soundboard-sound-played', handleSoundPlayed);
+    };
+  }, [connectedVoiceChannelId, isDeafened, currentUser]);
 
   useEffect(() => {
     if (localVideoRef.current && localScreenShareStream) {
@@ -494,7 +515,21 @@ export default function VoicePanel() {
         >
           {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
         </button>
+        <button 
+          onClick={() => setShowSoundboard(!showSoundboard)}
+          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${showSoundboard ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}
+          title={t('voice.soundboard', 'Soundboard')}
+        >
+          <Volume2 className="w-4 h-4" />
+        </button>
       </div>
+
+      <SoundboardPicker 
+        isOpen={showSoundboard}
+        onClose={() => setShowSoundboard(false)}
+        channelId={connectedVoiceChannelId}
+        serverId={selectedServerId}
+      />
 
       {showQualityMenu && !isScreenSharing && (
         <div className="absolute bottom-full left-2 mb-2 w-48 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg overflow-hidden z-50 hidden md:block">

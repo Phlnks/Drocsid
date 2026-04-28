@@ -10,6 +10,7 @@ import Toaster from './components/ui/Toaster';
 import socket from './lib/socket';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
+import ThemeManager from './components/ThemeManager';
 
 import { useTranslation } from 'react-i18next';
 
@@ -185,16 +186,6 @@ export default function App() {
   }, [user, setOnlineUserIds]);
 
   useEffect(() => {
-    // Remove all possible theme classes
-    document.documentElement.classList.remove('theme-neon', 'theme-ocean', 'theme-forest', 'theme-sunset', 'theme-dracula', 'theme-synthwave', 'theme-nord', 'theme-monokai', 'theme-cyberpunk');
-    
-    // Add the selected theme class if it's not classic
-    if (theme && theme !== 'classic') {
-      document.documentElement.classList.add(`theme-${theme}`);
-    }
-  }, [theme]);
-
-  useEffect(() => {
     if (!user) return;
 
     // Fetch initial profile
@@ -309,6 +300,7 @@ export default function App() {
 
   return (
     <>
+      <ThemeManager />
       <Toaster />
       {user ? <Layout /> : <Auth />}
     </>

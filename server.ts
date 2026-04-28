@@ -229,6 +229,11 @@ async function startServer() {
       });
     });
 
+    socket.on("play-soundboard-sound", (data) => {
+      // data: { soundId, channelId, userId, soundUrl }
+      io.to(data.channelId).emit("soundboard-sound-played", data);
+    });
+
     socket.on("disconnect", async () => {
       // Voice cleanup
       const voiceInfo = socketVoiceMap.get(socket.id);

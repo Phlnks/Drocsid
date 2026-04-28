@@ -55,12 +55,22 @@ interface AppState {
   activeStreamFocus: string | null;
   isRightSidebarOpen: boolean;
   isMobileNavOpen: boolean;
-  theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk';
+  theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom';
+  customTheme: {
+    primaryColor: string;
+    intensity: number;
+    appearance: 'dark' | 'light';
+  };
   onlineUserIds: string[];
   voiceParticipants: Record<string, any[]>;
   highlightedMessageId: string | null;
   notifications: Notification[];
   drafts: Record<string, string>;
+  serverSettingsModal: {
+    isOpen: boolean;
+    serverId: string | null;
+    initialTab: 'overview' | 'roles' | 'members' | 'invites' | 'channels' | 'emojis' | 'logs' | 'soundboard' | null;
+  };
   appSettings: {
     launchAtStartup: boolean;
     dateFormat: 'dd/MM/yyyy' | 'MM/dd/yyyy' | 'yyyy-MM-dd';
@@ -76,6 +86,7 @@ interface AppState {
   setVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   setNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   setAppSettings: (settings: Partial<AppState['appSettings']>) => void;
+  setServerSettingsModal: (config: Partial<AppState['serverSettingsModal']>) => void;
   toggleMuteServer: (serverId: string) => void;
   toggleMuteDm: (dmId: string) => void;
   setKeybinds: (keybinds: Partial<Keybinds>) => void;
@@ -88,7 +99,8 @@ interface AppState {
   setActiveStreamFocus: (uid: string | null) => void;
   setIsRightSidebarOpen: (isOpen: boolean | ((prev: boolean) => boolean)) => void;
   setIsMobileNavOpen: (isOpen: boolean | ((prev: boolean) => boolean)) => void;
-  setTheme: (theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk') => void;
+  setTheme: (theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom') => void;
+  setCustomTheme: (theme: Partial<AppState['customTheme']>) => void;
   setOnlineUserIds: (ids: string[]) => void;
   setVoiceParticipants: (channelId: string, participants: any[]) => void;
   setHighlightedMessageId: (id: string | null) => void;
@@ -118,12 +130,18 @@ export const useAppStore = create<AppState>((set) => ({
   activeStreamFocus: null,
   isRightSidebarOpen: false,
   isMobileNavOpen: true,
-  theme: (localStorage.getItem('drocsid-theme') as 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk') || 'classic',
+  theme: (localStorage.getItem('drocsid-theme') as 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom') || 'classic',
+  customTheme: JSON.parse(localStorage.getItem('drocsid-custom-theme') || '{"primaryColor":"#5865F2","intensity":75,"appearance":"dark"}'),
   onlineUserIds: [],
   voiceParticipants: {},
   highlightedMessageId: null,
   notifications: [],
   drafts: JSON.parse(localStorage.getItem('drocsid-drafts') || '{}'),
+  serverSettingsModal: {
+    isOpen: false,
+    serverId: null,
+    initialTab: null
+  },
   keybinds: JSON.parse(localStorage.getItem('drocsid-keybinds') || '{"mute": "CommandOrControl+Shift+M", "deafen": "CommandOrControl+Shift+D"}'),
   appSettings: JSON.parse(localStorage.getItem('drocsid-app-settings') || '{"launchAtStartup":false,"dateFormat":"dd/MM/yyyy","timeFormat":"HH:mm"}'),
   
@@ -157,6 +175,9 @@ export const useAppStore = create<AppState>((set) => ({
     
     return { appSettings: newSettings };
   }),
+  setServerSettingsModal: (config) => set((state) => ({
+    serverSettingsModal: { ...state.serverSettingsModal, ...config }
+  })),
   toggleMuteServer: (serverId) => set((state) => {
     const isMuted = state.mutedServers.includes(serverId);
     const newMuted = isMuted 
@@ -221,6 +242,11 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem('drocsid-theme', theme);
     set({ theme });
   },
+  setCustomTheme: (customTheme) => set((state) => {
+    const newCustomTheme = { ...state.customTheme, ...customTheme };
+    localStorage.setItem('drocsid-custom-theme', JSON.stringify(newCustomTheme));
+    return { customTheme: newCustomTheme };
+  }),
   setOnlineUserIds: (ids: string[]) => set({ onlineUserIds: ids }),
   setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
     // Check if participants significantly changed to avoid unnecessary re-renders
