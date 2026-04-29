@@ -12,6 +12,7 @@ let isQuitting = false;
 function createWindow() {
   // Use logo.png or favicon.png
   const possibleIcons = [
+    path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
     path.join(__dirname, '../public/logo.png'),
@@ -74,13 +75,16 @@ function createWindow() {
 
 function createTray() {
   const possibleIcons = [
+    path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
     path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../public/favicon.ico'),
     path.join(__dirname, 'icon.png'),
+    path.join(process.resourcesPath, 'logo-opaque.png'),
     path.join(process.resourcesPath, 'logo.png'),
     path.join(process.resourcesPath, 'favicon.png'),
+    path.join(process.resourcesPath, 'app/logo-opaque.png'),
     path.join(process.resourcesPath, 'app/logo.png'),
     path.join(process.resourcesPath, 'app/favicon.png')
   ];
@@ -172,15 +176,31 @@ app.on('before-quit', () => {
   isQuitting = true;
 });
 
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
+const gotTheLock = app.requestSingleInstanceLock();
 
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    else mainWindow.show();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+      mainWindow.focus();
+    }
   });
-});
+
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
+
+    app.on('activate', function () {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      else mainWindow.show();
+    });
+  });
+}
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin' && isQuitting) app.quit();
