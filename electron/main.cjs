@@ -12,6 +12,7 @@ let isQuitting = false;
 function createWindow() {
   // Use logo.png or favicon.png
   const possibleIcons = [
+    path.join(__dirname, '../src/assets/logo-bg.png'),
     path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
@@ -75,15 +76,18 @@ function createWindow() {
 
 function createTray() {
   const possibleIcons = [
+    path.join(__dirname, '../src/assets/logo-bg.png'),
     path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
     path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../public/favicon.ico'),
     path.join(__dirname, 'icon.png'),
+    path.join(process.resourcesPath, 'src/assets/logo-bg.png'),
     path.join(process.resourcesPath, 'logo-opaque.png'),
     path.join(process.resourcesPath, 'logo.png'),
     path.join(process.resourcesPath, 'favicon.png'),
+    path.join(process.resourcesPath, 'app/src/assets/logo-bg.png'),
     path.join(process.resourcesPath, 'app/logo-opaque.png'),
     path.join(process.resourcesPath, 'app/logo.png'),
     path.join(process.resourcesPath, 'app/favicon.png')

@@ -29,23 +29,20 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "logo.png",
-      "logo-opaque.png",
-      "favicon.png",
-      "installerHeader.bmp",
-      "installerSidebar.bmp"
+      "src/assets/logo-bg.png"
     ],
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "installerHeader": "installerHeader.bmp",
-      "installerSidebar": "installerSidebar.bmp",
-      "uninstallerSidebar": "installerSidebar.bmp"
+      "guid": "drocsid-app-unique-guid-2024",
+      "shortcutName": "Drocsid",
+      "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "win": {
       "target": "nsis",
-      "icon": "logo-opaque.png"
+      "icon": "src/assets/logo-bg.png",
+      "executableName": "Drocsid"
     }
   },
   "dependencies": {
