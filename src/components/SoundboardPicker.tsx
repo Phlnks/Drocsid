@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, Volume1, Search, X, Smile } from 'lucide-react';
+import { Volume2, VolumeX, Volume1, Search, X, Smile, Play } from 'lucide-react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -30,6 +30,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
   const [isLoading, setIsLoading] = useState(false);
   const [canUseSoundboard, setCanUseSoundboard] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!isOpen || !serverId) return;
@@ -86,7 +87,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
   }, [isOpen, serverId, user]);
 
   const playSound = (sound: any) => {
-    if (!canUseSoundboard) return;
+    if (!canUseSoundboard || currentAudio) return;
 
     // Emit event to server
     socket.emit('play-soundboard-sound', {
@@ -97,17 +98,34 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     });
 
     // We can also play it locally immediately for feedback
-    if (!isSoundboardMuted) {
-      const audio = new Audio(sound.url);
-      audio.volume = soundboardVolume;
-      audio.play().catch(console.error);
-    }
+    previewSound(sound.url);
     
     // Optionally close picker or keep it open for multi-sound
     // onClose();
   };
 
-  if (!isOpen) return null;
+  const previewSound = (url: string) => {
+    if (!isSoundboardMuted) {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      const audio = new Audio(url);
+      audio.volume = soundboardVolume;
+      audio.play().catch(console.error);
+      setCurrentAudio(audio);
+      audio.onended = () => setCurrentAudio(null);
+    }
+  };
+
+  if (!isOpen) {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      // We don't call setCurrentAudio(null) here because it might trigger a re-render while returning null
+    }
+    return null;
+  }
 
   const filteredSounds = sounds.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -192,20 +210,46 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
           </div>
         ) : filteredSounds.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
-            {filteredSounds.map((sound, index) => (
-              <button
-                key={index}
-                onClick={() => playSound(sound)}
-                className="flex flex-col items-center gap-1 p-2 rounded-md hover:bg-zinc-800 transition-colors group relative"
-              >
-                <div className="w-12 h-12 bg-zinc-800 flex items-center justify-center text-2xl rounded-lg group-hover:scale-110 transition-transform">
-                  {sound.emoji || '🔊'}
-                </div>
-                <span className="text-[10px] text-zinc-400 font-medium truncate w-full text-center group-hover:text-zinc-200">
-                  {sound.name}
-                </span>
-              </button>
-            ))}
+            {filteredSounds.map((sound, index) => {
+              const isPlaying = currentAudio && currentAudio.src === sound.url;
+              return (
+                <button
+                  key={index}
+                  onClick={() => playSound(sound)}
+                  disabled={!!currentAudio}
+                  className={clsx(
+                    "flex flex-col items-center gap-1 p-2 rounded-md transition-colors group relative",
+                    isPlaying ? "bg-indigo-500/20" : "hover:bg-zinc-800",
+                    currentAudio && !isPlaying && "opacity-50 grayscale cursor-not-allowed"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-12 h-12 bg-zinc-800 flex items-center justify-center text-2xl rounded-lg transition-all relative group/sound",
+                    isPlaying && "ring-2 ring-indigo-500 scale-110"
+                  )}>
+                    {sound.emoji || '🔊'}
+                    {!isPlaying && !currentAudio && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          previewSound(sound.url);
+                        }}
+                        className="absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded opacity-0 group-hover/sound:opacity-100 transition-opacity"
+                        title={t('soundboard.preview', 'Écouter')}
+                      >
+                        <Play className="w-5 h-5 fill-current" />
+                      </button>
+                    )}
+                  </div>
+                  <span className={clsx(
+                    "text-[10px] font-medium truncate w-full text-center transition-colors",
+                    isPlaying ? "text-indigo-400" : "text-zinc-400 group-hover:text-zinc-200"
+                  )}>
+                    {sound.name}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">

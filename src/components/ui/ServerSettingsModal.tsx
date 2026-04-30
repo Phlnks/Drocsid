@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Settings, Users, Shield, Link as LinkIcon, Trash2, Plus, Hash, Folder, UserMinus, Ban, Check, Copy, Smile, Volume2, Moon } from 'lucide-react';
+import { X, Settings, Users, Shield, Link as LinkIcon, Trash2, Plus, Hash, Folder, UserMinus, Ban, Check, Copy, Smile, Volume2, Moon, Play } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -46,8 +46,9 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
   const [editingChannel, setEditingChannel] = useState<any | null>(null);
   const [isLogFilterOpen, setIsLogFilterOpen] = useState(false);
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const { user } = useAuthStore();
-  const { setSelectedServerId, addNotification } = useAppStore();
+  const { setSelectedServerId, addNotification, soundboardVolume, isSoundboardMuted } = useAppStore();
 
   const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, label: string, onSubmit: (val: string) => void}>({
     isOpen: false, title: '', label: '', onSubmit: () => {}
@@ -221,6 +222,15 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     } catch (e) {
       console.error("Failed to log action:", e);
     }
+  };
+
+  const handlePreviewSound = (url: string) => {
+    if (currentAudio) return;
+    const audio = new Audio(url);
+    audio.volume = isSoundboardMuted ? 0 : soundboardVolume;
+    audio.play().catch(e => console.error("Error playing sound preview:", e));
+    setCurrentAudio(audio);
+    audio.onended = () => setCurrentAudio(null);
   };
 
   const handleUpdateServer = async () => {
@@ -1531,23 +1541,41 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {soundboardSounds.map((sound, index) => (
-                    <div key={index} className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg p-3 flex flex-col items-center gap-2 group relative">
-                      <div className="w-10 h-10 flex items-center justify-center text-2xl bg-zinc-800 rounded">
-                        {sound.emoji || '🔊'}
+                  {soundboardSounds.map((sound, index) => {
+                    const isPlaying = currentAudio && currentAudio.src === sound.url;
+                    return (
+                      <div key={index} className={clsx(
+                        "bg-zinc-900/50 border border-zinc-700/50 rounded-lg p-3 flex flex-col items-center gap-2 group relative transition-all",
+                        currentAudio && !isPlaying && "opacity-50 grayscale"
+                      )}>
+                        <div className={clsx(
+                          "w-10 h-10 flex items-center justify-center text-2xl bg-zinc-800 rounded relative group/sound transition-all",
+                          isPlaying && "ring-2 ring-indigo-500 scale-110"
+                        )}>
+                          {sound.emoji || '🔊'}
+                          {!currentAudio && (
+                            <button
+                              onClick={() => handlePreviewSound(sound.url)}
+                              className="absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded opacity-0 group-focus-within/sound:opacity-100 group-hover/sound:opacity-100 transition-opacity"
+                              title={t('soundboard.preview', 'Écouter')}
+                            >
+                              <Play className="w-5 h-5 flex shrink-0" />
+                            </button>
+                          )}
+                        </div>
+                        <span className="text-xs text-zinc-300 font-medium truncate w-full text-center">{sound.name}</span>
+                        {hasManageSoundboard && (
+                          <button
+                            onClick={() => handleDeleteSound(index)}
+                            className="absolute top-1 right-1 p-1 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors opacity-0 group-hover:opacity-100"
+                            title={t('serverSettings.deleteSound', 'Supprimer le son')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
-                      <span className="text-xs text-zinc-300 font-medium truncate w-full text-center">{sound.name}</span>
-                      {hasManageSoundboard && (
-                        <button
-                          onClick={() => handleDeleteSound(index)}
-                          className="absolute top-1 right-1 p-1 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors opacity-0 group-hover:opacity-100"
-                          title={t('serverSettings.deleteSound', 'Supprimer le son')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {soundboardSounds.length === 0 && (
                     <div className="col-span-full py-8 text-center border-2 border-dashed border-zinc-700 rounded-lg text-zinc-500 flex flex-col items-center">

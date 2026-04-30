@@ -167,6 +167,13 @@ ipcMain.on('show-notification', (event, { title, body }) => {
   new Notification({ title, body, icon: path.join(__dirname, '../logo.png') }).show();
 });
 
+ipcMain.on('set-launch-at-startup', (event, enabled) => {
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    path: app.getPath('exe'),
+  });
+});
+
 ipcMain.handle('get-desktop-sources', async () => {
   const sources = await desktopCapturer.getSources({ types: ['window', 'screen'], thumbnailSize: { width: 320, height: 180 } });
   return sources.map(source => ({
