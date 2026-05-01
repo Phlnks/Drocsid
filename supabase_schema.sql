@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS servers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   icon_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -178,6 +178,10 @@ CREATE TABLE IF NOT EXISTS voice_participants (
 
 -- Add missing columns to existing tables (if they were created before these columns were added)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS bio TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS can_create_servers BOOLEAN DEFAULT FALSE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS max_servers INTEGER DEFAULT 2;
 ALTER TABLE channels ADD COLUMN IF NOT EXISTS "order" INTEGER DEFAULT 0;
 ALTER TABLE relationships ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT FALSE;
@@ -240,6 +244,17 @@ CREATE INDEX IF NOT EXISTS idx_relationships_participants ON relationships USING
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_calls_dm_id ON calls(dm_id);
 
+-- Function to check if a user is a super admin
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND is_super_admin = TRUE
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- RLS Policies (Simplified to avoid infinite recursion)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
@@ -247,28 +262,23 @@ CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT 
 DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
 CREATE POLICY "Users can insert their own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
-DROP POLICY IF EXISTS "Admins can move members" ON profiles;
-CREATE POLICY "Admins can move members" ON profiles FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM server_members m1
-    JOIN server_members m2 ON m1.server_id = m2.server_id
-    JOIN roles r ON r.id = ANY(m1.roles)
-    WHERE m1.user_id = auth.uid()
-    AND m2.user_id = profiles.id
-    AND (r.permissions @> ARRAY['MOVE_MEMBERS'] OR r.permissions @> ARRAY['ADMINISTRATOR'])
-  )
-);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id OR is_super_admin());
 
 ALTER TABLE servers ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Servers are viewable by authenticated users" ON servers;
 CREATE POLICY "Servers are viewable by authenticated users" ON servers FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "Authenticated users can create servers" ON servers;
-CREATE POLICY "Authenticated users can create servers" ON servers FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Authenticated users can create servers" ON servers FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND (profiles.is_super_admin = TRUE OR profiles.can_create_servers = TRUE)
+  )
+);
 DROP POLICY IF EXISTS "Owners can update servers" ON servers;
-CREATE POLICY "Owners can update servers" ON servers FOR UPDATE USING (owner_id = auth.uid());
+CREATE POLICY "Owners can update servers" ON servers FOR UPDATE USING (owner_id = auth.uid() OR is_super_admin());
 DROP POLICY IF EXISTS "Owners can delete servers" ON servers;
-CREATE POLICY "Owners can delete servers" ON servers FOR DELETE USING (owner_id = auth.uid());
+CREATE POLICY "Owners can delete servers" ON servers FOR DELETE USING (owner_id = auth.uid() OR is_super_admin());
 
 ALTER TABLE server_members ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Memberships are viewable by authenticated users" ON server_members;
@@ -413,11 +423,12 @@ CREATE POLICY "Participants can delete calls" ON calls FOR DELETE USING (auth.ui
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, avatar_url)
+  INSERT INTO public.profiles (id, username, avatar_url, email)
   VALUES (
     new.id, 
     COALESCE(new.raw_user_meta_data->>'username', new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
-    new.raw_user_meta_data->>'avatar_url'
+    new.raw_user_meta_data->>'avatar_url',
+    new.email
   );
   RETURN NEW;
 END;

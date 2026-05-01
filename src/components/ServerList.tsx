@@ -56,6 +56,26 @@ export default function ServerList() {
   const handleCreateServer = async (name: string, iconUrl?: string) => {
     if (!user) return false;
 
+    const { currentUserProfile } = useAuthStore.getState();
+    if (!currentUserProfile?.is_super_admin && !currentUserProfile?.can_create_servers) {
+      addNotification(t('errors.cannotCreateServer', 'Vous n\'avez pas la permission de créer des serveurs.'), "error");
+      return false;
+    }
+
+    if (!currentUserProfile?.is_super_admin) {
+      try {
+        const { data: ownedServers, error: countError } = await supabase.from('servers').select('id').eq('owner_id', user.id);
+        if (countError) throw countError;
+        
+        if (ownedServers && ownedServers.length >= (currentUserProfile.max_servers || 2)) {
+           addNotification(t('errors.maxServersReached', `Vous avez atteint la limite de serveurs (${currentUserProfile.max_servers || 2}).`), "error");
+           return false;
+        }
+      } catch (e) {
+        console.error("Error checking server count:", e);
+      }
+    }
+
     try {
       console.log("Starting server creation for:", name);
       const { data: server, error: serverError } = await supabase.from('servers').insert({

@@ -193,12 +193,17 @@ export default function App() {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
       if (data) {
         setCurrentUserProfile(data);
+        if (user.email && data.email !== user.email) {
+          // Sync email in background
+          supabase.from('profiles').update({ email: user.email }).eq('id', user.id).then();
+        }
       } else if (!error || error.code === 'PGRST116') {
         // Profile missing, ensure it exists
         const { data: upsertedData } = await supabase.from('profiles').upsert({
           id: user.id,
           username: user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
           avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+          email: user.email,
           status: 'online'
         }).select().maybeSingle();
         if (upsertedData) setCurrentUserProfile(upsertedData);

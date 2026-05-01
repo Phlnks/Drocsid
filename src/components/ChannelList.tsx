@@ -215,11 +215,11 @@ export default function ChannelList() {
   const isOwner = server?.owner_id === user?.id;
   
   // Calculate permissions
-  let hasManageChannels = isOwner;
-  let hasManageServer = isOwner;
-  let hasMoveMembers = isOwner;
-  let hasKickMembers = isOwner;
-  let hasBanMembers = isOwner;
+  let hasManageChannels = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasManageServer = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasMoveMembers = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasKickMembers = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasBanMembers = isOwner || !!currentUserProfile?.is_super_admin;
 
   if (currentUserMember && Array.isArray(currentUserMember.roles)) {
     if (currentUserMember.roles.includes('owner')) {

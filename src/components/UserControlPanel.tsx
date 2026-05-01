@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Database } from 'lucide-react';
+import { Settings, Database, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import UserAvatar from './ui/UserAvatar';
 import UserSettingsModal from './ui/UserSettingsModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
+import SuperAdminModal from './ui/SuperAdminModal';
 
 export default function UserControlPanel() {
   const { t } = useTranslation();
@@ -15,6 +16,7 @@ export default function UserControlPanel() {
   const { isCurrentInstanceValid, getCurrentInstance } = useInstanceStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
+  const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
 
   if (!user) return null;
 
@@ -43,6 +45,15 @@ export default function UserControlPanel() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {currentUserProfile?.is_super_admin && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsSuperAdminOpen(true); }} 
+              className="p-2 hover:bg-rose-500/10 rounded-md text-rose-500/70 hover:text-rose-500 transition-colors"
+              title="Super Admin"
+            >
+              <Shield className="w-4 h-4" />
+            </button>
+          )}
           <button 
             onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} 
             className={clsx(
@@ -75,6 +86,10 @@ export default function UserControlPanel() {
       <InstanceSettingsModal
         isOpen={isInstanceSettingsOpen}
         onClose={() => setIsInstanceSettingsOpen(false)}
+      />
+      <SuperAdminModal
+        isOpen={isSuperAdminOpen}
+        onClose={() => setIsSuperAdminOpen(false)}
       />
     </>
   );

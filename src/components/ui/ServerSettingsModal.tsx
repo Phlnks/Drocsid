@@ -47,7 +47,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
   const [isLogFilterOpen, setIsLogFilterOpen] = useState(false);
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
-  const { user } = useAuthStore();
+  const { user, currentUserProfile } = useAuthStore();
   const { setSelectedServerId, addNotification, soundboardVolume, isSoundboardMuted } = useAppStore();
 
   const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, label: string, onSubmit: (val: string) => void}>({
@@ -181,9 +181,9 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
   if (!isOpen || !server) return null;
 
   const isOwner = server?.owner_id === user?.id;
-  let hasKickMembers = isOwner;
-  let hasBanMembers = isOwner;
-  let hasManageSoundboard = isOwner;
+  let hasKickMembers = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasBanMembers = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasManageSoundboard = isOwner || !!currentUserProfile?.is_super_admin;
 
   if (currentUserMember && Array.isArray(currentUserMember.roles)) {
     if (currentUserMember.roles.includes('owner')) {
