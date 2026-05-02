@@ -241,10 +241,35 @@ export default function App() {
         table: 'profiles'
       }, (payload) => {
         if (payload.new && Object.keys(payload.new).length > 0) {
-          useAppStore.getState().setGlobalProfile(payload.new);
-        }
-        if (payload.new && (payload.new as any).id === user.id) {
-          setCurrentUserProfile((prev: any) => ({ ...prev, ...payload.new }));
+          const newProfile = payload.new as any;
+          useAppStore.getState().setGlobalProfile(newProfile);
+          
+          // Handle force disconnect/move if it's our profile
+          if (newProfile.id === user.id) {
+            setCurrentUserProfile((prev: any) => ({ ...prev, ...newProfile }));
+            
+            const forceMove = newProfile.force_voice_move;
+            if (forceMove && forceMove.timestamp) {
+              const lastProcess = localStorage.getItem('last_force_move_ts');
+              if (!lastProcess || parseInt(lastProcess) < forceMove.timestamp) {
+                console.log("Force move/disconnect instruction received:", forceMove);
+                localStorage.setItem('last_force_move_ts', forceMove.timestamp.toString());
+                
+                // Disconnect from voice if channelId is null, otherwise move to channelId
+                const appState = useAppStore.getState();
+                if (forceMove.channelId === null) {
+                  if (appState.connectedVoiceChannelId) {
+                    appState.setConnectedVoiceChannelId(null);
+                    addNotification(t('app.forceDisconnected'), 'info');
+                  }
+                } else {
+                  if (appState.connectedVoiceChannelId !== forceMove.channelId) {
+                    appState.setConnectedVoiceChannelId(forceMove.channelId);
+                  }
+                }
+              }
+            }
+          }
         }
       })
       .subscribe();

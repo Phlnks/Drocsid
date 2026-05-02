@@ -48,30 +48,29 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
     const fetchData = async () => {
       try {
-        const fetches: Promise<any>[] = [];
+        const fetches: any[] = [];
         
-        // 1. Relationship
-        fetches.push(Promise.resolve(supabase.from('relationships').select('*').contains('participants', [user.id])));
+        // 1. Specific Relationship between current user and target user
+        fetches.push(supabase.from('relationships').select('*').contains('participants', [user.id, userId]).maybeSingle());
         
         // 2. Server Data (if serverId)
         if (serverId) {
-          fetches.push(Promise.resolve(supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle()));
-          fetches.push(Promise.resolve(supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle()));
-          fetches.push(Promise.resolve(supabase.from('roles').select('*').eq('server_id', serverId)));
-          fetches.push(Promise.resolve(supabase.from('servers').select('*').eq('id', serverId).maybeSingle()));
+          fetches.push(supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle());
+          fetches.push(supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle());
+          fetches.push(supabase.from('roles').select('*').eq('server_id', serverId));
+          fetches.push(supabase.from('servers').select('*').eq('id', serverId).maybeSingle());
         }
         
-        // 3. User Voice State
-        fetches.push(Promise.resolve(supabase.from('profiles').select('*').eq('id', userId).maybeSingle()));
+        // 3. Target User Profile (for voice state and display data)
+        fetches.push(supabase.from('profiles').select('*').eq('id', userId).maybeSingle());
 
-        const results = await Promise.all(fetches);
+        const results = await Promise.all(fetches as any[]);
         
         let idx = 0;
         
         // Relationship
         const relationshipResult = results[idx++];
-        const rel = relationshipResult.data?.find((r: any) => r.participants.includes(userId));
-        setRelationship(rel || null);
+        setRelationship(relationshipResult.data || null);
         
         if (serverId) {
           // Target member
@@ -106,16 +105,26 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
     fetchData();
 
-    const channel = supabase.channel(`user_context_${userId}`)
+    // Subscribe to changes for this user's profile and relationships
+    const channel = supabase.channel(`user_context_${userId}_${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, (payload) => {
         const rel = payload.new as any || payload.old as any;
         if (rel && rel.participants && rel.participants.includes(user.id)) {
           fetchData();
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => {
+        fetchData();
+      })
       .subscribe();
 
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, serverId, user?.id]); // Only depend on IDs to avoid loops from unstable objects/callbacks
+
+  // Handle outside click separately
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
@@ -124,10 +133,9 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      supabase.removeChannel(channel);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userId, serverId, onClose, user]);
+  }, [onClose]);
 
   const handleDM = async () => {
     if (!user) return;
