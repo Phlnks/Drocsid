@@ -1,6 +1,6 @@
 # Drocsid 🚀
 
-![Drocsid Logo](logo.png)
+![Drocsid Logo](src/assets/logo.png)
 
 **Drocsid** is a modern communication platform, designed to provide a fluid, secure, and highly customizable experience. Whether for gaming communities, work teams, or groups of friends, Drocsid offers a robust infrastructure built on Electron and Supabase.
 
@@ -8,18 +8,22 @@
 
 - **💬 Real-Time Messaging**: Instant chat with Markdown support, emojis, and file sharing.
 - **🔊 Voice Channels**: Connect instantly via voice with your friends (native WebRTC support via browser/Electron).
+- **📊 Interactive Polls**: Create and participate in polls within text channels and DMs, with support for multiple choices and anonymity.
+- **🎵 Soundboard**: Express yourself with sounds in voice channels (curated and server-specific).
+- **🎬 GIF Picker**: Integrated GIF search to express yourself.
 - **🛡️ Role Hierarchy**: Advanced role system with priority ordering (Position). A member with a lower-ranked role cannot perform administrative actions on a higher-ranked member.
 - **🔒 Per-Channel Permissions**: Total granular control. Authorize or deny access to any specific channel for each role.
-- **🔗 Invite System**: Generate unique invitation links (`/invite/XYZ123`) to grow your community effortlessly.
+- **🔗 Invite System**: Generate unique invitation codes to grow your community effortlessly.
 - **🖥️ Screen Sharing**: (Electron Version) Share your screen or a specific window with other members in the voice channel.
-- **🔔 Smart Notifications**: Customizable desktop notifications and sound alerts so you never miss an important message.
-- **🎨 Custom Themes**: Multiple themes (Dark, Indigo, Nature, etc.) to adapt the application to your visual preferences.
-- **📱 Responsive & Desktop**: Works perfectly in your browser or as a native desktop application via Electron.
-- **🖼️ Media Gallery**: Advanced media preview with full-screen gallery support, keyboard navigation (arrows), and direct download.
-- **👁️ Read Receipts (DM)**: Real-time read indicators showing your friends' avatars on the last message they've read in private conversations.
-- **📝 Personal Notes**: A dedicated space ("Mes notes") in your DMs to keep track of your own thoughts, links, and snippets.
-- **👥 Categorized Member List**: Server members are automatically grouped by roles in the right sidebar, respecting the role hierarchy order.
-- **🌍 Multi-language Support**: Full support for English, French, and Spanish, with automatic detection and manual switching.
+- **🔔 Smart Notifications**: Customizable desktop notifications and sound alerts.
+- **🎨 Custom Themes**: Multiple themes (Dark, Indigo, Nature, Matrix, etc.) to adapt the application to your preferences.
+- **📱 Responsive & Desktop**: Works perfectly on mobile, tablet, or desktop via your browser or as a native application via Electron.
+- **🖼️ Media Gallery**: Advanced media preview with full-screen gallery support, keyboard navigation, and direct download.
+- **👁️ Read Receipts (DM)**: Real-time read indicators showing your friends' avatars on the last message they've read.
+- **📝 Personal Notes**: A dedicated space ("Mes notes") in your DMs to keep track of your own thoughts.
+- **👥 Categorized Member List**: Server members are automatically grouped by roles, respecting the hierarchy.
+- **🌍 Multi-language Support**: Full support for English, French, and Spanish.
+- **👥 Multi-Account Support**: Easily switch between accounts via the login screen.
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -47,7 +51,7 @@ Drocsid uses **Supabase** for database management, authentication, and real-time
 
 ### 2. Configure the Database
 - Access the **SQL Editor** tab in your Supabase dashboard.
-- Copy and paste the contents of the `supabase_schema.sql` file (found in the root of this project) into the SQL editor.
+- Copy and paste the contents of the `supabase.sql` file (found in the root of this project) into the SQL editor.
 - Run the query to create all necessary tables, Row Level Security (RLS) policies, and functions.
 
 ### 3. Configure Authentication (Google Login)
@@ -102,26 +106,10 @@ npm run build
 
 # For Windows installer (Electron)
 npm run electron:build
-
-# For Android development
-# This will sync your web build to the Android project
-npm run android:sync
-
-# To open the project in Android Studio
-npm run android:open
 ```
 
-## 📱 Mobile Development (Capacitor)
-Drocsid uses **Capacitor** to target mobile platforms. To start mobile development:
-1. Ensure you have **Android Studio** installed on your machine.
-2. **Important**: On Windows, you may need to run your terminal as **Administrator** to perform certain native build/sync operations.
-3. Run `npm run android:sync` to build the web app and sync it with the native project.
-4. Run `npm run android:open` to launch Android Studio and compile the APK.
-
-### Push Notifications & Voice in Background
-To enable these features on mobile:
-- **Android**: Foreground services are handled via Capacitor plugins.
-- **iOS**: Requires the Apple Developer Program for Push (APNs) and CallKit for background audio.
+## 📱 Mobile Development (Android)
+The Android version is currently **under development** and will be ready soon. It uses Capacitor to provide a native mobile experience.
 
 
 ## 🏗️ Multi-Instance Architecture
@@ -167,12 +155,15 @@ Drocsid implements a "Zero-Trust" mindset for server management:
 - **System Constraints**: Even an administrator cannot delete the "Owner" of a server.
 - **Audit Logs**: All sensitive actions (channel creation, member bans, etc.) are logged in the `server_logs` table for transparency.
 
-## 🤝 Connecting to a Private Backend
+## 🤝 Connecting to a Private Backend & Quotas
 
 Since Drocsid is designed to be self-hosted if needed:
 1. Deploy your own Supabase instance (Cloud or Docker).
 2. Configure your environment variables in the application to point to your instance (as explained above).
-3. Generated invitation links will automatically use the address defined in `VITE_BACKEND_URL` to ensure your members join the correct server.
+3. Generated invitation codes will automatically use the address defined in `VITE_BACKEND_URL` to ensure your members join the correct server.
+
+> [!TIP]
+> **Supabase Quotas**: The free tier of Supabase has a daily egress quota. If you notice connection issues or slow performance, it might be due to this limit. You can easily overcome this by hosting the application on your own Supabase instance, allowing for a completely free and independent setup without limits.
 
 ---
 *Drocsid - Communicate without limits.*

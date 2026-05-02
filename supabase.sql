@@ -40,7 +40,7 @@ CREATE TABLE public.profiles (
   last_read jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   display_name text,
-  force_voice_move boolean DEFAULT false,
+  force_voice_move jsonb DEFAULT 'null'::jsonb,
   bio text,
   is_super_admin boolean DEFAULT false,
   can_create_servers boolean DEFAULT true, -- Permettre à tous par défaut ou changer selon votre besoin
