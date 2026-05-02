@@ -576,5 +576,13 @@
     "standard": "Estándar (720p 30fps)",
     "high": "Alta (1080p 60fps) - Juegos",
     "ultra": "Ultra (1440p 60fps)"
-  }
+    },
+    "auth": {
+      "welcome": "Bienvenido a Drocsid",
+      "description": "Conéctate con tu comunidad en tiempo real.",
+      "continueWithGoogle": "Continuar con Google",
+      "switchAccount": "Cambiar de cuenta",
+      "connectionProblem": "¿Problema de conexión?",
+      "resetDefaultServer": "Restablecer servidor predeterminado"
+    }
 }
