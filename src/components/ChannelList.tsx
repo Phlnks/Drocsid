@@ -266,8 +266,8 @@ export default function ChannelList() {
       socket.emit('kick-user', { userId, serverId: selectedServerId });
 
       await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
-      // Also disconnect them from voice
-      handleDisconnectMember(userId);
+      // Voice participants cleanup in DB
+      await supabase.from('voice_participants').delete().eq('user_id', userId);
     } catch (error) {
       console.error("Error kicking member:", error);
     }
@@ -288,8 +288,8 @@ export default function ChannelList() {
       });
       // Remove from members
       await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
-      // Disconnect from voice
-      handleDisconnectMember(userId);
+      // Disconnect from voice in DB
+      await supabase.from('voice_participants').delete().eq('user_id', userId);
     } catch (error) {
       console.error("Error banning member:", error);
     }

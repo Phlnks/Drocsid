@@ -297,15 +297,17 @@ export default function WebRTCManager() {
     // Play a silent audio loop to keep the process alive in background on mobile
     if (!silentAudioRef.current) {
       const audio = new Audio();
-      // Extremely short silent base64 wav
+      // Valid minimal silence wav (1 second)
       audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFav7//v8BAAgAZGF0YQAAAAA=';
       audio.loop = true;
+      audio.muted = true; // Still keeps session alive
       silentAudioRef.current = audio;
     }
     
-    silentAudioRef.current.play().catch(() => {
-      // User interaction might be needed, but usually within a click handler
-    });
+    // Only play if we have a channel
+    if (connectedVoiceChannelId && silentAudioRef.current) {
+        silentAudioRef.current.play().catch(() => {});
+    }
 
     voiceParticipants.forEach(p => {
       const isMe = p.id === currentUser.id;

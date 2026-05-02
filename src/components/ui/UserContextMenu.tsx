@@ -41,7 +41,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
-  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm } = useAppStore();
+  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm, addNotification } = useAppStore();
 
   useEffect(() => {
     if (!user) return;
@@ -277,10 +277,12 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       socket.emit('move-user', { userId, channelId: null });
       socket.emit('kick-user', { userId, serverId });
 
+      onClose(); // Close menu early for responsiveness
+
+      const { error } = await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
+      if (error) throw error;
+      
       await Promise.all([
-        // Remove from server_members
-        supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId),
-        
         // Kick from voice_participants as well
         supabase.from('voice_participants').delete().eq('user_id', userId),
 
@@ -292,10 +294,9 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
           }
         }).eq('id', userId)
       ]);
-      
-      onClose();
     } catch (error) {
       console.error("Error kicking user:", error);
+      addNotification(t('errors.generic', 'Une erreur est survenue lors de l\'exclusion.'), 'error');
     }
   };
 
@@ -305,17 +306,19 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       socket.emit('move-user', { userId, channelId: null });
       socket.emit('kick-user', { userId, serverId });
 
+      onClose(); // Close menu early
+
+      const { error: banError } = await supabase.from('server_bans').insert({
+        server_id: serverId,
+        user_id: userId,
+        banned_by: user?.id
+      });
+      if (banError) throw banError;
+
+      const { error: memberError } = await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
+      if (memberError) throw memberError;
+      
       await Promise.all([
-        // Add to server_bans
-        supabase.from('server_bans').insert({
-          server_id: serverId,
-          user_id: userId,
-          banned_by: user?.id
-        }),
-        
-        // Remove from server_members
-        supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId),
-        
         // Kick from voice_participants as well
         supabase.from('voice_participants').delete().eq('user_id', userId),
 
@@ -327,10 +330,9 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
           }
         }).eq('id', userId)
       ]);
-      
-      onClose();
     } catch (error) {
       console.error("Error banning user:", error);
+      addNotification(t('errors.generic', 'Une erreur est survenue lors du bannissement.'), 'error');
     }
   };
 

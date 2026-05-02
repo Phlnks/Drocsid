@@ -52,38 +52,23 @@ export default function ConfirmModal({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl overflow-hidden"
+          className="relative w-full max-w-[440px] bg-[#313338] border border-zinc-800/20 rounded-lg shadow-2xl overflow-hidden"
         >
-          <div className="p-6">
-            <div className="flex items-start gap-4">
-              <div className={clsx(
-                "p-3 rounded-full mt-1",
-                resolvedVariant === 'danger' && "bg-red-500/10 text-red-500",
-                resolvedVariant === 'warning' && "bg-amber-500/10 text-amber-500",
-                resolvedVariant === 'info' && "bg-indigo-500/10 text-indigo-500"
-              )}>
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
+          <div className="p-4 pt-6">
+            <div className="flex flex-col gap-4">
+              <div className="px-1 text-center sm:text-left">
                 <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-                <p className="text-zinc-400 leading-relaxed">
+                <p className="text-zinc-300 text-[15px] leading-relaxed">
                   {description}
                 </p>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1 text-zinc-500 hover:text-white transition-colors"
-                id="close-confirm-modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 px-6 py-4 bg-zinc-950/50">
+          <div className="flex items-center justify-end gap-2 px-4 py-4 bg-[#2b2d31]">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-zinc-300 hover:text-white transition-colors"
+              className="px-4 py-2.5 text-sm font-medium text-white hover:underline transition-all"
               id="cancel-confirm"
             >
               {cancelLabel || t('common.cancel')}
@@ -94,10 +79,10 @@ export default function ConfirmModal({
                 onClose();
               }}
               className={clsx(
-                "px-6 py-2 rounded-md text-sm font-bold text-white transition-all transform active:scale-95",
-                resolvedVariant === 'danger' && "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-900/20",
-                resolvedVariant === 'warning' && "bg-amber-600 hover:bg-amber-500 shadow-lg shadow-amber-900/20",
-                resolvedVariant === 'info' && "bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-900/20"
+                "px-7 py-2.5 rounded-[3px] text-sm font-medium text-white transition-all transform active:scale-95",
+                resolvedVariant === 'danger' && "bg-[#da373c] hover:bg-[#a1282c]",
+                resolvedVariant === 'warning' && "bg-[#f0b232] hover:bg-[#c49129]",
+                resolvedVariant === 'info' && "bg-[#5865f2] hover:bg-[#4752c4]"
               )}
               id="confirm-action"
             >
