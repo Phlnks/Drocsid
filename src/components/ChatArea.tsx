@@ -879,7 +879,7 @@ export default function ChatArea() {
                               className="max-w-sm max-h-80 rounded-md bg-zinc-900/50 outline-none hover:ring-2 hover:ring-indigo-500/50 transition-all"
                             />
                           ) : attachment.type === 'audio' || attachment.type === 'voice' ? (
-                            <VoicePlayer url={attachment.url} />
+                            <VoicePlayer url={attachment.url} filename={attachment.name} />
                           ) : attachment.type === 'poll' ? (
                             <PollDisplay 
                               messageId={msg.id} 

@@ -519,7 +519,8 @@
   "messageInput": {
     "typeMessage": "Escribe un mensaje",
     "send": "Enviar",
-    "reactions": "Reacciones"
+    "reactions": "Reacciones",
+    "uploadFile": "Enviar un archivo"
   },
   "app": {
     "loading": "Cargando...",

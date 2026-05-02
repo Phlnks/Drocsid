@@ -1017,7 +1017,7 @@ export default function DMChatArea() {
                         autoFocus
                       />
                       <div className="text-xs text-zinc-400 mt-1">
-                        Échap pour annuler, Entrée pour valider
+                        {t('chatArea.editInstructions')}
                       </div>
                     </div>
                   ) : (
@@ -1025,7 +1025,7 @@ export default function DMChatArea() {
                       {msg.content && (
                         <div className="text-zinc-300 break-words whitespace-pre-wrap">
                           <MessageContent content={msg.content} />
-                          {msg.is_edited && <span className="text-[10px] text-zinc-500 ml-2">(modifié)</span>}
+                          {msg.is_edited && <span className="text-[10px] text-zinc-500 ml-2">{t('chatArea.edited')}</span>}
                         </div>
                       )}
                       {msg.attachments && Array.isArray(msg.attachments) && msg.attachments.map((attachment: any, i: number) => (
@@ -1053,7 +1053,7 @@ export default function DMChatArea() {
                               className="max-w-sm max-h-80 rounded-md bg-zinc-900/50 outline-none hover:ring-2 hover:ring-indigo-500/50 transition-all"
                             />
                           ) : attachment.type === 'audio' || attachment.type === 'voice' ? (
-                            <VoicePlayer url={attachment.url} />
+                            <VoicePlayer url={attachment.url} filename={attachment.name} />
                           ) : attachment.type === 'poll' ? (
                             <PollDisplay 
                               messageId={msg.id} 

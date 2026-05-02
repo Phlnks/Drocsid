@@ -3,9 +3,10 @@ import { Play, Pause, Volume2 } from 'lucide-react';
 
 interface VoicePlayerProps {
   url: string;
+  filename?: string;
 }
 
-export default function VoicePlayer({ url }: VoicePlayerProps) {
+export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -64,6 +65,11 @@ export default function VoicePlayer({ url }: VoicePlayerProps) {
       </button>
 
       <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+        {filename && (
+          <div className="text-[11px] font-medium text-zinc-400 truncate mb-0.5" title={filename}>
+            {filename}
+          </div>
+        )}
         <div className="relative h-1.5 bg-zinc-700 rounded-full overflow-hidden">
           <div 
             className="absolute top-0 left-0 h-full bg-indigo-400 transition-all duration-100 ease-linear"

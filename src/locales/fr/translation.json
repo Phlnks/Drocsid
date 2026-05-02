@@ -526,7 +526,8 @@
   "messageInput": {
     "typeMessage": "Saisir un message",
     "send": "Envoyer",
-    "reactions": "Réactions"
+    "reactions": "Réactions",
+    "uploadFile": "Envoyer un fichier"
   },
   "app": {
     "loading": "Chargement...",

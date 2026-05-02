@@ -616,7 +616,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
                 className="w-full px-4 py-2 flex items-center gap-3 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
               >
                 <FileUp className="w-4 h-4 text-zinc-400" />
-                Démarrer un fichier
+                {t('messageInput.uploadFile')}
               </button>
               <button
                 type="button"
