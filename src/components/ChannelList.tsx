@@ -261,13 +261,9 @@ export default function ChannelList() {
   const handleKickMember = async (userId: string) => {
     if (!hasKickMembers || !selectedServerId) return;
     try {
-      // Real-time socket notification
-      socket.emit('move-user', { userId, channelId: null });
-      socket.emit('kick-user', { userId, serverId: selectedServerId });
-
       await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
-      // Voice participants cleanup in DB
-      await supabase.from('voice_participants').delete().eq('user_id', userId);
+      // Also disconnect them from voice
+      handleDisconnectMember(userId);
     } catch (error) {
       console.error("Error kicking member:", error);
     }
@@ -276,10 +272,6 @@ export default function ChannelList() {
   const handleBanMember = async (userId: string) => {
     if (!hasBanMembers || !selectedServerId) return;
     try {
-      // Real-time socket notification
-      socket.emit('move-user', { userId, channelId: null });
-      socket.emit('kick-user', { userId, serverId: selectedServerId });
-
       // Add to bans collection
       await supabase.from('server_bans').insert({
         server_id: selectedServerId,
@@ -288,8 +280,8 @@ export default function ChannelList() {
       });
       // Remove from members
       await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
-      // Disconnect from voice in DB
-      await supabase.from('voice_participants').delete().eq('user_id', userId);
+      // Disconnect from voice
+      handleDisconnectMember(userId);
     } catch (error) {
       console.error("Error banning member:", error);
     }

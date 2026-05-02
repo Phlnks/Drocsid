@@ -223,72 +223,26 @@ async function startServer() {
     socket.on("move-user", (data) => {
       // data: { userId, channelId }
       const { userId, channelId } = data;
-      console.log(`Server: forcing move for user ${userId} to ${channelId || 'DISCONNECT'}`);
-      
-      // Update ALL voice rooms where this user might be
-      voiceRooms.forEach((participantsMap, roomId) => {
-        if (participantsMap.has(userId)) {
-          const pData = participantsMap.get(userId);
-          participantsMap.delete(userId);
-          
-          io.to(roomId).emit("voice-participants-update", {
-            channelId: roomId,
-            participants: Array.from(participantsMap.values())
-          });
-          
-          // Also emit to the user's specific sockets to leave the channel room
-          const sockets = onlineUsers.get(userId);
-          sockets?.forEach(socketId => {
-            const s = io.sockets.sockets.get(socketId);
-            if (s) s.leave(roomId);
-          });
-
-          if (channelId) {
-            if (!voiceRooms.has(channelId)) voiceRooms.set(channelId, new Map());
-            voiceRooms.get(channelId)?.set(userId, pData);
-            
-            // User joins the new room
-            sockets?.forEach(socketId => {
-              const s = io.sockets.sockets.get(socketId);
-              if (s) s.join(channelId);
-            });
-
-            io.to(channelId).emit("voice-participants-update", {
-              channelId,
-              participants: Array.from(voiceRooms.get(channelId)?.values() || [])
-            });
-          }
-        }
-      });
-
-      // Update socketVoiceMap and notify the user
       const sockets = onlineUsers.get(userId);
       sockets?.forEach(socketId => {
-        if (channelId) {
-          socketVoiceMap.set(socketId, { userId, channelId });
-        } else {
-          socketVoiceMap.delete(socketId);
-        }
         io.to(socketId).emit("force-move", { channelId });
       });
     });
 
-    socket.on("kick-user", (data) => {
-      // data: { userId, serverId }
-      const { userId, serverId } = data;
-      console.log(`Server: user ${userId} kicked from server ${serverId}`);
-      
-      const sockets = onlineUsers.get(userId);
-      sockets?.forEach(socketId => {
-        io.to(socketId).emit("user-kicked", { serverId });
-      });
-    });
-
     socket.on("play-soundboard-sound", (data) => {
-      // Broadcast the soundboard sound event directly to the voice channel room
-      if (data.channelId) {
-        console.log(`Soundboard: playing ${data.soundId} in ${data.channelId}`);
-        socket.to(data.channelId).emit("soundboard-sound-played", data);
+      // Broadcast the soundboard sound event directly to specific sockets in the voice channel
+      const participants = voiceRooms.get(data.channelId);
+      if (participants && participants.size > 0) {
+        participants.forEach(user => {
+          const userSockets = onlineUsers.get(user.id);
+          if (userSockets) {
+            userSockets.forEach(socketId => {
+              io.to(socketId).emit("soundboard-sound-played", data);
+            });
+          }
+        });
+      } else {
+        io.to(data.channelId).emit("soundboard-sound-played", data);
       }
     });
 

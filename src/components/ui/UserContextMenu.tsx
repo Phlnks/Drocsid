@@ -6,7 +6,6 @@ import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import socket from '../../lib/socket';
 import { useTranslation } from 'react-i18next';
-import ConfirmModal from './ConfirmModal';
 
 interface UserContextMenuProps {
   userId: string;
@@ -27,85 +26,45 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const [serverRoles, setServerRoles] = useState<any[]>([]);
   const [serverInfo, setServerInfo] = useState<any>(null);
   const [userVoiceState, setUserVoiceState] = useState<any>(null);
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    type: 'kick' | 'ban';
-    title: string;
-    message: string;
-  }>({
-    isOpen: false,
-    type: 'kick',
-    title: '',
-    message: ''
-  });
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
-  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm, addNotification } = useAppStore();
+  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm } = useAppStore();
 
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
-      try {
-        const fetches: any[] = [];
-        
-        // 1. Specific Relationship between current user and target user
-        fetches.push(supabase.from('relationships').select('*').contains('participants', [user.id, userId]).maybeSingle());
-        
-        // 2. Server Data (if serverId)
-        if (serverId) {
-          fetches.push(supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle());
-          fetches.push(supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle());
-          fetches.push(supabase.from('roles').select('*').eq('server_id', serverId));
-          fetches.push(supabase.from('servers').select('*').eq('id', serverId).maybeSingle());
-        }
-        
-        // 3. Target User Profile (for voice state and display data)
-        fetches.push(supabase.from('profiles').select('*').eq('id', userId).maybeSingle());
+      // Fetch relationship
+      const { data: relData } = await supabase.from('relationships').select('*').contains('participants', [user.id]);
+      const rel = relData?.find(r => r.participants.includes(userId));
+      setRelationship(rel || null);
+      setIsLoading(false);
 
-        const results = await Promise.all(fetches as any[]);
-        
-        let idx = 0;
-        
-        // Relationship
-        const relationshipResult = results[idx++];
-        setRelationship(relationshipResult.data || null);
-        
-        if (serverId) {
-          // Target member
-          const memberResult = results[idx++];
-          if (memberResult.data) setServerMember(memberResult.data);
-          
-          // Current member
-          const currentMemberResult = results[idx++];
-          if (currentMemberResult.data) setCurrentUserMember(currentMemberResult.data);
-          
-          // Roles
-          const rolesResult = results[idx++];
-          if (rolesResult.data) setServerRoles(rolesResult.data);
-          
-          // Server Info
-          const serverResult = results[idx++];
-          if (serverResult.data) setServerInfo(serverResult.data);
-        }
-        
-        // Profile/Voice
-        const profileResult = results[idx++];
-        if (profileResult.data) {
-          setUserVoiceState(profileResult.data.force_voice_move || null);
-        }
+      // Fetch server member info if in server context
+      if (serverId) {
+        const { data: memberData } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle();
+        if (memberData) setServerMember(memberData);
 
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching context menu data:", error);
-        setIsLoading(false);
+        const { data: currentMemberData } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
+        if (currentMemberData) setCurrentUserMember(currentMemberData);
+
+        const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', serverId);
+        if (rolesData) setServerRoles(rolesData);
+
+        const { data: servData } = await supabase.from('servers').select('*').eq('id', serverId).maybeSingle();
+        if (servData) setServerInfo(servData);
+      }
+
+      // Check if user is in any voice channel
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (profileData) {
+        setUserVoiceState(profileData.force_voice_move || null);
       }
     };
 
     fetchData();
 
-    // Subscribe to changes for this user's profile and relationships
     const channel = supabase.channel(`user_context_${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, (payload) => {
         const rel = payload.new as any || payload.old as any;
@@ -113,18 +72,9 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
           fetchData();
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => {
-        fetchData();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => fetchData())
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, serverId, user?.id]); // Stability checked
-
-  // Handle outside click separately
-  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
@@ -133,9 +83,10 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
+      supabase.removeChannel(channel);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [onClose]);
+  }, [userId, serverId, onClose, user]);
 
   const handleDM = async () => {
     if (!user) return;
@@ -253,86 +204,44 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
   const handleKick = async () => {
     if (!serverId || !userId) return;
-    setConfirmModal({
-      isOpen: true,
-      type: 'kick',
-      title: t('modals.userContextMenu.kick'),
-      message: t('modals.userContextMenu.kickConfirm', { username })
-    });
+    if (!window.confirm(t('modals.userContextMenu.kickConfirm', { username }))) return;
+    onClose();
+
+    try {
+      await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
+      // Force disconnect from voice if they are in one
+      await supabase.from('profiles').update({
+        force_voice_move: {
+          channelId: null,
+          timestamp: Date.now()
+        }
+      }).eq('id', userId);
+    } catch (error) {
+      console.error("Error kicking user:", error);
+    }
   };
 
   const handleBan = async () => {
     if (!serverId || !userId) return;
-    setConfirmModal({
-      isOpen: true,
-      type: 'ban',
-      title: t('modals.userContextMenu.ban'),
-      message: t('modals.userContextMenu.banConfirm', { username })
-    });
-  };
+    if (!window.confirm(t('modals.userContextMenu.banConfirm', { username }))) return;
+    onClose();
 
-  const executeKick = async () => {
     try {
-      // Emit socket events first for immediate UI update for everyone
-      socket.emit('move-user', { userId, channelId: null });
-      socket.emit('kick-user', { userId, serverId });
-
-      onClose(); // Close menu early for responsiveness
-
-      const { error } = await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
-      if (error) throw error;
-      
-      await Promise.all([
-        // Kick from voice_participants as well
-        supabase.from('voice_participants').delete().eq('user_id', userId),
-
-        // Force disconnect from voice via profile trigger (secondary backup)
-        supabase.from('profiles').update({
-          force_voice_move: {
-            channelId: null,
-            timestamp: Date.now()
-          }
-        }).eq('id', userId)
-      ]);
-    } catch (error) {
-      console.error("Error kicking user:", error);
-      addNotification(t('errors.generic', 'Une erreur est survenue lors de l\'exclusion.'), 'error');
-    }
-  };
-
-  const executeBan = async () => {
-    try {
-      // Emit socket events first
-      socket.emit('move-user', { userId, channelId: null });
-      socket.emit('kick-user', { userId, serverId });
-
-      onClose(); // Close menu early
-
-      const { error: banError } = await supabase.from('server_bans').insert({
+      await supabase.from('server_bans').insert({
         server_id: serverId,
         user_id: userId,
         banned_by: user?.id
       });
-      if (banError) throw banError;
-
-      const { error: memberError } = await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
-      if (memberError) throw memberError;
-      
-      await Promise.all([
-        // Kick from voice_participants as well
-        supabase.from('voice_participants').delete().eq('user_id', userId),
-
-        // Force disconnect from voice via profile trigger
-        supabase.from('profiles').update({
-          force_voice_move: {
-            channelId: null,
-            timestamp: Date.now()
-          }
-        }).eq('id', userId)
-      ]);
+      await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
+      // Force disconnect from voice
+      await supabase.from('profiles').update({
+        force_voice_move: {
+          channelId: null,
+          timestamp: Date.now()
+        }
+      }).eq('id', userId);
     } catch (error) {
       console.error("Error banning user:", error);
-      addNotification(t('errors.generic', 'Une erreur est survenue lors du bannissement.'), 'error');
     }
   };
 
@@ -341,8 +250,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     onClose();
 
     try {
-      socket.emit('move-user', { userId, channelId: null });
-      
       await supabase.from('profiles').update({
         force_voice_move: {
           channelId: null,
@@ -416,12 +323,11 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   if (y + menuHeight > window.innerHeight) y -= menuHeight;
 
   return createPortal(
-    <>
-      <div 
-        ref={menuRef}
-        className="fixed z-[9999] bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 w-[200px] animate-in fade-in zoom-in duration-100"
-        style={{ left: x, top: y }}
-      >
+    <div 
+      ref={menuRef}
+      className="fixed z-[9999] bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 w-[200px] animate-in fade-in zoom-in duration-100"
+      style={{ left: x, top: y }}
+    >
       <div className="px-3 py-2 border-b border-zinc-800 mb-1">
         <p className="text-xs font-bold text-zinc-500 uppercase truncate">{username}</p>
       </div>
@@ -525,18 +431,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
           )}
         </>
       )}
-      </div>
-
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmModal.type === 'kick' ? executeKick : executeBan}
-        title={confirmModal.title}
-        description={confirmModal.message}
-        variant="danger"
-        confirmLabel={confirmModal.type === 'kick' ? t('modals.userContextMenu.kick') : t('modals.userContextMenu.ban')}
-      />
-    </>,
+    </div>,
     document.body
   );
 }

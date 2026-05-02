@@ -536,8 +536,6 @@
     "openInNewTab": "Pour une expérience optimale et permettre la connexion via Google, l'application doit être ouverte dans un nouvel onglet.",
     "secureLogin": "Une fois ouverte, vous pourrez vous connecter en toute sécurité.",
     "invalidInvite": "L'invitation est invalide ou a expiré.",
-    "forceDisconnected": "Vous avez été déconnecté du vocal par un modérateur.",
-    "kickedFromServer": "Vous avez été exclu du serveur.",
     "errorJoinLink": "Erreur lors de la tentative de rejoindre le serveur via le lien.",
     "sidebar": {
       "directMessages": "Messages privés",

@@ -54,22 +54,9 @@ export default function VoicePanel() {
     const handleSoundPlayed = (data: { soundId: string, channelId: string, userId: string, soundUrl: string }) => {
       // Check if user is in the same channel, not deafened, not the player (already played locally), and soundboard is not muted locally
       if (data.channelId === connectedVoiceChannelId && !isDeafened && data.userId !== currentUser?.id && !isSoundboardMuted) {
-        console.log(`Playing soundboard sound: ${data.soundUrl.substring(0, 30)}...`);
         const audio = new Audio(data.soundUrl);
         audio.volume = soundboardVolume;
-        
-        // Add error handling specifically for decoding
-        audio.addEventListener('error', (e) => {
-           console.error("Audio decoding/loading failed for soundboard:", e);
-        });
-        
-        audio.play().catch(e => {
-          if (e.name === 'NotAllowedError') {
-            console.warn("Autoplay blocked for soundboard sound.");
-          } else {
-            console.error("Soundboard playback error:", e);
-          }
-        });
+        audio.play().catch(console.error);
       }
     };
 
