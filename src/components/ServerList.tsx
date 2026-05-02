@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function ServerList() {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, currentUserProfile } = useAuthStore();
   const { selectedServerId, setSelectedServerId, addNotification, mutedServers, toggleMuteServer, connectedVoiceServerId } = useAppStore();
   const [servers, setServers] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -320,6 +320,7 @@ export default function ServerList() {
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateServer}
         onJoin={handleJoinServer}
+        canCreateServers={!!(currentUserProfile?.is_super_admin || currentUserProfile?.can_create_servers)}
       />
     </>
   );

@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Camera, Plus } from 'lucide-react';
+import { X, Camera, Plus, Shield } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAppStore } from '../../store/appStore';
 import { processImageForSupabase } from '../../lib/imageUtils';
 import { useTranslation } from 'react-i18next';
+import clsx from 'clsx';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (name: string, iconUrl?: string) => Promise<boolean>;
   onJoin: (inviteCode: string) => Promise<void>;
+  canCreateServers?: boolean;
 }
 
-export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Props) {
+export default function AddServerModal({ isOpen, onClose, onCreate, onJoin, canCreateServers = true }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
   const [serverName, setServerName] = useState('');
@@ -66,9 +68,15 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin }: Pr
               {t('modals.addServer.menuDescription')}
             </p>
             <button
-              onClick={() => setMode('create')}
-              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-md transition-colors"
+              onClick={() => canCreateServers ? setMode('create') : null}
+              className={clsx(
+                "w-full font-bold py-3 px-4 rounded-md transition-colors flex items-center justify-center gap-2",
+                canCreateServers 
+                  ? "bg-indigo-500 hover:bg-indigo-600 text-white" 
+                  : "bg-zinc-700/50 text-zinc-500 cursor-not-allowed border border-zinc-700"
+              )}
             >
+              {!canCreateServers && <Shield className="w-4 h-4" />}
               {t('modals.addServer.createServerBtn')}
             </button>
             <div className="text-center text-zinc-400 text-sm py-2">{t('modals.addServer.or')}</div>

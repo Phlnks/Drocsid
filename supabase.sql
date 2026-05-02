@@ -43,7 +43,7 @@ CREATE TABLE public.profiles (
   force_voice_move jsonb DEFAULT 'null'::jsonb,
   bio text,
   is_super_admin boolean DEFAULT false,
-  can_create_servers boolean DEFAULT true, -- Permettre à tous par défaut ou changer selon votre besoin
+  can_create_servers boolean DEFAULT false, -- Réservé aux admins by default
   max_servers integer DEFAULT 5,
   email text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id)
@@ -314,7 +314,7 @@ BEGIN
     new.email,
     new.raw_user_meta_data->>'avatar_url',
     CASE WHEN new.email = 'phinks07@gmail.com' THEN true ELSE false END,
-    true,
+    CASE WHEN new.email = 'phinks07@gmail.com' THEN true ELSE false END,
     CASE WHEN new.email = 'phinks07@gmail.com' THEN 100 ELSE 5 END
   )
   ON CONFLICT (id) DO NOTHING;
@@ -326,6 +326,37 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+
+-- trigger pour protéger les droits sensibles (is_super_admin, can_create_servers)
+CREATE OR REPLACE FUNCTION public.protect_profile_rights()
+RETURNS trigger AS $$
+BEGIN
+  -- Seule une personne déjà super_admin peut changer ces colonnes
+  -- auth.uid() est l'utilisateur qui fait l'update
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND is_super_admin = true
+  ) THEN
+    -- Si l'utilisateur n'est pas super_admin, on remet les anciennes valeurs
+    IF NEW.is_super_admin IS DISTINCT FROM OLD.is_super_admin THEN
+      NEW.is_super_admin := OLD.is_super_admin;
+    END IF;
+    IF NEW.can_create_servers IS DISTINCT FROM OLD.can_create_servers THEN
+      NEW.can_create_servers := OLD.can_create_servers;
+    END IF;
+    IF NEW.max_servers IS DISTINCT FROM OLD.max_servers THEN
+      NEW.max_servers := OLD.max_servers;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_profile_update_protect_rights ON public.profiles;
+CREATE TRIGGER on_profile_update_protect_rights
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE PROCEDURE public.protect_profile_rights();
 
 
 -- ==========================================

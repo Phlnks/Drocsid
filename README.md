@@ -77,12 +77,19 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 # Public Anonymous API Key
 VITE_SUPABASE_PUBLISHABLE_KEY=your_public_key
 
-# (Optional) Service Role Key for administrative operations
-SUPABASE_SERVICE_ROLE_KEY=your_service_key
-
-# Application URL (used for invitations)
+# Application URL (used for invitations and sockets)
 VITE_BACKEND_URL=http://localhost:3000
 ```
+
+## 🆕 First-Time Setup & Instances
+
+Drocsid features a specialized **Instance Setup Screen** for new users:
+
+1. **Initial Launch**: If no environment variables are defined or if it's your first time, you'll be greeted by the Setup Screen.
+2. **Configuration**: Enter your custom Instance Name, Supabase URL, and Anon Key.
+3. **Multi-Instance**: You can add multiple instances (e.g., "Work", "Gaming", "Development") via the **Instance Settings** (bottom-left gear icon next to your profile).
+4. **Switching**: Click on the instances in the settings to switch between different backends instantly.
+5. **Persistence**: All instances are stored locally in your browser/app data.
 
 ## 🚀 Running the Server
 
