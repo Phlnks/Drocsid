@@ -282,9 +282,9 @@
       "serverNamePlaceholder": "Mon super serveur",
       "back": "Retour",
       "create": "Créer",
-      "joinDescription": "Saisis un lien d'invitation ci-dessous pour rejoindre un serveur existant.",
-      "inviteLink": "Lien d'invitation",
-      "invitePlaceholder": "https://... ou code d'invitation",
+      "joinDescription": "Saisis un code d'invitation ci-dessous pour rejoindre un serveur existant.",
+      "inviteLink": "Code d'invitation",
+      "invitePlaceholder": "Saisis le code d'invitation",
       "join": "Rejoindre le serveur"
     },
     "renameChannel": {
@@ -501,7 +501,7 @@
       "PIN_MESSAGES": { "label": "Épingler des messages", "description": "Permet d'épingler ou de désépingler des messages." },
       "KICK_MEMBERS": { "label": "Expulser des membres", "description": "Permet d'expulser des membres du serveur." },
       "BAN_MEMBERS": { "label": "Bannir des membres", "description": "Permet de bannir des membres du serveur." },
-      "CREATE_INVITE": { "label": "Créer une invitation", "description": "Permet de créer des liens d'invitation." },
+      "CREATE_INVITE": { "label": "Créer une invitation", "description": "Permet de créer des codes d'invitation." },
       "SEND_MESSAGES": { "label": "Envoyer des messages", "description": "Permet d'envoyer des messages dans les salons textuels." },
       "READ_MESSAGES": { "label": "Lire les messages", "description": "Permet de voir et lire les salons textuels." },
       "CONNECT": { "label": "Se connecter", "description": "Permet de se connecter aux salons vocaux." },

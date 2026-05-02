@@ -91,67 +91,69 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     setActiveRoleMenu(null);
   }, [activeTab]);
 
+  const fetchData = async () => {
+    if (!server || !user) return;
+    
+    // Fetch profiles for mapping
+    const { data: profilesData } = await supabase.from('profiles').select('*');
+    const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
+
+    // Fetch roles
+    const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', server.id).order('order', { ascending: true });
+    if (rolesData) setRoles(rolesData);
+
+    // Fetch invites
+    const { data: invitesData } = await supabase.from('invites').select('*').eq('server_id', server.id).order('created_at', { ascending: false });
+    if (invitesData) setInvites(invitesData);
+
+    // Fetch categories
+    const { data: catsData } = await supabase.from('categories').select('*').eq('server_id', server.id).order('order', { ascending: true });
+    if (catsData) setCategories(catsData);
+
+    // Fetch channels
+    const { data: chsData } = await supabase.from('channels').select('*').eq('server_id', server.id);
+    if (chsData) setChannels(chsData);
+
+    // Fetch members
+    const { data: membersData } = await supabase.from('server_members').select('*').eq('server_id', server.id);
+    if (membersData) {
+      const resolvedMembers = membersData.map(m => ({
+        ...m,
+        user: profilesMap.get(m.user_id)
+      })).sort((a, b) => {
+        // Stable sort: Owner first, then by join date
+        if (a.user_id === server.owner_id) return -1;
+        if (b.user_id === server.owner_id) return 1;
+        return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
+      });
+      setMembers(resolvedMembers);
+      const currentMember = resolvedMembers.find(m => m.user_id === user.id);
+      setCurrentUserMember(currentMember);
+    }
+
+    // Fetch bans
+    const { data: bansData } = await supabase.from('server_bans').select('*').eq('server_id', server.id);
+    if (bansData) {
+      const resolvedBans = bansData.map(b => ({
+        ...b,
+        user: profilesMap.get(b.user_id)
+      }));
+      setBans(resolvedBans);
+    }
+
+    // Fetch logs
+    const { data: logsData } = await supabase.from('server_logs').select('*').eq('server_id', server.id).order('created_at', { ascending: false });
+    if (logsData) {
+      const resolvedLogs = logsData.map(l => ({
+        ...l,
+        user: profilesMap.get(l.user_id)
+      }));
+      setLogs(resolvedLogs);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen || !server || !user) return;
-
-    const fetchData = async () => {
-      // Fetch profiles for mapping
-      const { data: profilesData } = await supabase.from('profiles').select('*');
-      const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
-
-      // Fetch roles
-      const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', server.id).order('order', { ascending: true });
-      if (rolesData) setRoles(rolesData);
-
-      // Fetch invites
-      const { data: invitesData } = await supabase.from('invites').select('*').eq('server_id', server.id);
-      if (invitesData) setInvites(invitesData);
-
-      // Fetch categories
-      const { data: catsData } = await supabase.from('categories').select('*').eq('server_id', server.id).order('order', { ascending: true });
-      if (catsData) setCategories(catsData);
-
-      // Fetch channels
-      const { data: chsData } = await supabase.from('channels').select('*').eq('server_id', server.id);
-      if (chsData) setChannels(chsData);
-
-      // Fetch members
-      const { data: membersData } = await supabase.from('server_members').select('*').eq('server_id', server.id);
-      if (membersData) {
-        const resolvedMembers = membersData.map(m => ({
-          ...m,
-          user: profilesMap.get(m.user_id)
-        })).sort((a, b) => {
-          // Stable sort: Owner first, then by join date
-          if (a.user_id === server.owner_id) return -1;
-          if (b.user_id === server.owner_id) return 1;
-          return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
-        });
-        setMembers(resolvedMembers);
-        const currentMember = resolvedMembers.find(m => m.user_id === user.id);
-        setCurrentUserMember(currentMember);
-      }
-
-      // Fetch bans
-      const { data: bansData } = await supabase.from('server_bans').select('*').eq('server_id', server.id);
-      if (bansData) {
-        const resolvedBans = bansData.map(b => ({
-          ...b,
-          user: profilesMap.get(b.user_id)
-        }));
-        setBans(resolvedBans);
-      }
-
-      // Fetch logs
-      const { data: logsData } = await supabase.from('server_logs').select('*').eq('server_id', server.id).order('created_at', { ascending: false });
-      if (logsData) {
-        const resolvedLogs = logsData.map(l => ({
-          ...l,
-          user: profilesMap.get(l.user_id)
-        }));
-        setLogs(resolvedLogs);
-      }
-    };
 
     fetchData();
 
@@ -454,6 +456,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
         max_uses: 0
       });
       logAction('invite_create', t('serverSettings.inviteCreatedLog', { code }));
+      // Refresh invites immediately
+      fetchData();
     } catch (error) {
       console.error("Error creating invite:", error);
     }

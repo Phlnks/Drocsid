@@ -283,9 +283,9 @@
       "serverNamePlaceholder": "My Awesome Server",
       "back": "Back",
       "create": "Create",
-      "joinDescription": "Enter an invite link below to join an existing server.",
-      "inviteLink": "Invite Link",
-      "invitePlaceholder": "https://... or invite code",
+      "joinDescription": "Enter an invite code below to join an existing server.",
+      "inviteLink": "Invite Code",
+      "invitePlaceholder": "Enter invite code",
       "join": "Join Server"
     },
     "renameChannel": {
@@ -505,7 +505,7 @@
       "PIN_MESSAGES": { "label": "Pin Messages", "description": "Allows pinning or unpinning messages." },
       "KICK_MEMBERS": { "label": "Kick Members", "description": "Allows kicking members from the server." },
       "BAN_MEMBERS": { "label": "Ban Members", "description": "Allows banning members from the server." },
-      "CREATE_INVITE": { "label": "Create Invite", "description": "Allows creating invite links." },
+      "CREATE_INVITE": { "label": "Create Invite", "description": "Allows creating invite codes." },
       "SEND_MESSAGES": { "label": "Send Messages", "description": "Allows sending messages in text channels." },
       "READ_MESSAGES": { "label": "Read Messages", "description": "Allows seeing and reading text channels." },
       "CONNECT": { "label": "Connect", "description": "Allows connecting to voice channels." },

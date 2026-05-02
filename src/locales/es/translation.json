@@ -282,9 +282,9 @@
       "serverNamePlaceholder": "Mi servidor increíble",
       "back": "Atrás",
       "create": "Crear",
-      "joinDescription": "Introduce un enlace de invitación a continuación para unirte a un servidor existente.",
-      "inviteLink": "Enlace de invitación",
-      "invitePlaceholder": "https://... o código de invitación",
+      "joinDescription": "Introduce un código de invitación a continuación para unirte a un servidor existente.",
+      "inviteLink": "Código de invitación",
+      "invitePlaceholder": "Introduce el código de invitación",
       "join": "Unirse al servidor"
     },
     "renameChannel": {
