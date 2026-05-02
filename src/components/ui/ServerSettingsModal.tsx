@@ -675,11 +675,13 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       onConfirm: async () => {
         try {
           const member = members.find(m => m.user_id === userId);
-          await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
-          // Force disconnect from voice
-          await supabase.from('profiles').update({
-            force_voice_move: { channelId: null, timestamp: Date.now() }
-          }).eq('id', userId);
+          await Promise.all([
+            supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId),
+            supabase.from('voice_participants').delete().eq('user_id', userId),
+            supabase.from('profiles').update({
+              force_voice_move: { channelId: null, timestamp: Date.now() }
+            }).eq('id', userId)
+          ]);
           if (member) logAction('member_kick', `Membre ${member.user?.username || 'Utilisateur'} expulsé`);
           fetchData();
         } catch (error) {
@@ -698,16 +700,18 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       onConfirm: async () => {
         try {
           const member = members.find(m => m.user_id === userId);
-          await supabase.from('server_bans').insert({
-            server_id: server.id,
-            user_id: userId,
-            banned_by: user?.id
-          });
-          await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
-          // Force disconnect from voice
-          await supabase.from('profiles').update({
-            force_voice_move: { channelId: null, timestamp: Date.now() }
-          }).eq('id', userId);
+          await Promise.all([
+            supabase.from('server_bans').insert({
+              server_id: server.id,
+              user_id: userId,
+              banned_by: user?.id
+            }),
+            supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId),
+            supabase.from('voice_participants').delete().eq('user_id', userId),
+            supabase.from('profiles').update({
+              force_voice_move: { channelId: null, timestamp: Date.now() }
+            }).eq('id', userId)
+          ]);
           if (member) logAction('member_ban', `Membre ${member.user?.username || 'Utilisateur'} banni`);
           fetchData();
         } catch (error) {
