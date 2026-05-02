@@ -41,7 +41,7 @@ export default function VoiceChannelItem({
 }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
-  const { speakingUsers, remoteScreenShares, localScreenShareStream, viewingScreenShares, setViewingScreenShares, selectedServerId, voiceParticipants: allVoiceParticipants } = useAppStore();
+  const { speakingUsers, remoteScreenShares, localScreenShareStream, viewingScreenShares, setViewingScreenShares, selectedServerId, voiceParticipants: allVoiceParticipants, globalProfiles } = useAppStore();
   const participants = allVoiceParticipants[channel.id] || [];
   const [isDragOver, setIsDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, userId: string, username: string } | null>(null);
@@ -167,6 +167,9 @@ export default function VoiceChannelItem({
             const isCurrentUser = currentUser && p.id === currentUser.id;
             const isSharingScreen = isCurrentUser ? !!localScreenShareStream : !!remoteScreenShares[p.id];
             const isViewing = viewingScreenShares.has(p.id);
+            const userProfile = globalProfiles[p.id];
+            const displayName = userProfile?.username || p.name;
+            const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
 
             return (
               <div 
@@ -182,14 +185,14 @@ export default function VoiceChannelItem({
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 ${
                   isSpeaking ? 'ring-2 speaking-ring' : 'ring-2 ring-transparent'
                 }`}>
-                  {p.avatarUrl ? (
-                    <img src={p.avatarUrl} alt={p.name} className="w-full h-full object-cover" />
+                  {displayAvatar ? (
+                    <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[10px] font-bold text-white">{p.name?.charAt(0).toUpperCase() || 'U'}</span>
+                    <span className="text-[10px] font-bold text-white">{displayName?.charAt(0).toUpperCase() || 'U'}</span>
                   )}
                 </div>
                 <span className={`text-sm truncate transition-colors ${isSpeaking ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300'}`}>
-                  {p.name}
+                  {displayName}
                 </span>
                 
                 <div className="ml-auto flex items-center gap-1 shrink-0">

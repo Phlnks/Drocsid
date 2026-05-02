@@ -230,8 +230,20 @@ async function startServer() {
     });
 
     socket.on("play-soundboard-sound", (data) => {
-      // data: { soundId, channelId, userId, soundUrl }
-      io.to(data.channelId).emit("soundboard-sound-played", data);
+      // Broadcast the soundboard sound event directly to specific sockets in the voice channel
+      const participants = voiceRooms.get(data.channelId);
+      if (participants && participants.size > 0) {
+        participants.forEach(user => {
+          const userSockets = onlineUsers.get(user.id);
+          if (userSockets) {
+            userSockets.forEach(socketId => {
+              io.to(socketId).emit("soundboard-sound-played", data);
+            });
+          }
+        });
+      } else {
+        io.to(data.channelId).emit("soundboard-sound-played", data);
+      }
     });
 
     socket.on("disconnect", async () => {

@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Load initial config from localStorage to support instance switching
+export const resetInstanceConfig = () => {
+  localStorage.removeItem('drocsid-current-instance-id');
+  localStorage.setItem('drocsid-current-instance-id', 'default');
+  window.location.reload();
+};
+
 const getInitialConfig = () => {
   const currentId = localStorage.getItem('drocsid-current-instance-id') || 'default';
   const instancesRaw = localStorage.getItem('drocsid-instances');

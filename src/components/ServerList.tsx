@@ -91,11 +91,11 @@ export default function ServerList() {
       
       console.log("Server created:", server.id);
 
-      // Add creator as owner member
+      // Add creator as member
       const { error: memberError } = await supabase.from('server_members').insert({
         server_id: server.id,
         user_id: user.id,
-        roles: ['owner']
+        roles: [] // Use empty array initially to avoid UUID errors, ownership is defined in 'servers' table
       });
 
       if (memberError) {

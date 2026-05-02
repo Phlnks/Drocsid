@@ -329,7 +329,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       if (fileToSend) {
         const fileExt = fileToSend.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `chat-attachments/${channelId}/${fileName}`;
+        const filePath = `${channelId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('chat-attachments')
@@ -341,7 +341,10 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
             imageUrl = await processImageForSupabase(fileToSend);
           } else {
             console.error("Storage upload failed for non-image file", uploadError);
-            throw new Error("Erreur lors de l'envoi du fichier.");
+            if (uploadError.message === 'Failed to fetch') {
+              throw new Error("L'envoi a échoué (CORS / Failed to fetch). Si vous utilisez Nginx, assurez-vous d'avoir ajouté 'client_max_body_size 50M;' dans votre bloc 'listen 443 ssl' (HTTPS), et non pas seulement dans le bloc HTTP.");
+            }
+            throw new Error(`Erreur lors de l'envoi du fichier: ${uploadError?.message || (uploadError as any)?.error || 'Erreur inconnue'}`);
           }
         } else {
           const { data: { publicUrl } } = supabase.storage

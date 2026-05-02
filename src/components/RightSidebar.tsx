@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 
 export default function RightSidebar() {
   const { t } = useTranslation();
-  const [users, setUsers] = useState<any[]>([]);
   const [serverRoles, setServerRoles] = useState<any[]>([]);
   const [serverMembers, setServerMembers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'notifications'>('users');
@@ -21,9 +20,12 @@ export default function RightSidebar() {
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
+  const [localUsers, setLocalUsers] = useState<any[]>([]);
   
   const { user: currentUser } = useAuthStore();
-  const { setSelectedServerId, setSelectedChannelId, setSelectedDmId, setIsRightSidebarOpen, selectedDmId, onlineUserIds, selectedServerId, setHighlightedMessageId } = useAppStore();
+  const { setSelectedServerId, setSelectedChannelId, setSelectedDmId, setIsRightSidebarOpen, selectedDmId, onlineUserIds, selectedServerId, setHighlightedMessageId, globalProfiles } = useAppStore();
+
+  const users = Object.values(globalProfiles).filter(p => localUsers.includes(p.id));
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -40,8 +42,7 @@ export default function RightSidebar() {
         // Fetch profiles only for these members
         if (membersRes.data && membersRes.data.length > 0) {
           const memberIds = membersRes.data.map(m => m.user_id);
-          const { data: profiles } = await supabase.from('profiles').select('*').in('id', memberIds);
-          if (profiles) setUsers(profiles);
+          setLocalUsers(memberIds);
         }
       } else {
         // In DM view, only fetch profiles for DMs you are part of
@@ -50,8 +51,7 @@ export default function RightSidebar() {
           const participants = new Set<string>();
           dms.forEach(dm => dm.participants.forEach((p: string) => participants.add(p)));
           if (participants.size > 0) {
-            const { data: profiles } = await supabase.from('profiles').select('*').in('id', Array.from(participants));
-            if (profiles) setUsers(profiles);
+            setLocalUsers(Array.from(participants));
           }
         }
         setServerRoles([]);
@@ -60,17 +60,6 @@ export default function RightSidebar() {
     };
 
     fetchUsers();
-
-    const profilesSub = supabase.channel('profiles_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
-        if (payload.eventType === 'UPDATE') {
-          setUsers(prev => prev.map(u => u.id === payload.new.id ? { ...u, ...payload.new } : u));
-        } else {
-          // For INSERT or DELETE, re-fetching is safer
-          fetchUsers();
-        }
-      })
-      .subscribe();
 
     const membersSub = supabase.channel('members_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: selectedServerId ? `server_id=eq.${selectedServerId}` : undefined }, () => fetchUsers())
@@ -81,7 +70,6 @@ export default function RightSidebar() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(profilesSub);
       supabase.removeChannel(membersSub);
       supabase.removeChannel(rolesSub);
     };

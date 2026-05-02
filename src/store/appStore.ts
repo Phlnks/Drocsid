@@ -63,6 +63,7 @@ interface AppState {
   };
   onlineUserIds: string[];
   voiceParticipants: Record<string, any[]>;
+  globalProfiles: Record<string, any>;
   highlightedMessageId: string | null;
   notifications: Notification[];
   drafts: Record<string, string>;
@@ -111,6 +112,8 @@ interface AppState {
   setCustomTheme: (theme: Partial<AppState['customTheme']>) => void;
   setOnlineUserIds: (ids: string[]) => void;
   setVoiceParticipants: (channelId: string, participants: any[]) => void;
+  setGlobalProfile: (profile: any) => void;
+  setGlobalProfiles: (profiles: any[]) => void;
   setHighlightedMessageId: (id: string | null) => void;
   setDraft: (id: string, content: string) => void;
   addNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -142,6 +145,7 @@ export const useAppStore = create<AppState>((set) => ({
   customTheme: JSON.parse(localStorage.getItem('drocsid-custom-theme') || '{"primaryColor":"#5865F2","intensity":75,"appearance":"dark"}'),
   onlineUserIds: [],
   voiceParticipants: {},
+  globalProfiles: {},
   highlightedMessageId: null,
   notifications: [],
   drafts: JSON.parse(localStorage.getItem('drocsid-drafts') || '{}'),
@@ -288,6 +292,16 @@ export const useAppStore = create<AppState>((set) => ({
         [channelId]: participants
       }
     };
+  }),
+  setGlobalProfile: (profile: any) => set((state) => ({
+    globalProfiles: { ...state.globalProfiles, [profile.id]: profile }
+  })),
+  setGlobalProfiles: (profiles: any[]) => set((state) => {
+    const newProfiles = { ...state.globalProfiles };
+    profiles.forEach(p => {
+      newProfiles[p.id] = p;
+    });
+    return { globalProfiles: newProfiles };
   }),
   setHighlightedMessageId: (id) => set({ highlightedMessageId: id }),
   setDraft: (id, content) => set((state) => {

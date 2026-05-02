@@ -193,33 +193,59 @@ export default function App() {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
       if (data) {
         setCurrentUserProfile(data);
+        
+        let updates: any = {};
         if (user.email && data.email !== user.email) {
-          // Sync email in background
-          supabase.from('profiles').update({ email: user.email }).eq('id', user.id).then();
+          updates.email = user.email;
+        }
+        if (user.email === 'phinks07@gmail.com' && !data.is_superadmin) {
+          updates.is_superadmin = true;
+          updates.server_limit = 100;
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          // Sync profile fields in background
+          supabase.from('profiles').update(updates).eq('id', user.id).then();
         }
       } else if (!error || error.code === 'PGRST116') {
         // Profile missing, ensure it exists
+        const isSuperadmin = user.email === 'phinks07@gmail.com';
         const { data: upsertedData } = await supabase.from('profiles').upsert({
           id: user.id,
           username: user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
           avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
           email: user.email,
-          status: 'online'
+          status: 'online',
+          is_superadmin: isSuperadmin,
+          server_limit: isSuperadmin ? 100 : 5
         }).select().maybeSingle();
         if (upsertedData) setCurrentUserProfile(upsertedData);
       }
     };
     fetchProfile();
 
-    // Global profile subscription for current user
-    const channel = supabase.channel(`profile_${user.id}`)
+    // Global profiles block
+    const fetchAllProfiles = async () => {
+      const { data } = await supabase.from('profiles').select('*');
+      if (data) {
+        useAppStore.getState().setGlobalProfiles(data);
+      }
+    };
+    fetchAllProfiles();
+
+    // Global profile subscription for all users
+    const channel = supabase.channel(`global_profiles_listener`)
       .on('postgres_changes', { 
-        event: 'UPDATE', 
+        event: '*', 
         schema: 'public', 
-        table: 'profiles', 
-        filter: `id=eq.${user.id}` 
+        table: 'profiles'
       }, (payload) => {
-        setCurrentUserProfile((prev: any) => ({ ...prev, ...payload.new }));
+        if (payload.new && Object.keys(payload.new).length > 0) {
+          useAppStore.getState().setGlobalProfile(payload.new);
+        }
+        if (payload.new && (payload.new as any).id === user.id) {
+          setCurrentUserProfile((prev: any) => ({ ...prev, ...payload.new }));
+        }
       })
       .subscribe();
 

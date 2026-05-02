@@ -83,6 +83,19 @@ export default function Auth() {
               </>
             )}
           </button>
+
+          <div className="pt-6 border-t border-zinc-700/50">
+            <button
+              onClick={() => {
+                localStorage.removeItem('drocsid-current-instance-id');
+                localStorage.setItem('drocsid-current-instance-id', 'default');
+                window.location.reload();
+              }}
+              className="text-zinc-500 hover:text-white text-xs transition-colors"
+            >
+              Problème de connexion ? Réinitialiser le serveur par défaut
+            </button>
+          </div>
         </div>
       </div>
     </div>

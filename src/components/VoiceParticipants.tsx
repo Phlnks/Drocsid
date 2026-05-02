@@ -21,7 +21,8 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     activeStreamFocus,
     setActiveStreamFocus,
     setIsMobileNavOpen,
-    voiceParticipants: allVoiceParticipants
+    voiceParticipants: allVoiceParticipants,
+    globalProfiles
   } = useAppStore();
   const activeChannelId = channelId || selectedChannelId;
   const participants = allVoiceParticipants[activeChannelId || ''] || [];
@@ -76,25 +77,28 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
         const isSpeaking = speakingUsers[p.id];
         const isSharingScreen = !!remoteScreenShares[p.id];
         const isViewing = viewingScreenShares.has(p.id);
+        const userProfile = globalProfiles[p.id];
+        const displayName = userProfile?.username || p.name;
+        const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
 
         return (
           <div 
             key={p.id} 
             className="relative flex flex-col items-center gap-2 group cursor-pointer"
-            onClick={() => setSelectedUser(p)}
-            onContextMenu={(e) => handleContextMenu(e, p)}
+            onClick={() => setSelectedUser(userProfile || p)}
+            onContextMenu={(e) => handleContextMenu(e, { ...p, name: displayName, avatarUrl: displayAvatar })}
           >
             <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden transition-all duration-200 bg-indigo-500 ${
               isSpeaking ? 'ring-4 speaking-ring' : 'ring-2 ring-transparent'
             }`}>
-              {p.avatarUrl ? (
-                <img src={p.avatarUrl} alt={p.name} className="w-full h-full object-cover" />
+              {displayAvatar ? (
+                <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
               ) : (
-                p.name?.charAt(0).toUpperCase() || 'U'
+                displayName?.charAt(0).toUpperCase() || 'U'
               )}
             </div>
             <span className="text-xs font-medium text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-full">
-              {p.name}
+              {displayName}
             </span>
             <div className="absolute -top-2 -right-2 flex gap-1">
               {p.isMuted && (

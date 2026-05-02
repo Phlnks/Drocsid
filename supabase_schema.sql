@@ -37,9 +37,9 @@ CREATE TABLE IF NOT EXISTS roles (
 
 -- 4. Server Members
 CREATE TABLE IF NOT EXISTS server_members (
-  server_id UUID REFERENCES servers(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  roles TEXT[] DEFAULT '{}',
+  server_id UUID REFERENCES public.servers(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  roles UUID[] DEFAULT '{}',
   joined_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (server_id, user_id)
 );
@@ -204,7 +204,12 @@ ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE
 ALTER TABLE servers ADD COLUMN IF NOT EXISTS custom_emojis JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE servers ADD COLUMN IF NOT EXISTS soundboard_sounds JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE calls ALTER COLUMN id SET DEFAULT uuid_generate_v4();
-ALTER TABLE calls ADD CONSTRAINT calls_dm_id_key UNIQUE (dm_id);
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'calls_dm_id_key') THEN
+        ALTER TABLE calls ADD CONSTRAINT calls_dm_id_key UNIQUE (dm_id);
+    END IF;
+END $$;
 ALTER TABLE voice_participants ADD COLUMN IF NOT EXISTS is_streaming BOOLEAN DEFAULT FALSE;
 ALTER TABLE voice_participants ADD COLUMN IF NOT EXISTS viewing_streams UUID[] DEFAULT '{}'::UUID[];
 
@@ -254,6 +259,45 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 1. Synchroniser les emails existants
+UPDATE public.profiles p
+SET email = u.email
+FROM auth.users u
+WHERE p.id = u.id AND (p.email IS NULL OR p.email = '');
+
+-- 2. S'assurer que vous êtes Super Admin (Remplacez par votre email si besoin)
+UPDATE public.profiles 
+SET is_super_admin = TRUE, can_create_servers = TRUE 
+WHERE email = 'phinks07@gmail.com';
+
+-- 3. Correction des types pour éviter l'erreur UUID = TEXT (IMPORTANT pour les politiques RLS)
+DO $$ 
+BEGIN 
+    -- Drop policies that depend on server_members.roles or dms.participants
+    DROP POLICY IF EXISTS "Admins can move voice participants" ON voice_participants;
+    DROP POLICY IF EXISTS "System event authors can insert server messages" ON messages;
+
+    -- Conversion de server_members.roles
+    ALTER TABLE public.server_members 
+    ALTER COLUMN roles TYPE UUID[] USING roles::UUID[];
+    
+    -- Conversion de dms.participants
+    ALTER TABLE public.dms 
+    ALTER COLUMN participants TYPE UUID[] USING participants::UUID[];
+
+    -- Conversion de relationships.participants
+    ALTER TABLE public.relationships 
+    ALTER COLUMN participants TYPE UUID[] USING participants::UUID[];
+
+    -- Conversion de calls.participants
+    ALTER TABLE public.calls 
+    ALTER COLUMN participants TYPE UUID[] USING participants::UUID[];
+
+EXCEPTION WHEN OTHERS THEN 
+    RAISE NOTICE 'Une ou plusieurs colonnes déjà converties ou erreur de type';
+END $$;
+
 
 -- RLS Policies (Simplified to avoid infinite recursion)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -472,6 +516,7 @@ VALUES ('soundboard', 'soundboard', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- Storage Rules
+DROP POLICY IF EXISTS "Public_Access_Storage" ON storage.objects;
 DROP POLICY IF EXISTS "Allow public read access" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated uploads" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated updates" ON storage.objects;

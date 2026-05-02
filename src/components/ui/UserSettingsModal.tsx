@@ -196,8 +196,8 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      addNotification(t('errors.imageTooLarge', { max: 2 }), "error");
+    if (file.size > 50 * 1024 * 1024) {
+      addNotification(t('errors.imageTooLarge', { max: 50 }), "error");
       return;
     }
 

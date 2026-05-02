@@ -320,8 +320,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      addNotification(t('errors.imageTooLarge', { max: 2 }), "error");
+    if (file.size > 50 * 1024 * 1024) {
+      addNotification(t('errors.imageTooLarge', { max: 50 }), "error");
       return;
     }
 
@@ -1611,15 +1611,15 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                       <div key={invite.id} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between gap-4">
                         <div className="flex-1 overflow-hidden">
                           <div className="text-zinc-100 font-medium font-mono truncate bg-zinc-950/50 p-2 rounded border border-zinc-800">
-                            {`${import.meta.env.VITE_APP_URL || import.meta.env.VITE_BACKEND_URL || window.location.origin}/invite/${invite.code}`}
+                            {invite.code}
                           </div>
                           <div className="text-xs text-zinc-400 mt-2">{t('serverSettings.createdOn', { date: new Date(invite.created_at).toLocaleDateString() })}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
-                              navigator.clipboard.writeText(`${import.meta.env.VITE_APP_URL || import.meta.env.VITE_BACKEND_URL || window.location.origin}/invite/${invite.code}`);
-                              addNotification("Lien copié dans le presse-papier !", "success");
+                              navigator.clipboard.writeText(invite.code);
+                              addNotification("Code copié dans le presse-papier !", "success");
                             }}
                             className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
                             title={t('serverSettings.copyLink')}

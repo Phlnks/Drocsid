@@ -192,7 +192,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                         <div>
                           <div className="font-bold text-zinc-100 flex items-center gap-2">
                             {u.username}
-                            {u.is_super_admin && <Shield className="w-3.5 h-3.5 text-rose-500" title="Super Admin" />}
+                            {u.is_super_admin && <span title="Super Admin"><Shield className="w-3.5 h-3.5 text-rose-500" /></span>}
                           </div>
                           <div className="text-xs text-zinc-500 font-mono flex items-center gap-2">
                             {u.email && <span>{u.email}</span>}
