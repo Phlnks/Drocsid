@@ -137,6 +137,16 @@ export default function App() {
 
       socket.on('online-users', handleOnlineUsers);
       
+      const handleUserKicked = (data: { serverId: string }) => {
+        const state = useAppStore.getState();
+        if (state.selectedServerId === data.serverId) {
+          state.setSelectedServerId(null);
+          addNotification(t('app.kickedFromServer'), 'info');
+        }
+      };
+
+      socket.on('user-kicked', handleUserKicked);
+      
       // Check for pending invite
       const pendingInvite = sessionStorage.getItem('pending_invite');
       if (pendingInvite) {

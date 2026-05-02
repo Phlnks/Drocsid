@@ -106,7 +106,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     fetchData();
 
     // Subscribe to changes for this user's profile and relationships
-    const channel = supabase.channel(`user_context_${userId}_${Math.random().toString(36).substring(7)}`)
+    const channel = supabase.channel(`user_context_${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, (payload) => {
         const rel = payload.new as any || payload.old as any;
         if (rel && rel.participants && rel.participants.includes(user.id)) {
@@ -121,7 +121,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, serverId, user?.id]); // Only depend on IDs to avoid loops from unstable objects/callbacks
+  }, [userId, serverId, user?.id]); // Stability checked
 
   // Handle outside click separately
   useEffect(() => {
@@ -273,6 +273,10 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
   const executeKick = async () => {
     try {
+      // Emit socket events first for immediate UI update for everyone
+      socket.emit('move-user', { userId, channelId: null });
+      socket.emit('kick-user', { userId, serverId });
+
       await Promise.all([
         // Remove from server_members
         supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId),
@@ -280,7 +284,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
         // Kick from voice_participants as well
         supabase.from('voice_participants').delete().eq('user_id', userId),
 
-        // Force disconnect from voice via profile trigger
+        // Force disconnect from voice via profile trigger (secondary backup)
         supabase.from('profiles').update({
           force_voice_move: {
             channelId: null,
@@ -297,6 +301,10 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
   const executeBan = async () => {
     try {
+      // Emit socket events first
+      socket.emit('move-user', { userId, channelId: null });
+      socket.emit('kick-user', { userId, serverId });
+
       await Promise.all([
         // Add to server_bans
         supabase.from('server_bans').insert({
@@ -331,6 +339,8 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     onClose();
 
     try {
+      socket.emit('move-user', { userId, channelId: null });
+      
       await supabase.from('profiles').update({
         force_voice_move: {
           channelId: null,

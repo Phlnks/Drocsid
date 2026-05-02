@@ -223,9 +223,50 @@ async function startServer() {
     socket.on("move-user", (data) => {
       // data: { userId, channelId }
       const { userId, channelId } = data;
+      
+      // Update local voice state immediately so everyone sees the change
+      voiceRooms.forEach((participantsMap, roomId) => {
+        if (participantsMap.has(userId)) {
+          console.log(`Moving user ${userId} from ${roomId} to ${channelId || 'DISCONNECT'}`);
+          const pData = participantsMap.get(userId);
+          participantsMap.delete(userId);
+          
+          io.emit("voice-participants-update", {
+            channelId: roomId,
+            participants: Array.from(participantsMap.values())
+          });
+
+          if (channelId) {
+            if (!voiceRooms.has(channelId)) voiceRooms.set(channelId, new Map());
+            voiceRooms.get(channelId)?.set(userId, pData);
+            io.emit("voice-participants-update", {
+              channelId,
+              participants: Array.from(voiceRooms.get(channelId)?.values() || [])
+            });
+          }
+        }
+      });
+
+      // Update socketVoiceMap for all sockets of this user
       const sockets = onlineUsers.get(userId);
       sockets?.forEach(socketId => {
+        if (channelId) {
+          socketVoiceMap.set(socketId, { userId, channelId });
+        } else {
+          socketVoiceMap.delete(socketId);
+        }
         io.to(socketId).emit("force-move", { channelId });
+      });
+    });
+
+    socket.on("kick-user", (data) => {
+      // data: { userId, serverId }
+      const { userId, serverId } = data;
+      console.log(`User ${userId} kicked from server ${serverId}`);
+      
+      const sockets = onlineUsers.get(userId);
+      sockets?.forEach(socketId => {
+        io.to(socketId).emit("user-kicked", { serverId });
       });
     });
 

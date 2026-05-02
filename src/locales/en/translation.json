@@ -540,6 +540,8 @@
     "openInNewTab": "For optimal experience and to allow Google login, the app must be opened in a new tab.",
     "secureLogin": "Once opened, you can securely log in.",
     "invalidInvite": "The invite is invalid or has expired.",
+    "forceDisconnected": "You have been disconnected from voice by a moderator.",
+    "kickedFromServer": "You have been kicked from the server.",
     "errorJoinLink": "Error joining server via link.",
     "sidebar": {
       "directMessages": "Direct Messages",
