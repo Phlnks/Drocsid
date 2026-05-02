@@ -458,17 +458,23 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       logAction('invite_create', t('serverSettings.inviteCreatedLog', { code }));
       // Refresh invites immediately
       fetchData();
+      addNotification(t('serverSettings.inviteCreated', 'Invitation créée !'), "success");
     } catch (error) {
       console.error("Error creating invite:", error);
+      addNotification(t('errors.generic'), "error");
     }
   };
 
-  const handleDeleteInvite = async (inviteId: string) => {
+  const handleDeleteInvite = async (inviteCode: string) => {
     try {
-      await supabase.from('invites').delete().eq('id', inviteId);
+      // Use code as identifier since id might be missing or code is PK
+      await supabase.from('invites').delete().eq('code', inviteCode);
       logAction('invite_delete', t('serverSettings.inviteDeletedLog'));
+      fetchData();
+      addNotification(t('serverSettings.inviteDeleted', 'Invitation supprimée'), "success");
     } catch (error) {
       console.error("Error deleting invite:", error);
+      addNotification(t('errors.generic'), "error");
     }
   };
 
@@ -485,6 +491,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
             order: categories.length
           });
           logAction('category_create', t('serverSettings.categoryCreatedLog', { name }));
+          fetchData();
         } catch (error) {
           console.error("Error creating category:", error);
         }
@@ -507,6 +514,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
             await supabase.from('channels').update({ category_id: null }).eq('id', channel.id);
           }
           if (cat) logAction('category_delete', t('serverSettings.categoryDeletedLog', { name: cat.name }));
+          fetchData();
         } catch (error) {
           console.error("Error deleting category:", error);
         }
@@ -525,6 +533,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
           const ch = channels.find(c => c.id === channelId);
           await supabase.from('channels').delete().eq('id', channelId);
           if (ch) logAction('channel_delete', t('serverSettings.channelDeletedLog', { name: ch.name }));
+          fetchData();
         } catch (error) {
           console.error("Error deleting channel:", error);
         }
@@ -550,6 +559,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       
       logAction('channel_update', t('serverSettings.channelUpdatedLog', { name: dbName }));
       setEditingChannel(null);
+      fetchData();
     } catch (error) {
       console.error("Error updating channel:", error);
     }
@@ -570,6 +580,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
             order: roles.length + 1
           });
           logAction('role_create', t('serverSettings.roleCreatedLog', { name }));
+          fetchData();
         } catch (error) {
           console.error("Error creating role:", error);
         }
@@ -588,6 +599,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
           const r = roles.find(ro => ro.id === roleId);
           await supabase.from('roles').delete().eq('id', roleId);
           if (r) logAction('role_delete', t('serverSettings.roleDeletedLog', { name: r.name }));
+          fetchData();
         } catch (error) {
           console.error("Error deleting role:", error);
         }
@@ -606,6 +618,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       }).eq('id', editingRole.id);
       logAction('role_update', `Rôle "${editingRole.name}" mis à jour`);
       setEditingRole(null);
+      fetchData();
     } catch (error) {
       console.error("Error updating role:", error);
     }
@@ -647,6 +660,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       if (member && role) {
         logAction('role_assign', `Rôles de ${member.user?.username || 'Utilisateur'} modifiés (${role.name})`);
       }
+      fetchData();
     } catch (error) {
       console.error("Error updating member roles:", error);
     }
@@ -667,6 +681,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
             force_voice_move: { channelId: null, timestamp: Date.now() }
           }).eq('id', userId);
           if (member) logAction('member_kick', `Membre ${member.user?.username || 'Utilisateur'} expulsé`);
+          fetchData();
         } catch (error) {
           console.error("Error kicking member:", error);
         }
@@ -694,6 +709,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
             force_voice_move: { channelId: null, timestamp: Date.now() }
           }).eq('id', userId);
           if (member) logAction('member_ban', `Membre ${member.user?.username || 'Utilisateur'} banni`);
+          fetchData();
         } catch (error) {
           console.error("Error banning member:", error);
         }
@@ -706,6 +722,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       const ban = bans.find(b => b.user_id === userId);
       await supabase.from('server_bans').delete().eq('server_id', server.id).eq('user_id', userId);
       if (ban) logAction('member_unban', `Membre ${ban.user?.username || 'Utilisateur'} débanni`);
+      fetchData();
     } catch (error) {
       console.error("Error unbanning member:", error);
     }
@@ -1612,7 +1629,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                     </div>
                   ) : (
                     invites.map(invite => (
-                      <div key={invite.id} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between gap-4">
+                      <div key={invite.code} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between gap-4">
                         <div className="flex-1 overflow-hidden">
                           <div className="text-zinc-100 font-medium font-mono truncate bg-zinc-950/50 p-2 rounded border border-zinc-800">
                             {invite.code}
@@ -1631,7 +1648,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                             <Copy className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => handleDeleteInvite(invite.id)}
+                            onClick={() => handleDeleteInvite(invite.code)}
                             className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
                             title={t('serverSettings.deleteInvite')}
                           >
