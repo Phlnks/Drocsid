@@ -264,18 +264,6 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
                     isPlaying && "ring-2 ring-indigo-500 scale-110"
                   )}>
                     {sound.emoji || '🔊'}
-                    {!isPlaying && !currentAudio && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          previewSound(sound.url);
-                        }}
-                        className="absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded opacity-0 group-hover/sound:opacity-100 transition-opacity"
-                        title={t('soundboard.preview', 'Écouter')}
-                      >
-                        <Play className="w-5 h-5 fill-current" />
-                      </button>
-                    )}
                   </div>
                   <span className={clsx(
                     "text-[10px] font-medium truncate w-full text-center transition-colors",

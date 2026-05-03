@@ -47,57 +47,7 @@ export default function VoicePanel() {
   const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
 
-  // Soundboard listener
-  useEffect(() => {
-    console.log("Soundboard: VoicePanel listener effector running", { connectedVoiceChannelId, userId: currentUser?.id });
-    if (!connectedVoiceChannelId) {
-      console.log("Soundboard: No connectedVoiceChannelId, skipping listener setup");
-      return;
-    }
-
-    const handleSoundPlayed = (data: { soundId: string, channelId: string, userId: string, soundUrl: string }) => {
-      console.log("Soundboard: Received event from server", data);
-      
-      const isSameChannel = data.channelId === connectedVoiceChannelId;
-      const isNotMe = data.userId !== currentUser?.id;
-      
-      console.log("Soundboard: Receiver checks", { 
-        isSameChannel, 
-        isDeafened, 
-        isNotMe, 
-        isSoundboardMuted, 
-        connectedVoiceChannelId,
-        dataChannelId: data.channelId,
-        myUserId: currentUser?.id,
-        senderUserId: data.userId
-      });
-
-      if (isSameChannel && !isDeafened && isNotMe && !isSoundboardMuted) {
-        console.log("Soundboard: Playing received broadcast sound:", data.soundUrl);
-        const audio = new Audio(data.soundUrl);
-        audio.volume = soundboardVolume;
-        audio.play()
-          .then(() => console.log("Soundboard: Broadcast playback started"))
-          .catch(err => console.error("Soundboard: Broadcast playback failed", err));
-        
-        audio.onerror = (e) => console.error("Soundboard: Broadcast audio object error", e);
-      } else {
-        console.log("Soundboard: Logic gate blocked playback", {
-          reason: !isSameChannel ? "different channel" : 
-                  isDeafened ? "deafened" : 
-                  !isNotMe ? "it was me" : 
-                  isSoundboardMuted ? "soundboard muted" : "unknown"
-        });
-      }
-    };
-
-    console.log("Soundboard: Registering socket event 'soundboard-sound-played'");
-    socket.on('soundboard-sound-played', handleSoundPlayed);
-    return () => {
-      console.log("Soundboard: Cleaning up socket event 'soundboard-sound-played'");
-      socket.off('soundboard-sound-played', handleSoundPlayed);
-    };
-  }, [connectedVoiceChannelId, isDeafened, currentUser, isSoundboardMuted, soundboardVolume]);
+  // Soundboard listener removed - now handled globally in App.tsx
 
   useEffect(() => {
     if (localVideoRef.current && localScreenShareStream) {

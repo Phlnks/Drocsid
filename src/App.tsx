@@ -23,6 +23,54 @@ export default function App() {
   const isInstanceValid = isCurrentInstanceValid();
 
   useEffect(() => {
+    // Soundboard listener (Global)
+    const handleSoundPlayed = (data: { soundId: string, channelId: string, userId: string, soundUrl: string }) => {
+      const state = useAppStore.getState();
+      const connectedVoiceChannelId = state.connectedVoiceChannelId;
+      const isDeafened = state.isDeafened;
+      const isSoundboardMuted = state.isSoundboardMuted;
+      const soundboardVolume = state.soundboardVolume;
+      const currentUser = useAuthStore.getState().user;
+
+      console.log("Soundboard: Global listener received event", data);
+      
+      if (!connectedVoiceChannelId) {
+        console.log("Soundboard: User not in a voice channel, ignoring.");
+        return;
+      }
+
+      const isSameChannel = data.channelId === connectedVoiceChannelId;
+      const isNotMe = data.userId !== currentUser?.id;
+      
+      console.log("Soundboard: Global receiver checks", { 
+        isSameChannel, 
+        isDeafened, 
+        isNotMe, 
+        isSoundboardMuted, 
+        connectedVoiceChannelId,
+        dataChannelId: data.channelId,
+        myUserId: currentUser?.id
+      });
+
+      if (isSameChannel && !isDeafened && isNotMe && !isSoundboardMuted) {
+        console.log("Soundboard: Playing broadcast sound:", data.soundUrl);
+        const audio = new Audio(data.soundUrl);
+        audio.volume = soundboardVolume;
+        audio.play()
+          .then(() => console.log("Soundboard: Playback success"))
+          .catch(err => console.error("Soundboard: Playback failed", err));
+      }
+    };
+
+    console.log("Soundboard: Registering global socket event 'v1.1'");
+    socket.on('soundboard-sound-played', handleSoundPlayed);
+    
+    return () => {
+      socket.off('soundboard-sound-played', handleSoundPlayed);
+    };
+  }, []);
+
+  useEffect(() => {
     // Migration: If theme is 'default', change it to 'classic'
     if (theme === 'default' as any) {
       setTheme('classic');
