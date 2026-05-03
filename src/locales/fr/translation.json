@@ -77,7 +77,7 @@
     "blocked": "Bloqués",
     "addFriend": "Ajouter un ami",
     "addFriendTitle": "AJOUTER UN AMI",
-    "addFriendDesc": "Tu peux ajouter un ami grâce à son nom d'utilisateur Discord. Attention aux majuscules !",
+    "addFriendDesc": "Tu peux ajouter un ami grâce à son nom d'utilisateur. Attention aux majuscules !",
     "addFriendPlaceholder": "Saisis un nom d'utilisateur",
     "searchPlaceholder": "Rechercher ou lancer une conversation..",
     "noFriends": "Aucun ami trouvé.",

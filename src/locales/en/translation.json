@@ -78,7 +78,7 @@
     "blocked": "Blocked",
     "addFriend": "Add Friend",
     "addFriendTitle": "ADD FRIEND",
-    "addFriendDesc": "You can add a friend with their Discord Tag. It's case-sensitive!",
+    "addFriendDesc": "You can add a friend with their username. It's case-sensitive!",
     "addFriendPlaceholder": "Enter a username",
     "searchPlaceholder": "Search or start a conversation..",
     "noFriends": "No friends found.",

@@ -1,4 +1,4 @@
-import { MessageSquare, Shield, Bell, User } from 'lucide-react';
+import { MessageSquare, Compass, Bell, User } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
 export default function MobileBottomNav() {
@@ -33,7 +33,7 @@ export default function MobileBottomNav() {
         }}
         className={`flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors ${mobileTab === 'servers' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <Shield className="w-6 h-6" />
+        <Compass className="w-6 h-6" />
         <span className="text-[10px] font-medium">Serveurs</span>
       </button>
 

@@ -88,7 +88,7 @@
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace;
 }
 
-body {
+html, body {
   font-family: var(--font-sans);
   overscroll-behavior-y: none;
 }
