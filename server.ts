@@ -232,6 +232,7 @@ async function startServer() {
     socket.on("play-soundboard-sound", (data) => {
       // Broadcast the soundboard sound event to all clients.
       // receiver's VoicePanel will filter by channelId.
+      console.log(`Soundboard: Server received sound request from ${data.userId} for channel ${data.channelId}. Broadcasting to all.`);
       io.emit("soundboard-sound-played", data);
     });
 

@@ -52,11 +52,20 @@ export default function VoicePanel() {
     if (!connectedVoiceChannelId) return;
 
     const handleSoundPlayed = (data: { soundId: string, channelId: string, userId: string, soundUrl: string }) => {
+      console.log("Soundboard: Receive event", data);
       // Check if user is in the same channel, not deafened, not the player (already played locally), and soundboard is not muted locally
-      if (data.channelId === connectedVoiceChannelId && !isDeafened && data.userId !== currentUser?.id && !isSoundboardMuted) {
+      const isSameChannel = data.channelId === connectedVoiceChannelId;
+      const isNotMe = data.userId !== currentUser?.id;
+      
+      console.log("Soundboard: Checks", { isSameChannel, isDeafened, isNotMe, isSoundboardMuted, connectedVoiceChannelId });
+
+      if (isSameChannel && !isDeafened && isNotMe && !isSoundboardMuted) {
+        console.log("Soundboard: Playing sound locally...");
         const audio = new Audio(data.soundUrl);
         audio.volume = soundboardVolume;
-        audio.play().catch(console.error);
+        audio.play()
+          .then(() => console.log("Soundboard: Playback started"))
+          .catch(err => console.error("Soundboard: Playback failed", err));
       }
     };
 

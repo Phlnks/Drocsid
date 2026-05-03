@@ -90,6 +90,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     if (!canUseSoundboard || currentAudio) return;
 
     // Emit event to server
+    console.log("Soundboard: Emitting play-soundboard-sound", { soundId: sound.name, channelId, userId: user?.id });
     socket.emit('play-soundboard-sound', {
       soundId: sound.name,
       channelId,
