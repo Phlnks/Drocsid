@@ -210,12 +210,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     try {
       await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
       // Force disconnect from voice if they are in one
-      await supabase.from('profiles').update({
-        force_voice_move: {
-          channelId: null,
-          timestamp: Date.now()
-        }
-      }).eq('id', userId);
+      socket.emit('move-user', { userId, channelId: null });
     } catch (error) {
       console.error("Error kicking user:", error);
     }
@@ -234,12 +229,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       });
       await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
       // Force disconnect from voice
-      await supabase.from('profiles').update({
-        force_voice_move: {
-          channelId: null,
-          timestamp: Date.now()
-        }
-      }).eq('id', userId);
+      socket.emit('move-user', { userId, channelId: null });
     } catch (error) {
       console.error("Error banning user:", error);
     }
@@ -250,12 +240,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     onClose();
 
     try {
-      await supabase.from('profiles').update({
-        force_voice_move: {
-          channelId: null,
-          timestamp: Date.now()
-        }
-      }).eq('id', userId);
+      socket.emit('move-user', { userId, channelId: null });
     } catch (error) {
       console.error("Error disconnecting user from voice:", error);
     }

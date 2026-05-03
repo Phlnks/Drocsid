@@ -9,6 +9,7 @@ import ConfirmModal from './ConfirmModal';
 import UserAvatar from './UserAvatar';
 import { processImageForSupabase } from '../../lib/imageUtils';
 import { useTranslation } from 'react-i18next';
+import socket from '../../lib/socket';
 
 interface ServerSettingsModalProps {
   isOpen: boolean;
@@ -677,9 +678,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
           const member = members.find(m => m.user_id === userId);
           await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
           // Force disconnect from voice
-          await supabase.from('profiles').update({
-            force_voice_move: { channelId: null, timestamp: Date.now() }
-          }).eq('id', userId);
+          socket.emit('move-user', { userId, channelId: null });
           if (member) logAction('member_kick', `Membre ${member.user?.username || 'Utilisateur'} expulsé`);
           fetchData();
         } catch (error) {
@@ -705,9 +704,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
           });
           await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
           // Force disconnect from voice
-          await supabase.from('profiles').update({
-            force_voice_move: { channelId: null, timestamp: Date.now() }
-          }).eq('id', userId);
+          socket.emit('move-user', { userId, channelId: null });
           if (member) logAction('member_ban', `Membre ${member.user?.username || 'Utilisateur'} banni`);
           fetchData();
         } catch (error) {
