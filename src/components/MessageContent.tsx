@@ -13,9 +13,10 @@ const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 interface MessageContentProps {
   content: string;
   usersMap?: Record<string, any>;
+  serverId?: string | null;
 }
 
-export default function MessageContent({ content, usersMap = {} }: MessageContentProps) {
+export default function MessageContent({ content, usersMap = {}, serverId = null }: MessageContentProps) {
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
 
   if (!content) return null;
@@ -74,7 +75,8 @@ export default function MessageContent({ content, usersMap = {} }: MessageConten
     // Try to find the user in our map
     const decodedUsername = decodeURIComponent(username);
     const userProfile = Object.values(usersMap).find(u => 
-      u.username?.toLowerCase() === decodedUsername.toLowerCase()
+      u.username?.toLowerCase() === decodedUsername.toLowerCase() ||
+      u.display_name?.toLowerCase() === decodedUsername.toLowerCase()
     );
 
     if (userProfile) {
@@ -121,8 +123,12 @@ export default function MessageContent({ content, usersMap = {} }: MessageConten
                 const username = href.replace('mention:', '');
                 return (
                   <span 
-                    className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-pointer hover:bg-indigo-500/40 transition-colors"
+                    className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-default hover:bg-indigo-500/40 transition-colors inline-flex items-center"
                     onContextMenu={(e) => handleMentionContextMenu(e, username)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                   >
                     {children}
                   </span>
@@ -152,6 +158,7 @@ export default function MessageContent({ content, usersMap = {} }: MessageConten
         <UserContextMenu
           userId={contextMenu.userId}
           username={contextMenu.username}
+          serverId={serverId}
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={() => setContextMenu(null)}
         />

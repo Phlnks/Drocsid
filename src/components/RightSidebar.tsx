@@ -155,14 +155,19 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
   };
 
   const jumpToMessage = (result: any) => {
+    const data = result.data || {};
+    const serverId = data.server_id || data.serverId || result.server_id || result.serverId;
+    const channelId = data.channel_id || data.channelId || result.channel_id || result.channelId;
+    const messageId = data.message_id || data.messageId || result.id;
+
     if (result.type === 'mention' || result.type === 'channel') {
-      setSelectedServerId(result.data?.serverId || result.serverId);
-      setSelectedChannelId(result.data?.channelId || result.channelId);
-      if (result.data?.messageId || result.id) setHighlightedMessageId(result.data?.messageId || result.id);
+      if (serverId) setSelectedServerId(serverId);
+      if (channelId) setSelectedChannelId(channelId);
+      if (messageId) setHighlightedMessageId(messageId);
     } else if (result.type === 'dm') {
       setSelectedServerId(null);
-      setSelectedDmId(result.data?.channelId || result.dmId);
-      if (result.data?.messageId || result.id) setHighlightedMessageId(result.data?.messageId || result.id);
+      if (channelId) setSelectedDmId(channelId);
+      if (messageId) setHighlightedMessageId(messageId);
     } else if (result.type === 'friend' || result.type === 'friend_request' || result.type === 'friend_accept') {
       jumpToFriend();
     }
