@@ -22,7 +22,7 @@ import MessageContent from './MessageContent';
 import VoiceParticipants from './VoiceParticipants';
 import ImageModal from './ui/ImageModal';
 import PinnedMessagesPopover from './PinnedMessagesPopover';
-import { playMessageSound } from '../lib/sounds';
+import { playMessageSound, playConnectSound } from '../lib/sounds';
 import socket from '../lib/socket';
 
 export default function DMChatArea() {
@@ -615,6 +615,7 @@ export default function DMChatArea() {
     
     if (activeCall) {
       // If there's already a call, just join it
+      playConnectSound();
       setConnectedVoiceChannelId(selectedDmId);
       return;
     }
@@ -637,6 +638,7 @@ export default function DMChatArea() {
       });
 
       // Join the call immediately
+      playConnectSound();
       setConnectedVoiceChannelId(selectedDmId);
     } catch (error) {
       console.error("Error starting call:", error);
@@ -644,6 +646,7 @@ export default function DMChatArea() {
   };
 
   const handleJoinCall = () => {
+    playConnectSound();
     setConnectedVoiceChannelId(selectedDmId);
   };
 

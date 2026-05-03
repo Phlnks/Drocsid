@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { playConnectSound, playDisconnectSound } from '../lib/sounds';
+import { playConnectSound, playDisconnectSound, playScreenShareStartSound } from '../lib/sounds';
 import socket from '../lib/socket';
 
 function AudioPlayer({ stream }: { key?: any, stream: any }) {
@@ -84,6 +84,61 @@ export default function WebRTCManager() {
   const localStreamIdRef = useRef<string | null>(null);
   const remoteStreamIdsRef = useRef<Map<string, string>>(new Map());
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const prevVoiceParticipantsRef = useRef<any[]>([]);
+  const prevVoiceChannelRef = useRef<string | null>(null);
+
+  // Broadcast sounds for join/leave/screenshare
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !currentUser) {
+      prevVoiceParticipantsRef.current = [];
+      prevVoiceChannelRef.current = null;
+      return;
+    }
+
+    const currentParticipants = voiceParticipants;
+    const prevParticipants = prevVoiceParticipantsRef.current;
+
+    // Only play sounds if we were already in the same channel
+    if (prevVoiceChannelRef.current === connectedVoiceChannelId && prevParticipants.length > 0) {
+      const currentUids = new Set(currentParticipants.map(p => p.id));
+      const prevUids = new Set(prevParticipants.map(p => p.id));
+
+      let joined = false;
+      let left = false;
+      let startedStream = false;
+
+      // Someone joined
+      currentParticipants.forEach(p => {
+        if (!prevUids.has(p.id) && p.id !== currentUser.id) {
+          joined = true;
+        }
+      });
+
+      // Someone left
+      prevParticipants.forEach(p => {
+        if (!currentUids.has(p.id) && p.id !== currentUser.id) {
+          left = true;
+        }
+      });
+
+      // Someone started screen share
+      currentParticipants.forEach(curr => {
+        const prev = prevParticipants.find(p => p.id === curr.id);
+        if (prev && curr.id !== currentUser.id && curr.isStreaming && !prev.isStreaming) {
+          startedStream = true;
+        }
+      });
+
+      // Play sounds
+      if (joined) playConnectSound();
+      if (left && !joined) playDisconnectSound(); 
+      if (startedStream) playScreenShareStartSound();
+    }
+
+    prevVoiceParticipantsRef.current = currentParticipants;
+    prevVoiceChannelRef.current = connectedVoiceChannelId;
+  }, [voiceParticipants, connectedVoiceChannelId, currentUser]);
 
   // Cleanup stale voice participants on mount
   useEffect(() => {
