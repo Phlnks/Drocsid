@@ -14,15 +14,16 @@ export default function MobileBottomNav() {
   if (!isMobileNavOpen) return null;
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex items-center justify-around px-2 pt-1 pb-safe z-50">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 flex items-center justify-around px-2 pt-1 pb-safe z-50 select-none">
       <button 
         onClick={() => {
           setMobileTab('messages');
           setSelectedServerId(null);
+          setSelectedDmId(null);
         }}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'messages' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <MessageSquare className="w-6 h-6 shrink-0" stroke="currentColor" />
+        <MessageSquare className="w-6 h-6 shrink-0" />
         <span className="text-[10px] font-medium leading-none">Messages</span>
       </button>
 
@@ -32,7 +33,7 @@ export default function MobileBottomNav() {
         }}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'servers' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <Compass className="w-6 h-6 shrink-0" stroke="currentColor" />
+        <Compass className="w-6 h-6 shrink-0" />
         <span className="text-[10px] font-medium leading-none">Serveurs</span>
       </button>
 
@@ -40,7 +41,7 @@ export default function MobileBottomNav() {
         onClick={() => setMobileTab('notifications')}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'notifications' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <Bell className="w-6 h-6 shrink-0" stroke="currentColor" />
+        <Bell className="w-6 h-6 shrink-0" />
         <span className="text-[10px] font-medium leading-none">Notifs</span>
       </button>
 
@@ -48,7 +49,7 @@ export default function MobileBottomNav() {
         onClick={() => setMobileTab('profile')}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'profile' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <User className="w-6 h-6 shrink-0" stroke="currentColor" />
+        <User className="w-6 h-6 shrink-0" />
         <span className="text-[10px] font-medium leading-none">Profil</span>
       </button>
     </div>

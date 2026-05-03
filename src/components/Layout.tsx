@@ -37,7 +37,7 @@ export default function Layout() {
   }, [setVoiceParticipants]);
 
   return (
-    <div className="flex h-screen h-[100dvh] bg-zinc-900 text-zinc-100 overflow-hidden relative">
+    <div className="flex h-screen h-[100dvh] bg-zinc-900 text-zinc-100 overflow-hidden relative overscroll-none touch-none">
       <WebRTCManager />
       <NotificationManager />
       <IncomingCallModal />

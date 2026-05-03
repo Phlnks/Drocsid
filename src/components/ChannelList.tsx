@@ -85,7 +85,8 @@ export default function ChannelList() {
 
           if (memberData && Array.isArray(memberData.roles)) {
             if (memberData.roles.includes('owner')) return true;
-            const userRoles = (rolesData || []).filter(r => memberData.roles.includes(r.id));
+            const rolesList = rolesData || [];
+            const userRoles = rolesList.filter((r: any) => memberData.roles.includes(r.id));
             for (const role of userRoles) {
               if (role.permissions?.includes('ADMINISTRATOR')) isAdmin = true;
               if (role.permissions?.includes(`DENY_CHANNEL_${c.id}`)) isDenied = true;
@@ -98,12 +99,18 @@ export default function ChannelList() {
         });
 
         if (visibleChannels.length > 0) {
-          if (!selectedChannelId || !visibleChannels.find(c => c.id === selectedChannelId)) {
+          // Only reset if we truly don't have a selection OR the selected channel doesn't exist anymore in the DB
+          const channelStillExists = channelsData.some((c: any) => c.id === selectedChannelId);
+          if (!selectedChannelId || !channelStillExists) {
             const textChannel = visibleChannels.find(c => c.type === 'TEXT') || visibleChannels[0];
             setSelectedChannelId(textChannel.id);
           }
         } else if (selectedChannelId) {
-          setSelectedChannelId(null);
+          // Stay on channel even if not "visible" in the list, unless it's gone from DB
+          const channelStillExists = channelsData.some((c: any) => c.id === selectedChannelId);
+          if (!channelStillExists) {
+            setSelectedChannelId(null);
+          }
         }
       }
     };
@@ -112,7 +119,13 @@ export default function ChannelList() {
 
     const channelName = `server_${selectedServerId}_${user.id}_${Math.random().toString(36).substring(7)}`;
     const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
+      // Only do a full re-fetch on destructive or structural changes
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, (payload) => {
+          // Handle updates without full fetch if it's just name or last_message_at
+          setChannels(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `server_id=eq.${selectedServerId}` }, (payload) => {

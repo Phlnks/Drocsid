@@ -396,6 +396,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
         messageData.reply_to = replyingTo.id;
       }
 
+      // 1. Send the message
       const tableName = isDM ? 'dm_messages' : 'messages';
       const { data: newMessage, error: insertError } = await supabase
         .from(tableName)
@@ -414,67 +415,69 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       socket.emit(eventName, newMessage);
 
       // --- MENTION & NOTIFICATION LOGIC ---
-      if (!isDM && textToSend.includes('@')) {
-        const mentionRegex = /@["']?([^"'\s]+)["']?/g;
-        let match;
-        const mentionedUserIds = new Set<string>();
+      try {
+        if (!isDM && textToSend.includes('@')) {
+          const mentionRegex = /@["']?([^"'\s]+)["']?/g;
+          let match;
+          const mentionedUserIds = new Set<string>();
 
-        while ((match = mentionRegex.exec(textToSend)) !== null) {
-          const username = match[1];
-          if (username === 'everyone') {
-            // Special case for @everyone (in a real app, maybe notify all members)
-            continue;
+          while ((match = mentionRegex.exec(textToSend)) !== null) {
+            const username = match[1].toLowerCase();
+            if (username === 'everyone') continue;
+            
+            // Case-insensitive matching
+            const mentionedUser = users.find(u => 
+              (u.username || '').toLowerCase() === username || 
+              (u.display_name || '').toLowerCase() === username
+            );
+            
+            if (mentionedUser && mentionedUser.id !== user.id) {
+              mentionedUserIds.add(mentionedUser.id);
+            }
           }
-          const mentionedUser = users.find(u => u.username === username);
-          if (mentionedUser && mentionedUser.id !== user.id) {
-            mentionedUserIds.add(mentionedUser.id);
-          }
-        }
 
-        if (mentionedUserIds.size > 0) {
-          const notifications = Array.from(mentionedUserIds).map(targetId => ({
-            user_id: targetId,
-            author_id: user.id,
-            author_name: user.user_metadata?.username || 'User',
-            content: textToSend.slice(0, 200), // excerpt
-            server_id: serverId,
-            channel_id: channelId,
-            message_id: newMessage.id,
-            is_dm: false,
-            read: false
-          }));
-
-          await supabase.from('notifications').insert(notifications);
-        }
-      }
-
-      // Automatically create notification for DM recipient
-      if (isDM) {
-        // Find recipient(s)
-        const { data: dmData } = await supabase.from('dms').select('participants').eq('id', channelId).single();
-        if (dmData && dmData.participants) {
-          const recipients = dmData.participants.filter((p: string) => p !== user.id);
-          if (recipients.length > 0) {
-            const notifications = recipients.map(targetId => ({
+          if (mentionedUserIds.size > 0) {
+            const notifications = Array.from(mentionedUserIds).map(targetId => ({
               user_id: targetId,
               author_id: user.id,
-              author_name: user.user_metadata?.username || 'User',
-              content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
-              channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
+              author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+              content: textToSend.slice(0, 200),
+              server_id: serverId,
+              channel_id: channelId,
               message_id: newMessage.id,
-              is_dm: true,
-              read: false
+              is_dm: false,
+              read: false,
+              notified: false
             }));
+
             await supabase.from('notifications').insert(notifications);
           }
         }
-      }
 
-      // Update parent last_message_at if not handled by trigger
-      if (isDM) {
-        await supabase.from('dms').update({ last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', channelId);
-      } else {
-        await supabase.from('channels').update({ last_message_at: new Date().toISOString() }).eq('id', channelId);
+        // Automatically create notification for DM recipient
+        if (isDM) {
+          const { data: dmData } = await supabase.from('dms').select('participants').eq('id', channelId).maybeSingle();
+          if (dmData && dmData.participants) {
+            const recipients = dmData.participants.filter((p: string) => p !== user.id);
+            if (recipients.length > 0) {
+              const notifications = recipients.map(targetId => ({
+                user_id: targetId,
+                author_id: user.id,
+                author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+                content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
+                channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
+                message_id: newMessage.id,
+                is_dm: true,
+                read: false,
+                notified: false
+              }));
+              await supabase.from('notifications').insert(notifications);
+            }
+          }
+        }
+      } catch (notifErr) {
+        console.error("Error creating notifications:", notifErr);
+        // We don't throw here to not block the message sending success
       }
       // ------------------------------------
 
