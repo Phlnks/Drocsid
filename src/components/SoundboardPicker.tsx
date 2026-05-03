@@ -33,10 +33,12 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    console.log("Soundboard: SoundboardPicker effector running", { isOpen, serverId, userId: user?.id });
     if (!isOpen || !serverId) return;
     setShowVolumeSlider(false); // Reset when reopening
 
     const fetchSoundsAndPerms = async () => {
+      console.log("Soundboard: Fetching sounds and perms for server:", serverId);
       setIsLoading(true);
       try {
         // Fetch server for sounds
@@ -77,20 +79,37 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
           }
         }
       } catch (error) {
-        console.error("Error fetching soundboard data:", error);
+        console.error("Soundboard: Error fetching data:", error);
       } finally {
         setIsLoading(false);
+        console.log("Soundboard: Permission check complete", { canUseSoundboard });
       }
     };
 
     fetchSoundsAndPerms();
-  }, [isOpen, serverId, user]);
+  }, [isOpen, serverId, user, canUseSoundboard]);
 
   const playSound = (sound: any) => {
-    if (!canUseSoundboard || currentAudio) return;
+    console.log("Soundboard: playSound called", { 
+      soundName: sound.name, 
+      canUseSoundboard, 
+      hasCurrentAudio: !!currentAudio,
+      channelId,
+      userId: user?.id 
+    });
+
+    if (!canUseSoundboard) {
+      console.warn("Soundboard: No permission to play sound");
+      return;
+    }
+    
+    if (currentAudio) {
+      console.warn("Soundboard: Already playing a sound, ignoring click");
+      return;
+    }
 
     // Emit event to server
-    console.log("Soundboard: Emitting play-soundboard-sound", { soundId: sound.name, channelId, userId: user?.id });
+    console.log("Soundboard: Emitting play-soundboard-sound event to server");
     socket.emit('play-soundboard-sound', {
       soundId: sound.name,
       channelId,
@@ -100,23 +119,45 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
 
     // We can also play it locally immediately for feedback
     previewSound(sound.url);
-    
-    // Optionally close picker or keep it open for multi-sound
-    // onClose();
   };
 
   const previewSound = (url: string) => {
-    if (!isSoundboardMuted) {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-      }
-      const audio = new Audio(url);
-      audio.volume = soundboardVolume;
-      audio.play().catch(console.error);
-      setCurrentAudio(audio);
-      audio.onended = () => setCurrentAudio(null);
+    console.log("Soundboard: previewSound called for", url);
+    if (isSoundboardMuted) {
+      console.log("Soundboard: Sound is muted locally, not playing preview");
+      return;
     }
+
+    if (currentAudio) {
+      console.log("Soundboard: Stopping previous preview");
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    const audio = new Audio(url);
+    audio.volume = soundboardVolume;
+    
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log("Soundboard: Local preview started");
+        })
+        .catch(err => {
+          console.error("Soundboard: Local preview failed", err);
+          setCurrentAudio(null);
+        });
+    }
+
+    setCurrentAudio(audio);
+    audio.onended = () => {
+      console.log("Soundboard: Local preview ended");
+      setCurrentAudio(null);
+    };
+    audio.onerror = (e) => {
+      console.error("Soundboard: Local preview audio error", e);
+      setCurrentAudio(null);
+    };
   };
 
   if (!isOpen) {
@@ -212,11 +253,10 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
                 <button
                   key={index}
                   onClick={() => playSound(sound)}
-                  disabled={!!currentAudio}
                   className={clsx(
                     "flex flex-col items-center gap-1 p-2 rounded-md transition-colors group relative",
                     isPlaying ? "bg-indigo-500/20" : "hover:bg-zinc-800",
-                    currentAudio && !isPlaying && "opacity-50 grayscale cursor-not-allowed"
+                    currentAudio && !isPlaying && "opacity-50 grayscale"
                   )}
                 >
                   <div className={clsx(
