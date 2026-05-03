@@ -155,8 +155,9 @@ export default function RightSidebar() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const unreadDMsList = unreadDMs.filter(dm => {
+    const lastRead = currentUserProfile?.last_read?.[dm.id] || 0;
     return dm.last_message_at && 
-           (!currentUserProfile?.last_read?.[dm.id] || dm.last_message_at > currentUserProfile.last_read[dm.id]) &&
+           new Date(dm.last_message_at).getTime() > lastRead &&
            selectedDmId !== dm.id;
   });
 

@@ -20,6 +20,7 @@ export default function DMSidebar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number, dmId?: string } | null>(null);
   const [pinnedDmIds, setPinnedDmIds] = useState<string[]>(JSON.parse(localStorage.getItem(`drocsid-pinned-dms-${user?.id}`) || '[]'));
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const togglePinDm = (e: React.MouseEvent, dmId: string) => {
     e.stopPropagation();
@@ -28,6 +29,36 @@ export default function DMSidebar() {
       localStorage.setItem(`drocsid-pinned-dms-${user?.id}`, JSON.stringify(newPinned));
       return newPinned;
     });
+  };
+
+  const fetchUnreadCounts = async (dmList: any[]) => {
+    if (!user || dmList.length === 0) return;
+    
+    try {
+      const counts: Record<string, number> = {};
+      const promises = dmList.map(async (dm) => {
+        const lastRead = currentUserProfile?.last_read?.[dm.id] || 0;
+        
+        if (dm.last_message_at && new Date(dm.last_message_at).getTime() <= lastRead) {
+          counts[dm.id] = 0;
+          return;
+        }
+
+        const { count } = await supabase
+          .from('dm_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('dm_id', dm.id)
+          .neq('author_id', user.id)
+          .gt('created_at', new Date(lastRead).toISOString());
+        
+        counts[dm.id] = count || 0;
+      });
+
+      await Promise.all(promises);
+      setUnreadCounts(counts);
+    } catch (e) {
+      console.error("Error fetching unread counts", e);
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent, target: any, dmId?: string) => {
@@ -77,6 +108,7 @@ export default function DMSidebar() {
         setDms(resolvedDms);
       } else {
         setDms([]);
+        setUnreadCounts({});
       }
     };
 
@@ -85,12 +117,29 @@ export default function DMSidebar() {
     const channelName = `dm-changes-${user.id}-${Math.random().toString(36).substring(7)}`;
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms' }, () => fetchDMs())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages' }, (payload) => {
+        if (payload.new.author_id !== user.id) {
+          fetchDMs();
+        }
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  useEffect(() => {
+    if (dms.length > 0) {
+      fetchUnreadCounts(dms);
+    }
+  }, [currentUserProfile?.last_read, dms.length]);
+
+  useEffect(() => {
+    if (selectedDmId) {
+      setUnreadCounts(prev => ({ ...prev, [selectedDmId]: 0 }));
+    }
+  }, [selectedDmId]);
 
   useEffect(() => {
     if (!user) return;
@@ -197,9 +246,8 @@ export default function DMSidebar() {
       ? dm.otherUsers.map((u: any) => u.username).join(', ') 
       : dm.otherUser?.username || t('common.user');
     
-    const isUnread = dm.last_message_at && 
-                     (!currentUserProfile?.last_read?.[dm.id] || new Date(dm.last_message_at).getTime() > currentUserProfile.last_read[dm.id]) &&
-                     selectedDmId !== dm.id;
+    const unreadCount = unreadCounts[dm.id] || 0;
+    const isUnread = unreadCount > 0 && selectedDmId !== dm.id;
     
     const getDisplayStatus = (u: any) => {
       if (!u) return 'offline';
@@ -252,7 +300,11 @@ export default function DMSidebar() {
             >
               <Pin className={clsx("w-3.5 h-3.5", isPinned && "rotate-45")} />
             </button>
-            {isUnread && <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0"></div>}
+            {isUnread && (
+              <div className="bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 flex items-center justify-center px-1 rounded-full shrink-0 border border-zinc-900">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            )}
           </div>
         </div>
       </div>

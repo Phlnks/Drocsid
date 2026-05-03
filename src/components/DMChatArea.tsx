@@ -27,7 +27,7 @@ import socket from '../lib/socket';
 
 export default function DMChatArea() {
   const { t, i18n } = useTranslation();
-  const { user, currentUserProfile } = useAuthStore();
+  const { user, currentUserProfile, setCurrentUserProfile: setLocalProfile } = useAuthStore();
   const { 
     selectedDmId, 
     setSelectedDmId, 
@@ -220,13 +220,17 @@ export default function DMChatArea() {
     try {
       const { data: profile } = await supabase.from('profiles').select('last_read').eq('id', user.id).single();
       const currentLastRead = profile?.last_read || {};
+      const newLastRead = { ...currentLastRead, [selectedDmId]: now };
       
       // Only update if it's actually been a while or we have new messages
       // to avoid excessive DB writes. But for simplicity and real-time correctness, we do it.
       await supabase.from('profiles').update({
-        last_read: { ...currentLastRead, [selectedDmId]: now }
+        last_read: newLastRead
       }).eq('id', user.id);
       
+      // Update local store immediately for UI responsiveness
+      setLocalProfile((prev: any) => ({ ...prev, last_read: newLastRead }));
+
       // Notify others immediately via socket for real-time checkmarks
       socket.emit('dm-read', {
         dmId: selectedDmId,

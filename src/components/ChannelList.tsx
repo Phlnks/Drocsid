@@ -511,15 +511,15 @@ export default function ChannelList() {
           selectedChannelId === channel.id 
             ? "bg-zinc-700/50 text-zinc-100" 
             : isUnread 
-              ? "text-zinc-100 font-semibold" 
+              ? "text-zinc-100 font-bold" 
               : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300",
           isDragOver && "border-t-2 border-indigo-500",
           hasManageChannels && "active:cursor-grabbing"
         )}
       >
-        <Hash className={clsx("w-4 h-4", isUnread ? "text-zinc-300" : "text-zinc-400")} />
+        <Hash className={clsx("w-4 h-4", isUnread ? "text-zinc-200" : "text-zinc-400")} />
         <span className="truncate flex-1">{channel.name}</span>
-        {isUnread && <div className="w-1.5 h-1.5 rounded-full bg-white ml-auto mr-2"></div>}
+        {isUnread && <div className="w-2 h-2 rounded-full bg-white ml-auto mr-1 shadow-[0_0_5px_rgba(255,255,255,0.5)]"></div>}
         {hasManageChannels && (
           <button 
             onClick={(e) => { 

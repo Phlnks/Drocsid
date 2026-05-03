@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function ChatArea() {
   const { t, i18n } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, setCurrentUserProfile: setLocalProfile, currentUserProfile } = useAuthStore();
   const { 
     selectedChannelId, 
     selectedServerId, 
@@ -321,18 +321,33 @@ export default function ChatArea() {
 
     const updateLastRead = async () => {
       if (!user || !selectedChannelId) return;
+      const now = Date.now();
       try {
         const { data: profile } = await supabase.from('profiles').select('last_read').eq('id', user.id).single();
         const currentLastRead = profile?.last_read || {};
+        const newLastRead = { ...currentLastRead, [selectedChannelId]: now };
+        
         await supabase.from('profiles').update({
-          last_read: { ...currentLastRead, [selectedChannelId]: Date.now() }
+          last_read: newLastRead
         }).eq('id', user.id);
+        
+        // Update local store immediately for UI responsiveness
+        setLocalProfile((prev: any) => ({ ...prev, last_read: newLastRead }));
       } catch (e) {
         console.error("Error updating last read", e);
       }
     };
 
     updateLastRead();
+
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        updateLastRead();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
 
     const handleNewMessage = (message: any) => {
       if (message.channel_id === selectedChannelId) {
@@ -403,6 +418,8 @@ export default function ChatArea() {
 
     return () => {
       Object.values(typingTimeouts).forEach(clearTimeout);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
       socket.off('message', handleNewMessage);
       socket.off('message-updated', handleUpdateMessage);
       socket.off('message-deleted', handleDeleteMessage);
