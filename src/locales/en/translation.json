@@ -541,6 +541,7 @@
     "secureLogin": "Once opened, you can securely log in.",
     "invalidInvite": "The invite is invalid or has expired.",
     "errorJoinLink": "Error joining server via link.",
+    "bannedFromServer": "You have been banned from this server and cannot rejoin.",
     "sidebar": {
       "directMessages": "Direct Messages",
       "friends": "Friends",

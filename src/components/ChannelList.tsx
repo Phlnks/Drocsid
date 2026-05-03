@@ -261,7 +261,6 @@ export default function ChannelList() {
   const handleKickMember = async (userId: string) => {
     if (!hasKickMembers || !selectedServerId) return;
     try {
-      await supabase.from('server_members').delete().eq('server_id', selectedServerId).eq('user_id', userId);
       // Also disconnect them from voice
       socket.emit('move-user', { userId, channelId: null });
     } catch (error) {

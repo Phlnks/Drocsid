@@ -208,8 +208,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     onClose();
 
     try {
-      await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
-      // Force disconnect from voice if they are in one
+      // Force disconnect from voice
       socket.emit('move-user', { userId, channelId: null });
     } catch (error) {
       console.error("Error kicking user:", error);

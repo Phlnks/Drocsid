@@ -157,6 +157,14 @@ export default function App() {
             }
             
             const serverId = invite.server_id;
+
+            // Check if banned
+            const { data: ban } = await supabase.from('server_bans').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
+            if (ban) {
+              addNotification(t('app.bannedFromServer'), "error");
+              return;
+            }
+
             const { data: existingMember } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
             
             if (!existingMember) {

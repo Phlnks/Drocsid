@@ -530,6 +530,7 @@
     "secureLogin": "Una vez abierta, podrás iniciar sesión de forma segura.",
     "invalidInvite": "La invitación es inválida o ha caducado.",
     "errorJoinLink": "Error al unirse al servidor a través del enlace.",
+    "bannedFromServer": "Has sido baneado de este servidor y no puedes volver a unirte.",
     "sidebar": {
       "directMessages": "Mensajes directos",
       "friends": "Amigos",

@@ -676,7 +676,6 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       onConfirm: async () => {
         try {
           const member = members.find(m => m.user_id === userId);
-          await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
           // Force disconnect from voice
           socket.emit('move-user', { userId, channelId: null });
           if (member) logAction('member_kick', `Membre ${member.user?.username || 'Utilisateur'} expulsé`);

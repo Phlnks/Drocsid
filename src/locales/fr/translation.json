@@ -537,6 +537,7 @@
     "secureLogin": "Une fois ouverte, vous pourrez vous connecter en toute sécurité.",
     "invalidInvite": "L'invitation est invalide ou a expiré.",
     "errorJoinLink": "Erreur lors de la tentative de rejoindre le serveur via le lien.",
+    "bannedFromServer": "Vous avez été banni de ce serveur et ne pouvez plus le rejoindre.",
     "sidebar": {
       "directMessages": "Messages privés",
       "friends": "Amis",

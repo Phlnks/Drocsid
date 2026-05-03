@@ -168,6 +168,18 @@ export default function ServerList() {
 
       const serverId = invite.server_id;
 
+      // Check if banned
+      const { data: ban } = await supabase.from('server_bans')
+        .select('*')
+        .eq('server_id', serverId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (ban) {
+        addNotification(t('app.bannedFromServer'), "error");
+        return;
+      }
+
       // Check if already a member
       const { data: existingMember } = await supabase.from('server_members')
         .select('*')
