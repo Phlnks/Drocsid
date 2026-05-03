@@ -119,6 +119,7 @@ interface AppState {
   setDraft: (id: string, content: string) => void;
   addNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeNotification: (id: string) => void;
+  setMobileTab: (tab: 'messages' | 'servers' | 'notifications' | 'profile') => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
