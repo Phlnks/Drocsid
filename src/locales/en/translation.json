@@ -96,6 +96,8 @@
     "alreadyFriends": "You are already friends.",
     "requestInProgress": "A request is already in progress.",
     "addFriendSuccess": "Friend request sent!",
+    "notificationFriendRequest": "sent you a friend request",
+    "notificationFriendAccepted": "accepted your friend request",
     "friendsCount": "FRIENDS — {{count}}",
     "savedMessages": "My Notes",
     "pinned": "Pinned",

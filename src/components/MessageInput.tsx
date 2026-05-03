@@ -410,6 +410,14 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
         throw insertError || new Error("Failed to send message");
       }
 
+      // 2. Update last_message_at for unread tracking
+      const timestamp = new Date().toISOString();
+      if (isDM) {
+        await supabase.from('dms').update({ last_message_at: timestamp }).eq('id', channelId);
+      } else {
+        await supabase.from('channels').update({ last_message_at: timestamp }).eq('id', channelId);
+      }
+
       // Explicitly tell socket
       const eventName = isDM ? 'new-dm-message' : 'new-message';
       socket.emit(eventName, newMessage);
@@ -417,19 +425,29 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       // --- MENTION & NOTIFICATION LOGIC ---
       try {
         if (!isDM && textToSend.includes('@')) {
-          const mentionRegex = /@["']?([^"'\s]+)["']?/g;
+          // Robust regex for mentions, same as MessageContent.tsx
+          const mentionRegex = /@(?:"([^"]+)"|([^\s"':;,.!?]+))/g;
           let match;
           const mentionedUserIds = new Set<string>();
 
           while ((match = mentionRegex.exec(textToSend)) !== null) {
-            const username = match[1].toLowerCase();
+            const username = (match[1] || match[2]).toLowerCase();
             if (username === 'everyone') continue;
             
-            // Case-insensitive matching
-            const mentionedUser = users.find(u => 
+            // Match with existing users state or fetch if needed
+            let mentionedUser = users.find(u => 
               (u.username || '').toLowerCase() === username || 
               (u.display_name || '').toLowerCase() === username
             );
+            
+            if (!mentionedUser) {
+              // Fallback fetch if not found in local state (maybe new user)
+              const { data } = await supabase.from('profiles')
+                .select('id, username, display_name')
+                .or(`username.ilike.${username},display_name.ilike.${username}`)
+                .maybeSingle();
+              if (data) mentionedUser = data;
+            }
             
             if (mentionedUser && mentionedUser.id !== user.id) {
               mentionedUserIds.add(mentionedUser.id);
@@ -440,12 +458,13 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
             const notifications = Array.from(mentionedUserIds).map(targetId => ({
               user_id: targetId,
               author_id: user.id,
-              author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+              author_name: user?.user_metadata?.display_name || user?.user_metadata?.username || 'User',
               content: textToSend.slice(0, 200),
               server_id: serverId,
               channel_id: channelId,
               message_id: newMessage.id,
               is_dm: false,
+              type: 'mention',
               read: false,
               notified: false
             }));
@@ -468,6 +487,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
                 channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
                 message_id: newMessage.id,
                 is_dm: true,
+                type: 'dm',
                 read: false,
                 notified: false
               }));

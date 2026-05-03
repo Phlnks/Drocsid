@@ -37,7 +37,7 @@ export default function Layout() {
   }, [setVoiceParticipants]);
 
   return (
-    <div className="flex h-screen h-[100dvh] bg-zinc-900 text-zinc-100 overflow-hidden relative overscroll-none touch-none">
+    <div className="flex h-screen h-[100dvh] bg-zinc-900 text-zinc-100 overflow-hidden relative overscroll-none">
       <WebRTCManager />
       <NotificationManager />
       <IncomingCallModal />
@@ -52,29 +52,28 @@ export default function Layout() {
           <div className={`${mobileTab === 'servers' ? 'flex' : 'hidden'} md:flex shrink-0 z-10 bg-zinc-950 h-full`}>
             <ServerList />
           </div>
-
+ 
           {/* Mobile content wrapper (hidden on desktop) */}
           <div className={`flex-1 min-h-0 overflow-hidden flex flex-col w-full h-full bg-zinc-900 md:hidden ${mobileTab === 'servers' ? 'rounded-tl-2xl' : ''}`}>
-            {mobileTab === 'profile' ? (
-               <div className="flex-1 flex flex-col pt-6 px-4 gap-4">
-                 <h2 className="text-2xl font-bold">Profil & Paramètres</h2>
-                 <div className="rounded-xl bg-zinc-950 overflow-hidden border border-zinc-800">
-                    <UserControlPanel />
-                 </div>
-                 <p className="text-zinc-500 text-sm mt-4 px-2">
-                   Cliquez sur votre profil pour ouvrir les paramètres complets.
-                 </p>
-               </div>
-            ) : mobileTab === 'notifications' ? (
-               <div className="flex-1 flex flex-col p-4">
-                 <h2 className="text-xl font-bold mb-4">Notifications</h2>
-                 <p className="text-zinc-400 text-sm">Pas de nouvelles notifications.</p>
-               </div>
-            ) : mobileTab === 'messages' ? (
-               <DMSidebar />
-            ) : (
-               <ChannelList />
-            )}
+             {mobileTab === 'profile' ? (
+                <div className="flex-1 flex flex-col pt-6 px-4 gap-4">
+                  <h2 className="text-2xl font-bold">Profil & Paramètres</h2>
+                  <div className="rounded-xl bg-zinc-950 overflow-hidden border border-zinc-800">
+                     <UserControlPanel />
+                  </div>
+                  <p className="text-zinc-500 text-sm mt-4 px-2">
+                    Cliquez sur votre profil pour ouvrir les paramètres complets.
+                  </p>
+                </div>
+             ) : mobileTab === 'notifications' ? (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <RightSidebar forceTab="notifications" />
+                </div>
+             ) : mobileTab === 'messages' ? (
+                <DMSidebar />
+             ) : (
+                <ChannelList />
+             )}
           </div>
 
           {/* Desktop content wrapper (hidden on mobile) */}

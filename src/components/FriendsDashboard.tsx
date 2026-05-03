@@ -115,6 +115,21 @@ export default function FriendsDashboard() {
       }).eq('id', relId);
       
       if (error) throw error;
+
+      // Add notification for the requester
+      const rel = relationships.find(r => r.id === relId);
+      const requesterId = rel?.requester_id;
+      if (requesterId && requesterId !== user?.id) {
+        await supabase.from('notifications').insert({
+          user_id: requesterId,
+          author_id: user?.id,
+          author_name: user?.user_metadata?.username || user?.user_metadata?.display_name || 'User',
+          content: t('friends.notificationFriendAccepted'),
+          type: 'friend_accept',
+          read: false,
+          notified: false
+        });
+      }
     } catch (error) {
       console.error("Error accepting friend request:", error);
       addNotification(t('friends.acceptError'), "error");
@@ -155,6 +170,17 @@ export default function FriendsDashboard() {
       });
 
       if (error) throw error;
+
+      // Add notification for the target user
+      await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        author_id: user.id,
+        author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+        content: t('friends.notificationFriendRequest'),
+        type: 'friend_request',
+        read: false,
+        notified: false
+      });
 
       setAddMessage({ type: 'success', text: t('friends.addFriendSuccess') });
     } catch (error) {

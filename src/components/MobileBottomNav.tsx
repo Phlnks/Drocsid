@@ -1,10 +1,11 @@
-import { MessageSquare, Compass, Bell, User } from 'lucide-react';
+import { MessageSquare, Server, Bell, User } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useTranslation } from 'react-i18next';
 
 export default function MobileBottomNav() {
+  const { t } = useTranslation();
   const { 
-    selectedServerId, 
-    setSelectedServerId,
+    setSelectedServerId, 
     setSelectedDmId,
     isMobileNavOpen,
     mobileTab,
@@ -23,8 +24,8 @@ export default function MobileBottomNav() {
         }}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'messages' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <MessageSquare className="w-6 h-6 shrink-0" />
-        <span className="text-[10px] font-medium leading-none">Messages</span>
+        <MessageSquare className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        <span className="text-[10px] font-medium leading-none">{t('app.sidebar.directMessages')}</span>
       </button>
 
       <button 
@@ -33,24 +34,24 @@ export default function MobileBottomNav() {
         }}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'servers' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <Compass className="w-6 h-6 shrink-0" />
-        <span className="text-[10px] font-medium leading-none">Serveurs</span>
+        <Server className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        <span className="text-[10px] font-medium leading-none">{t('instances.others')}</span>
       </button>
 
       <button 
         onClick={() => setMobileTab('notifications')}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'notifications' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <Bell className="w-6 h-6 shrink-0" />
-        <span className="text-[10px] font-medium leading-none">Notifs</span>
+        <Bell className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        <span className="text-[10px] font-medium leading-none">{t('settings.notifications')}</span>
       </button>
 
       <button 
         onClick={() => setMobileTab('profile')}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'profile' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <User className="w-6 h-6 shrink-0" />
-        <span className="text-[10px] font-medium leading-none">Profil</span>
+        <User className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        <span className="text-[10px] font-medium leading-none">{t('modals.userSettings.appearance')}</span>
       </button>
     </div>
   );

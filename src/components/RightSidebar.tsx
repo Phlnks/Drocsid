@@ -10,11 +10,17 @@ import UserAvatar from './ui/UserAvatar';
 import UserContextMenu from './ui/UserContextMenu';
 import { useTranslation } from 'react-i18next';
 
-export default function RightSidebar() {
+export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notifications' }) {
   const { t } = useTranslation();
   const [serverRoles, setServerRoles] = useState<any[]>([]);
   const [serverMembers, setServerMembers] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'users' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'notifications'>(forceTab || 'users');
+
+  useEffect(() => {
+    if (forceTab) {
+      setActiveTab(forceTab);
+    }
+  }, [forceTab]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadDMs, setUnreadDMs] = useState<any[]>([]);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
@@ -91,7 +97,18 @@ export default function RightSidebar() {
       const { data: notifs } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
       if (notifs) {
         setNotifications(notifs);
-        // Note: NotificationManager.tsx now handles triggering actual native push notifications for unread/unnotified items.
+        
+        // Fetch missing profiles for notifications
+        const missingAuthorIds = notifs
+          .map(n => n.author_id)
+          .filter(id => id && !globalProfiles[id]);
+        
+        if (missingAuthorIds.length > 0) {
+          const { data: missingProfiles } = await supabase.from('profiles').select('*').in('id', Array.from(new Set(missingAuthorIds)));
+          if (missingProfiles) {
+            useAppStore.getState().setGlobalProfiles(missingProfiles);
+          }
+        }
       }
     };
 
@@ -132,15 +149,23 @@ export default function RightSidebar() {
     await supabase.from('notifications').update({ read: true }).eq('user_id', currentUser.id).eq('read', false);
   };
 
+  const jumpToFriend = () => {
+    setSelectedServerId(null);
+    setSelectedDmId(null);
+  };
+
   const jumpToMessage = (result: any) => {
     if (result.type === 'channel') {
       setSelectedServerId(result.serverId);
       setSelectedChannelId(result.channelId);
+      if (result.id) setHighlightedMessageId(result.id);
     } else if (result.type === 'dm') {
       setSelectedServerId(null);
       setSelectedDmId(result.dmId);
+      if (result.id) setHighlightedMessageId(result.id);
+    } else if (result.type === 'friend' || result.type === 'friend_request' || result.type === 'friend_accept') {
+      jumpToFriend();
     }
-    setHighlightedMessageId(result.id);
   };
 
   const getUser = (userId: string) => users.find(u => u.id === userId);
@@ -403,55 +428,70 @@ export default function RightSidebar() {
 
               {notifications.length > 0 ? (
                 <div className="space-y-3">
-                  {notifications.map(notif => (
-                    <div 
-                      key={notif.id} 
-                      className={clsx(
-                        "bg-zinc-800/50 p-3 rounded-md border transition-colors cursor-pointer hover:bg-zinc-700/50 group",
-                        notif.read ? "border-zinc-700/30 opacity-70" : "border-indigo-500/50 bg-indigo-500/5"
-                      )}
-                      onClick={() => {
-                        markAsRead(notif.id);
-                        jumpToMessage({
-                          type: notif.is_dm ? 'dm' : 'channel',
-                          serverId: notif.server_id,
-                          channelId: notif.channel_id,
-                          dmId: notif.channel_id,
-                          id: notif.message_id
-                        });
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2 text-xs text-zinc-400">
-                          <AtSign className="w-3 h-3 text-indigo-400" />
-                          <span>{t('notifications.mentionedBy')} <span className="font-medium text-zinc-300">{notif.author_name}</span></span>
-                        </div>
-                        {!notif.read && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              markAsRead(notif.id);
-                            }}
-                            className="text-zinc-500 hover:text-indigo-400 transition-colors"
-                            title={t('notifications.markAsRead')}
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
+                  {notifications.map(notif => {
+                    const isMention = notif.type === 'mention' || (!notif.type && !notif.is_dm);
+                    const isDM = notif.type === 'dm' || notif.is_dm;
+                    const isFriendRequest = notif.type === 'friend_request';
+                    const isFriendAccept = notif.type === 'friend_accept';
+
+                    return (
+                      <div 
+                        key={notif.id} 
+                        className={clsx(
+                          "bg-zinc-800/50 p-3 rounded-md border transition-colors cursor-pointer hover:bg-zinc-700/50 group",
+                          notif.read ? "border-zinc-700/30 opacity-70" : "border-indigo-500/50 bg-indigo-500/5"
                         )}
+                        onClick={() => {
+                          markAsRead(notif.id);
+                          jumpToMessage({
+                            type: isFriendRequest || isFriendAccept ? 'friend' : (notif.is_dm ? 'dm' : 'channel'),
+                            serverId: notif.server_id,
+                            channelId: notif.channel_id,
+                            dmId: notif.channel_id,
+                            id: notif.message_id
+                          });
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 text-xs text-zinc-400">
+                            {isMention && <AtSign className="w-3 h-3 text-indigo-400" />}
+                            {isDM && <MessageSquare className="w-3 h-3 text-indigo-400" />}
+                            {(isFriendRequest || isFriendAccept) && <Bell className="w-3 h-3 text-indigo-400" />}
+                            <span>
+                              {isMention && t('notifications.mentionedBy')}
+                              {isDM && t('notifications.newMessageFrom', { name: '' })}
+                              {isFriendRequest && t('friends.incomingRequest')}
+                              {isFriendAccept && t('friends.notificationFriendAccepted')}
+                              <span className="font-medium text-zinc-300"> {notif.author_name}</span>
+                            </span>
+                          </div>
+                          {!notif.read && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notif.id);
+                              }}
+                              className="text-zinc-500 hover:text-indigo-400 transition-colors"
+                              title={t('notifications.markAsRead')}
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm text-zinc-300 line-clamp-3 break-words mb-2">
+                          {notif.content}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-[10px] text-zinc-500">
+                            {notif.created_at ? format(new Date(notif.created_at), 'dd/MM/yyyy HH:mm') : ''}
+                          </span>
+                          <span className="text-[10px] text-indigo-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            {t('notifications.viewMessage')}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-sm text-zinc-300 line-clamp-3 break-words mb-2">
-                        {notif.content}
-                      </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-zinc-500">
-                          {notif.created_at ? format(new Date(notif.created_at), 'dd/MM/yyyy HH:mm') : ''}
-                        </span>
-                        <span className="text-[10px] text-indigo-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                          {t('notifications.viewMessage')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : unreadDMsList.length === 0 ? (
                 <div className="text-center py-10 text-zinc-500 text-sm">

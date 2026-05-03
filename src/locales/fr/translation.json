@@ -95,6 +95,8 @@
     "alreadyFriends": "Vous êtes déjà amis.",
     "requestInProgress": "Une demande est déjà en cours.",
     "addFriendSuccess": "Demande d'ami envoyée !",
+    "notificationFriendRequest": "t'a envoyé une demande d'ami",
+    "notificationFriendAccepted": "a accepté ta demande d'ami",
     "friendsCount": "AMIS — {{count}}",
     "savedMessages": "Mes notes",
     "pinned": "Épinglés",
