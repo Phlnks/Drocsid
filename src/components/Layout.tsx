@@ -13,13 +13,14 @@ import ScreenShareViewer from './ScreenShareViewer';
 import FocusedScreenShare from './FocusedScreenShare';
 import MobileVoiceControl from './MobileVoiceControl';
 import NotificationManager from './NotificationManager';
+import MobileBottomNav from './MobileBottomNav';
 import { useAppStore } from '../store/appStore';
 import socket from '../lib/socket';
 import UserControlPanel from './UserControlPanel';
 import VoicePanel from './VoicePanel';
 
 export default function Layout() {
-  const { selectedServerId, selectedDmId, activeStreamFocus, isRightSidebarOpen, isMobileNavOpen, setVoiceParticipants, connectedVoiceChannelId } = useAppStore();
+  const { selectedServerId, selectedDmId, activeStreamFocus, isRightSidebarOpen, isMobileNavOpen, setVoiceParticipants, connectedVoiceChannelId, mobileTab } = useAppStore();
 
   useEffect(() => {
     socket.emit('request-voice-states');
@@ -44,20 +45,51 @@ export default function Layout() {
       <MobileVoiceControl />
       
       {/* Navigation (ServerList + ChannelList/DMSidebar) */}
-      <div className={`flex flex-col h-full w-full md:w-[312px] bg-zinc-950 flex-shrink-0 border-r border-zinc-800/50 ${isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <ServerList />
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            {selectedServerId === null ? (
-              <DMSidebar />
+      <div className={`flex flex-col h-full w-full md:w-[312px] bg-zinc-950 flex-shrink-0 border-r border-zinc-800/50 pb-[60px] md:pb-0 ${isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
+        <div className="flex flex-1 min-h-0 overflow-hidden relative">
+          
+          {/* Desktop Left-most Server Bar OR Mobile 'servers' tab */}
+          <div className={`${mobileTab === 'servers' ? 'flex' : 'hidden'} md:flex shrink-0 z-10 bg-zinc-950 h-full`}>
+            <ServerList />
+          </div>
+
+          {/* Mobile content wrapper (hidden on desktop) */}
+          <div className={`flex-1 min-h-0 overflow-hidden flex flex-col w-full h-full bg-zinc-900 md:hidden ${mobileTab === 'servers' ? 'rounded-tl-2xl' : ''}`}>
+            {mobileTab === 'profile' ? (
+               <div className="flex-1 flex flex-col pt-6 px-4 gap-4">
+                 <h2 className="text-2xl font-bold">Profil & Paramètres</h2>
+                 <div className="rounded-xl bg-zinc-950 overflow-hidden border border-zinc-800">
+                    <UserControlPanel />
+                 </div>
+                 <p className="text-zinc-500 text-sm mt-4 px-2">
+                   Cliquez sur votre profil pour ouvrir les paramètres complets.
+                 </p>
+               </div>
+            ) : mobileTab === 'notifications' ? (
+               <div className="flex-1 flex flex-col p-4">
+                 <h2 className="text-xl font-bold mb-4">Notifications</h2>
+                 <p className="text-zinc-400 text-sm">Pas de nouvelles notifications.</p>
+               </div>
+            ) : mobileTab === 'messages' ? (
+               <DMSidebar />
             ) : (
-              <ChannelList />
+               <ChannelList />
             )}
           </div>
+
+          {/* Desktop content wrapper (hidden on mobile) */}
+          <div className="hidden md:flex flex-1 min-h-0 overflow-hidden flex-col">
+              {selectedServerId === null ? <DMSidebar /> : <ChannelList />}
+          </div>
         </div>
+
         {connectedVoiceChannelId && <VoicePanel />}
-        <UserControlPanel />
+        <div className="hidden md:block">
+          <UserControlPanel />
+        </div>
       </div>
+
+      <MobileBottomNav />
 
       {/* Main Content (ChatArea/DMChatArea/FriendsDashboard) */}
       <div className={`flex-1 h-full min-w-0 min-h-0 ${!isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>

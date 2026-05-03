@@ -55,6 +55,7 @@ interface AppState {
   activeStreamFocus: string | null;
   isRightSidebarOpen: boolean;
   isMobileNavOpen: boolean;
+  mobileTab: 'messages' | 'servers' | 'notifications' | 'profile';
   theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom';
   customTheme: {
     primaryColor: string;
@@ -141,6 +142,7 @@ export const useAppStore = create<AppState>((set) => ({
   activeStreamFocus: null,
   isRightSidebarOpen: false,
   isMobileNavOpen: true,
+  mobileTab: 'messages',
   theme: (localStorage.getItem('drocsid-theme') as 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom') || 'classic',
   customTheme: JSON.parse(localStorage.getItem('drocsid-custom-theme') || '{"primaryColor":"#5865F2","intensity":75,"appearance":"dark"}'),
   onlineUserIds: [],
@@ -254,6 +256,7 @@ export const useAppStore = create<AppState>((set) => ({
   setIsMobileNavOpen: (isOpen) => set((state) => ({
     isMobileNavOpen: typeof isOpen === 'function' ? isOpen(state.isMobileNavOpen) : isOpen
   })),
+  setMobileTab: (tab) => set({ mobileTab: tab }),
   setSoundboardVolume: (volume) => set(() => {
     localStorage.setItem('drocsid-soundboard-volume', JSON.stringify(volume));
     return { soundboardVolume: volume };
