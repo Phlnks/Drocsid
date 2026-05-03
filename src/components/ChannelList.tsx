@@ -115,6 +115,14 @@ export default function ChannelList() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, () => fetchData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `server_id=eq.${selectedServerId}` }, (payload) => {
+        // If a new message arrives in any channel of this server
+        setChannels(prev => prev.map(c => 
+          c.id === payload.new.channel_id 
+            ? { ...c, last_message_at: payload.new.created_at } 
+            : c
+        ));
+      })
       .subscribe();
 
     return () => {
