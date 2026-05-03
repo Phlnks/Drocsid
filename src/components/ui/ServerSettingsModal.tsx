@@ -676,8 +676,9 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
       onConfirm: async () => {
         try {
           const member = members.find(m => m.user_id === userId);
-          // Force disconnect from voice
-          socket.emit('move-user', { userId, channelId: null });
+          await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
+          // Force disconnect and redirect
+          socket.emit('server-kick', { userId, serverId: server.id });
           if (member) logAction('member_kick', `Membre ${member.user?.username || 'Utilisateur'} expulsé`);
           fetchData();
         } catch (error) {
@@ -702,8 +703,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
             banned_by: user?.id
           });
           await supabase.from('server_members').delete().eq('server_id', server.id).eq('user_id', userId);
-          // Force disconnect from voice
-          socket.emit('move-user', { userId, channelId: null });
+          // Force disconnect and redirect
+          socket.emit('server-kick', { userId, serverId: server.id });
           if (member) logAction('member_ban', `Membre ${member.user?.username || 'Utilisateur'} banni`);
           fetchData();
         } catch (error) {

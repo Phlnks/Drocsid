@@ -585,5 +585,8 @@
       "switchAccount": "Cambiar de cuenta",
       "connectionProblem": "¿Problema de conexión?",
       "resetDefaultServer": "Restablecer servidor predeterminado"
+    },
+    "notifications": {
+      "kickedFromServer": "Has sido expulsado del servidor"
     }
 }

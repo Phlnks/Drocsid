@@ -65,8 +65,30 @@ export default function App() {
     console.log("Soundboard: Registering global socket event 'v1.1'");
     socket.on('soundboard-sound-played', handleSoundPlayed);
     
+    // Server kick listener
+    const handleServerKick = async (data: { serverId: string }) => {
+      const state = useAppStore.getState();
+      const { selectedServerId, setSelectedServerId, connectedVoiceChannelId, setConnectedVoiceChannelId, addNotification } = state;
+
+      if (selectedServerId === data.serverId) {
+        addNotification(t('notifications.kickedFromServer', 'Vous avez été exclu du serveur'), "error");
+        setSelectedServerId(null);
+      }
+
+      // If connected to a voice channel in this server, disconnect
+      if (connectedVoiceChannelId) {
+        const { data: channel } = await supabase.from('channels').select('server_id').eq('id', connectedVoiceChannelId).maybeSingle();
+        if (channel && channel.server_id === data.serverId) {
+          setConnectedVoiceChannelId(null);
+        }
+      }
+    };
+
+    socket.on('server-kick', handleServerKick);
+
     return () => {
       socket.off('soundboard-sound-played', handleSoundPlayed);
+      socket.off('server-kick', handleServerKick);
     };
   }, []);
 

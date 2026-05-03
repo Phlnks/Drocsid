@@ -229,6 +229,15 @@ async function startServer() {
       });
     });
 
+    socket.on("server-kick", (data) => {
+      // data: { userId, serverId }
+      const { userId, serverId } = data;
+      const sockets = onlineUsers.get(userId);
+      sockets?.forEach(socketId => {
+        io.to(socketId).emit("server-kick", { serverId });
+      });
+    });
+
     socket.on("play-soundboard-sound", (data) => {
       // Broadcast the soundboard sound event to all clients.
       // receiver's VoicePanel will filter by channelId.

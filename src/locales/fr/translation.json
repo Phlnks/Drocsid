@@ -593,5 +593,8 @@
       "switchAccount": "Changer de compte",
       "connectionProblem": "Problème de connexion ?",
       "resetDefaultServer": "Réinitialiser le serveur par défaut"
+    },
+    "notifications": {
+      "kickedFromServer": "Vous avez été exclu du serveur"
     }
 }

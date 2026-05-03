@@ -597,5 +597,8 @@
       "switchAccount": "Switch account",
       "connectionProblem": "Connection problem?",
       "resetDefaultServer": "Reset to default server"
+    },
+    "notifications": {
+      "kickedFromServer": "You have been kicked from the server"
     }
 }
