@@ -3,12 +3,21 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import LinkPreview from './ui/LinkPreview';
+import { useState } from 'react';
+import UserContextMenu from './ui/UserContextMenu';
 
 const YOUTUBE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n<]+)(?:[^ \n<]+)?/g;
 const IMAGE_REGEX = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/ig;
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
-export default function MessageContent({ content }: { content: string }) {
+interface MessageContentProps {
+  content: string;
+  usersMap?: Record<string, any>;
+}
+
+export default function MessageContent({ content, usersMap = {} }: MessageContentProps) {
+  const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
+
   if (!content) return null;
 
   // Check if content is only emojis
@@ -50,16 +59,36 @@ export default function MessageContent({ content }: { content: string }) {
     }
   }
 
-  // Pre-process content for mentions
-  const processedContent = content.replace(/@(?:"([^"]+)"|([^\s"':;,.!?]+))/g, (match, p1, p2) => {
+  // Pre-process content for mentions - handle @username and @"user name"
+  // and avoid common false positives like email addresses.
+  const processedContent = content.replace(/(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.]+))/g, (match, prefix, p1, p2) => {
     const username = p1 || p2;
-    // Encode space and special characters for the markdown link URL part
     const encodedUsername = encodeURIComponent(username);
-    return `[@${username}](mention:${encodedUsername})`;
+    return `${prefix}[@${username}](mention:${encodedUsername})`;
   });
 
+  const handleMentionContextMenu = (e: React.MouseEvent, username: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Try to find the user in our map
+    const decodedUsername = decodeURIComponent(username);
+    const userProfile = Object.values(usersMap).find(u => 
+      u.username?.toLowerCase() === decodedUsername.toLowerCase()
+    );
+
+    if (userProfile) {
+      setContextMenu({
+        userId: userProfile.id,
+        username: userProfile.username,
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 relative">
       <div className={`text-zinc-100 markdown-body break-words ${emojiOnly ? 'text-[45px] leading-tight' : 'text-[15px] leading-relaxed'}`}>
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
@@ -89,8 +118,15 @@ export default function MessageContent({ content }: { content: string }) {
             },
             a: ({node, href, children, ...props}) => {
               if (href?.startsWith('mention:')) {
-                // Decode for display if needed, but children already has the @username
-                return <span className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium">{children}</span>;
+                const username = href.replace('mention:', '');
+                return (
+                  <span 
+                    className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-pointer hover:bg-indigo-500/40 transition-colors"
+                    onContextMenu={(e) => handleMentionContextMenu(e, username)}
+                  >
+                    {children}
+                  </span>
+                );
               }
               return <a href={href} {...props} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">{children}</a>;
             },
@@ -111,6 +147,15 @@ export default function MessageContent({ content }: { content: string }) {
           {processedContent}
         </ReactMarkdown>
       </div>
+
+      {contextMenu && (
+        <UserContextMenu
+          userId={contextMenu.userId}
+          username={contextMenu.username}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
 
       {youtubeIds.map(id => (
         <div key={id} className="mt-2 max-w-[400px] rounded-md overflow-hidden border border-zinc-700/50 aspect-video bg-zinc-900/50">

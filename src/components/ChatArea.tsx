@@ -868,7 +868,7 @@ export default function ChatArea() {
                     <>
                       {msg.content && (
                         <div className="text-zinc-300 break-words whitespace-pre-wrap">
-                          <MessageContent content={msg.content} />
+                          <MessageContent content={msg.content} usersMap={usersMap} />
                           {msg.is_edited && <span className="text-[10px] text-zinc-500 ml-2">{t('chatArea.edited')}</span>}
                         </div>
                       )}

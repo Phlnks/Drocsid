@@ -122,10 +122,12 @@ export default function FriendsDashboard() {
       if (requesterId && requesterId !== user?.id) {
         await supabase.from('notifications').insert({
           user_id: requesterId,
-          author_id: user?.id,
-          author_name: user?.user_metadata?.username || user?.user_metadata?.display_name || 'User',
-          content: t('friends.notificationFriendAccepted'),
           type: 'friend_accept',
+          data: {
+            author_id: user?.id,
+            author_name: user?.user_metadata?.username || user?.user_metadata?.display_name || 'User',
+            content: t('friends.notificationFriendAccepted')
+          },
           read: false,
           notified: false
         });
@@ -174,10 +176,12 @@ export default function FriendsDashboard() {
       // Add notification for the target user
       await supabase.from('notifications').insert({
         user_id: targetUserId,
-        author_id: user.id,
-        author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
-        content: t('friends.notificationFriendRequest'),
         type: 'friend_request',
+        data: {
+          author_id: user.id,
+          author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+          content: t('friends.notificationFriendRequest')
+        },
         read: false,
         notified: false
       });

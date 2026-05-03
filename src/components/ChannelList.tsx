@@ -72,7 +72,10 @@ export default function ChannelList() {
       if (rolesData) setServerRoles(rolesData);
 
       if (channelsData) {
-        const sorted = channelsData.sort((a, b) => (a.order || 0) - (b.order || 0));
+        const sorted = channelsData.sort((a, b) => {
+          if ((a.order || 0) !== (b.order || 0)) return (a.order || 0) - (b.order || 0);
+          return a.id.localeCompare(b.id);
+        });
         setChannels(sorted);
         
         // Compute viewable channels immediately
@@ -99,17 +102,20 @@ export default function ChannelList() {
         });
 
         if (visibleChannels.length > 0) {
-          // Only reset if we truly don't have a selection OR the selected channel doesn't exist anymore in the DB
-          const channelStillExists = channelsData.some((c: any) => c.id === selectedChannelId);
-          if (!selectedChannelId || !channelStillExists) {
+          // Use latest selectedChannelId from store to avoid stale closure redirections
+          const currentSelectedId = useAppStore.getState().selectedChannelId;
+          const channelStillExists = channelsData.some((c: any) => c.id === currentSelectedId);
+          if (!currentSelectedId || !channelStillExists) {
             const textChannel = visibleChannels.find(c => c.type === 'TEXT') || visibleChannels[0];
             setSelectedChannelId(textChannel.id);
           }
-        } else if (selectedChannelId) {
-          // Stay on channel even if not "visible" in the list, unless it's gone from DB
-          const channelStillExists = channelsData.some((c: any) => c.id === selectedChannelId);
-          if (!channelStillExists) {
-            setSelectedChannelId(null);
+        } else {
+          const currentSelectedId = useAppStore.getState().selectedChannelId;
+          if (currentSelectedId) {
+            const channelStillExists = channelsData.some((c: any) => c.id === currentSelectedId);
+            if (!channelStillExists) {
+              setSelectedChannelId(null);
+            }
           }
         }
       }

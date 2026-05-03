@@ -100,7 +100,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
         
         // Fetch missing profiles for notifications
         const missingAuthorIds = notifs
-          .map(n => n.author_id)
+          .map(n => n.author_id || n.data?.author_id)
           .filter(id => id && !globalProfiles[id]);
         
         if (missingAuthorIds.length > 0) {
@@ -155,16 +155,20 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
   };
 
   const jumpToMessage = (result: any) => {
-    if (result.type === 'channel') {
-      setSelectedServerId(result.serverId);
-      setSelectedChannelId(result.channelId);
-      if (result.id) setHighlightedMessageId(result.id);
+    if (result.type === 'mention' || result.type === 'channel') {
+      setSelectedServerId(result.data?.serverId || result.serverId);
+      setSelectedChannelId(result.data?.channelId || result.channelId);
+      if (result.data?.messageId || result.id) setHighlightedMessageId(result.data?.messageId || result.id);
     } else if (result.type === 'dm') {
       setSelectedServerId(null);
-      setSelectedDmId(result.dmId);
-      if (result.id) setHighlightedMessageId(result.id);
+      setSelectedDmId(result.data?.channelId || result.dmId);
+      if (result.data?.messageId || result.id) setHighlightedMessageId(result.data?.messageId || result.id);
     } else if (result.type === 'friend' || result.type === 'friend_request' || result.type === 'friend_accept') {
       jumpToFriend();
+    }
+    
+    if (!result.read) {
+      markAsRead(result.id);
     }
   };
 
@@ -441,16 +445,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                           "bg-zinc-800/50 p-3 rounded-md border transition-colors cursor-pointer hover:bg-zinc-700/50 group",
                           notif.read ? "border-zinc-700/30 opacity-70" : "border-indigo-500/50 bg-indigo-500/5"
                         )}
-                        onClick={() => {
-                          markAsRead(notif.id);
-                          jumpToMessage({
-                            type: isFriendRequest || isFriendAccept ? 'friend' : (notif.is_dm ? 'dm' : 'channel'),
-                            serverId: notif.server_id,
-                            channelId: notif.channel_id,
-                            dmId: notif.channel_id,
-                            id: notif.message_id
-                          });
-                        }}
+                        onClick={() => jumpToMessage(notif)}
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -459,10 +454,10 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                             {(isFriendRequest || isFriendAccept) && <Bell className="w-3 h-3 text-indigo-400" />}
                             <span>
                               {isMention && t('notifications.mentionedBy')}
-                              {isDM && t('notifications.newMessageFrom', { name: '' })}
+                              {isDM && t('notifications.sentDm')}
                               {isFriendRequest && t('friends.incomingRequest')}
                               {isFriendAccept && t('friends.notificationFriendAccepted')}
-                              <span className="font-medium text-zinc-300"> {notif.author_name}</span>
+                              <span className="font-medium text-zinc-300"> {notif.data?.author_name || notif.author_name}</span>
                             </span>
                           </div>
                           {!notif.read && (
@@ -478,9 +473,11 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                             </button>
                           )}
                         </div>
-                        <p className="text-sm text-zinc-300 line-clamp-3 break-words mb-2">
-                          {notif.content}
-                        </p>
+                        {(notif.data?.content || notif.content) && (
+                          <p className="text-sm text-zinc-300 line-clamp-3 break-words mb-2">
+                            {notif.data?.content || notif.content}
+                          </p>
+                        )}
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-[10px] text-zinc-500">
                             {notif.created_at ? format(new Date(notif.created_at), 'dd/MM/yyyy HH:mm') : ''}

@@ -457,14 +457,16 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
           if (mentionedUserIds.size > 0) {
             const notifications = Array.from(mentionedUserIds).map(targetId => ({
               user_id: targetId,
-              author_id: user.id,
-              author_name: user?.user_metadata?.display_name || user?.user_metadata?.username || 'User',
-              content: textToSend.slice(0, 200),
-              server_id: serverId,
-              channel_id: channelId,
-              message_id: newMessage.id,
-              is_dm: false,
               type: 'mention',
+              data: {
+                author_id: user.id,
+                author_name: user?.user_metadata?.display_name || user?.user_metadata?.username || 'User',
+                content: textToSend.slice(0, 200),
+                server_id: serverId,
+                channel_id: channelId,
+                message_id: newMessage.id,
+                is_dm: false
+              },
               read: false,
               notified: false
             }));
@@ -481,13 +483,15 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
             if (recipients.length > 0) {
               const notifications = recipients.map(targetId => ({
                 user_id: targetId,
-                author_id: user.id,
-                author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
-                content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
-                channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
-                message_id: newMessage.id,
-                is_dm: true,
                 type: 'dm',
+                data: {
+                  author_id: user.id,
+                  author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+                  content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
+                  channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
+                  message_id: newMessage.id,
+                  is_dm: true
+                },
                 read: false,
                 notified: false
               }));
