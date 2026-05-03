@@ -147,7 +147,8 @@ export default function VoicePanel() {
 
     fetchChannelInfo();
 
-    const channelSub = supabase.channel(`voice_panel_channel_${connectedVoiceChannelId}`)
+    const channelName = `voice_panel_channel_${connectedVoiceChannelId}_${currentUser.id}_${Math.random().toString(36).substring(7)}`;
+    const channelSub = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
       .subscribe();

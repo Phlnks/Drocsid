@@ -82,7 +82,8 @@ export default function DMSidebar() {
 
     fetchDMs();
 
-    const channel = supabase.channel('dm_changes')
+    const channelName = `dm-changes-${user.id}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms' }, () => fetchDMs())
       .subscribe();
 
@@ -101,7 +102,8 @@ export default function DMSidebar() {
     };
     fetchUsers();
 
-    const channel = supabase.channel('user_changes')
+    const channelName = `user-changes-${user.id}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
         fetchUsers();
       })
@@ -170,7 +172,8 @@ export default function DMSidebar() {
     };
     fetchPending();
 
-    const channel = supabase.channel('relationship_changes')
+    const channelName = `relationship-changes-${user.id}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, (payload) => {
         const rel = payload.new as any || payload.old as any;
         if (rel && rel.participants && rel.participants.includes(user.id)) {

@@ -34,14 +34,16 @@ export default function ServerList() {
     fetchServers();
     
     // Subscribe to servers changes for icon/name updates
-    const serversChannel = supabase.channel('servers_changes')
+    const serversChannelName = `servers_changes_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const serversChannel = supabase.channel(serversChannelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => {
         fetchServers();
       })
       .subscribe();
 
     // Subscribe to server_members changes
-    const membersChannel = supabase.channel('server_members_changes')
+    const membersChannelName = `server_members_changes_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const membersChannel = supabase.channel(membersChannelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: `user_id=eq.${user.id}` }, () => {
         fetchServers();
       })

@@ -309,7 +309,8 @@ export default function App() {
     fetchAllProfiles();
 
     // Global profile subscription for all users
-    const channel = supabase.channel(`global_profiles_listener`)
+    const channelName = `global_profiles_listener_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 

@@ -110,7 +110,8 @@ export default function ChannelList() {
 
     fetchData();
 
-    const channel = supabase.channel(`server_${selectedServerId}`)
+    const channelName = `server_${selectedServerId}_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, () => fetchData())

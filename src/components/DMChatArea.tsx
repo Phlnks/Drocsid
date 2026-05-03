@@ -448,7 +448,8 @@ export default function DMChatArea() {
       }
     };
 
-    const dmSub = supabase.channel(`dm_chat_${selectedDmId}`)
+    const channelName = `dm_chat_${selectedDmId}_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const dmSub = supabase.channel(channelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dms', filter: `id=eq.${selectedDmId}` }, () => {
         fetchInitialData();
       })

@@ -388,7 +388,8 @@ export default function ChatArea() {
       }
     };
 
-    const serverSub = supabase.channel(`server_chat_${selectedServerId}`)
+    const channelName = `server_chat_${selectedServerId}_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const serverSub = supabase.channel(channelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, (payload) => {
         setServer(payload.new);
       })
