@@ -119,11 +119,6 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
   };
 
   if (!isOpen) {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      // We don't call setCurrentAudio(null) here because it might trigger a re-render while returning null
-    }
     return null;
   }
 
