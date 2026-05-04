@@ -432,7 +432,12 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
 
           while ((match = mentionRegex.exec(textToSend)) !== null) {
             const username = (match[1] || match[2]).toLowerCase();
-            if (username === 'everyone') continue;
+            if (username === 'everyone') {
+              users.forEach(u => {
+                if (u.id !== user.id) mentionedUserIds.add(u.id);
+              });
+              continue;
+            }
             
             // Match with existing users state or fetch if needed
             let mentionedUser = users.find(u => 
@@ -460,7 +465,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
               type: 'mention',
               data: {
                 author_id: user.id,
-                author_name: user?.user_metadata?.display_name || user?.user_metadata?.username || 'User',
+                author_name: user?.user_metadata?.display_name || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur',
                 content: textToSend.slice(0, 200),
                 server_id: serverId,
                 channel_id: channelId,

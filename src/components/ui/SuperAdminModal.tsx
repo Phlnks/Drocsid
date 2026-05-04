@@ -155,7 +155,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col bg-zinc-800 relative h-full">
+        <div className="flex-1 flex flex-col bg-zinc-800 relative min-h-0">
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 rounded-full transition-colors flex flex-col items-center gap-1">
               <X className="w-5 h-5" />

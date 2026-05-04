@@ -336,7 +336,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col bg-zinc-800 relative">
+        <div className="flex-1 flex flex-col bg-zinc-800 relative min-h-0">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 md:top-6 md:right-6 p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 rounded-full transition-colors flex flex-col items-center gap-1 z-10 bg-zinc-800/80 md:bg-transparent"

@@ -462,7 +462,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                               {isDM && t('notifications.sentDm')}
                               {isFriendRequest && t('friends.incomingRequest')}
                               {isFriendAccept && t('friends.notificationFriendAccepted')}
-                              <span className="font-medium text-zinc-300"> {notif.data?.author_name || notif.author_name}</span>
+                              <span className="font-medium text-zinc-300"> {notif.data?.author_name || notif.author_name || 'Utilisateur'}</span>
                             </span>
                           </div>
                           {!notif.read && (

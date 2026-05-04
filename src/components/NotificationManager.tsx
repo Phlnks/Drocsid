@@ -19,9 +19,9 @@ export default function NotificationManager() {
     const showDesktopNotification = (title: string, body?: string) => {
       if (!notificationSettings.desktop) return;
       if ((window as any).electron) {
-         (window as any).electron.showNotification(title, body);
+         (window as any).electron.showNotification(title, body, '/favicon.png');
       } else if ('Notification' in window && Notification.permission === 'granted') {
-         new Notification(title, { body });
+         new Notification(title, { body, icon: '/favicon.png', badge: '/favicon.png' });
       }
     };
 
