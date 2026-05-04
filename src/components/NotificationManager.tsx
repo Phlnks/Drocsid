@@ -59,17 +59,31 @@ export default function NotificationManager() {
         const n = payload.new as any;
         
         // Don't notify if server is muted
-        if (n.server_id && mutedServers.includes(n.server_id)) return;
+        const serverId = n.data?.server_id || n.server_id;
+        if (serverId && mutedServers.includes(serverId)) return;
 
         if (!n.notified) {
           // If preference is 'mentions', we only notify if it's actually an @mention (which is what this table stores)
           // If we had a global message listener for channels, we'd filter there too.
+          if (n.type === 'dm') {
+            // Already handled by DM messages logic above
+            supabase.from('notifications').update({ notified: true }).eq('id', n.id).then();
+            return;
+          }
 
           if (notificationSettings.sounds) {
             playMessageSound();
           }
           
-          showDesktopNotification(`Mention de ${n.author_name}`, n.content);
+          const authorName = n.data?.author_name || n.author_name || 'Utilisateur';
+          const content = n.data?.content || n.content || '';
+          
+          let title = 'Notification';
+          if (n.type === 'mention') title = `Mention de ${authorName}`;
+          else if (n.type === 'friend_request') title = `Demande d'ami de ${authorName}`;
+          else if (n.type === 'friend_accept') title = `${authorName} a accepté votre demande d'ami`;
+
+          showDesktopNotification(title, content);
           
           // Mark as notified so we don't trigger it again
           supabase.from('notifications').update({ notified: true }).eq('id', n.id).then();

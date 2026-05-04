@@ -65,7 +65,7 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
   const processedContent = content.replace(/(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.]+))/g, (match, prefix, p1, p2) => {
     const username = p1 || p2;
     const encodedUsername = encodeURIComponent(username);
-    return `${prefix}[@${username}](mention:${encodedUsername})`;
+    return `${prefix}[@${username}](https://mention.local/${encodedUsername})`;
   });
 
   const handleMentionContextMenu = (e: React.MouseEvent, username: string) => {
@@ -119,8 +119,8 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
               );
             },
             a: ({node, href, children, ...props}) => {
-              if (href?.startsWith('mention:')) {
-                const username = href.replace('mention:', '');
+              if (href?.startsWith('https://mention.local/')) {
+                const username = href.replace('https://mention.local/', '');
                 return (
                   <span 
                     className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-default hover:bg-indigo-500/40 transition-colors inline-flex items-center"
