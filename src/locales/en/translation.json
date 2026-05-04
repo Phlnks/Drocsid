@@ -651,7 +651,7 @@
     "windowsBtn": "Download for Windows",
     "windowsVersion": "Windows 10/11 - 64 bits",
     "otherPlatforms": "Other platforms",
-    "macLinuxMobile": "macOS, Linux, and mobile versions are currently under development.",
+    "macLinuxMobile": "Our web version is fully adaptive and works perfectly for macOS, Linux, and mobile.",
     "webVersion": "Access on the Web",
     "webVersionDesc": "Stay connected on any browser without installation.",
     "features": {

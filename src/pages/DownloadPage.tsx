@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { Download, Monitor, Globe, Bell, Zap, Rocket, ChevronRight, Globe2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DrocsidLogo from '../components/ui/DrocsidLogo';
 
 export default function DownloadPage() {
   const { t, i18n } = useTranslation();
@@ -18,8 +19,8 @@ export default function DownloadPage() {
       <nav className="fixed top-0 w-full z-50 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition-transform duration-300">
-              <Zap className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center border border-zinc-800 shadow-xl group-hover:scale-110 transition-transform duration-300">
+              <DrocsidLogo className="w-7 h-7" />
             </div>
             <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">
               Drocsid
@@ -66,7 +67,7 @@ export default function DownloadPage() {
 
             <div className="flex flex-col items-center gap-6">
               <a 
-                href="/Drocsid-Setup-1.0.0.exe" 
+                href="http://drocsid.ddns.net/Drocsid-Setup-1.0.1.exe" 
                 download
                 className="group relative inline-flex items-center gap-3 px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-indigo-500/30 transition-all duration-300 hover:scale-105 active:scale-95"
               >
@@ -141,14 +142,9 @@ export default function DownloadPage() {
       <footer className="py-12 border-t border-zinc-900">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6 text-zinc-500 text-sm">
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4" />
+            <DrocsidLogo className="w-4 h-4" />
             <span>&copy; {new Date().getFullYear()} Drocsid. All rights reserved.</span>
-          </div>
-          <div className="flex items-center gap-8">
-            <a href="#" className="hover:text-zinc-300">Twitter</a>
-            <a href="#" className="hover:text-zinc-300">GitHub</a>
-            <a href="#" className="hover:text-zinc-300">Discord</a>
-          </div>
+          </div>          
         </div>
       </footer>
     </div>
