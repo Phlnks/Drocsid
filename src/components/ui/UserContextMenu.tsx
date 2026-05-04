@@ -34,39 +34,38 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     if (!user) return;
 
     const fetchData = async () => {
-      // Start fetching relationship
-      const fetchRel = supabase.from('relationships').select('*').contains('participants', [user.id]);
-
-      // Prepare server-related promises
-      let fetchServerMem = Promise.resolve({ data: null });
-      let fetchCurrentMem = Promise.resolve({ data: null });
-      let fetchRoles = Promise.resolve({ data: [] });
-      let fetchServInfo = Promise.resolve({ data: null });
-
-      if (serverId) {
-        fetchServerMem = supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle();
-        fetchCurrentMem = supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
-        fetchRoles = supabase.from('roles').select('*').eq('server_id', serverId);
-        fetchServInfo = supabase.from('servers').select('*').eq('id', serverId).maybeSingle();
-      }
-
+      setIsLoading(true);
       try {
-        const [relRes, memData, currentMemData, rolesData, servData] = await Promise.all([
-          fetchRel,
-          fetchServerMem,
-          fetchCurrentMem,
-          fetchRoles,
-          fetchServInfo
-        ]);
+        // Start all independent queries in parallel using real Promises
+        const promises = [
+          supabase.from('relationships').select('*').contains('participants', [user.id])
+        ];
 
-        const rel = relRes.data?.find(r => r.participants.includes(userId));
+        if (serverId) {
+          promises.push(
+            supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle(),
+            supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle(),
+            supabase.from('roles').select('*').eq('server_id', serverId),
+            supabase.from('servers').select('*').eq('id', serverId).maybeSingle()
+          );
+        }
+
+        const results = await Promise.all(promises);
+        const relRes = results[0];
+
+        const rel = relRes.data?.find((r: any) => r.participants.includes(userId));
         setRelationship(rel || null);
 
         if (serverId) {
-          if (memData.data) setServerMember(memData.data);
-          if (currentMemData.data) setCurrentUserMember(currentMemData.data);
-          if (rolesData.data) setServerRoles(rolesData.data);
-          if (servData.data) setServerInfo(servData.data);
+          const memData = results[1];
+          const currentMemData = results[2];
+          const rolesData = results[3];
+          const servData = results[4];
+
+          if (memData?.data) setServerMember(memData.data);
+          if (currentMemData?.data) setCurrentUserMember(currentMemData.data);
+          if (rolesData?.data) setServerRoles(rolesData.data);
+          if (servData?.data) setServerInfo(servData.data);
         }
       } catch (err) {
         console.error("Error fetching context menu data:", err);
@@ -77,16 +76,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
     fetchData();
 
-    const channel = supabase.channel(`user_context_${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, (payload) => {
-        const rel = payload.new as any || payload.old as any;
-        if (rel && rel.participants && rel.participants.includes(user.id)) {
-          fetchData();
-        }
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => fetchData())
-      .subscribe();
-
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
@@ -95,7 +84,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      supabase.removeChannel(channel);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [userId, serverId, onClose, user]);
@@ -416,16 +404,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
             >
               <MicOff className="w-4 h-4 text-orange-400" />
-              {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Muer')}
-            </button>
-          )}
-          {targetVoiceState && canMove && (
-            <button 
-              onClick={handleDisconnectVoice}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-            >
-              <PhoneOff className="w-4 h-4" />
-              {t('modals.userContextMenu.disconnectVoice')}
+              {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Rendre muet')}
             </button>
           )}
           {canKick && (
