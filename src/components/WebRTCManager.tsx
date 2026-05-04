@@ -147,17 +147,33 @@ export default function WebRTCManager() {
     // The server handles it on disconnect.
   }, [currentUser]);
 
-  // Listen for forced voice moves
+  // Listen for forced voice moves and mutes
   useEffect(() => {
     const handleForceMove = (data: { channelId: string | null }) => {
       setConnectedVoiceChannelId(data.channelId);
     };
 
+    const handleForceMute = (data: { mute: boolean }) => {
+      if (data.mute) {
+        if (!isVoiceMuted) {
+          playMuteSound();
+          setIsVoiceMuted(true);
+        }
+      } else {
+        if (isVoiceMuted) {
+          playUnmuteSound();
+          setIsVoiceMuted(false);
+        }
+      }
+    };
+
     socket.on('force-move', handleForceMove);
+    socket.on('force-mute', handleForceMute);
     return () => {
       socket.off('force-move', handleForceMove);
+      socket.off('force-mute', handleForceMute);
     };
-  }, [setConnectedVoiceChannelId]);
+  }, [setConnectedVoiceChannelId, isVoiceMuted, setIsVoiceMuted]);
 
   // Handle mute state
   useEffect(() => {

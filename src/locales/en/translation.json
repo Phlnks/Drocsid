@@ -360,6 +360,8 @@
       "message": "Message",
       "call": "Call",
       "mute": "Mute",
+      "muteMember": "Mute",
+      "unmuteMember": "Unmute",
       "unmute": "Unmute",
       "addFriend": "Add Friend",
       "removeFriend": "Remove Friend",
@@ -512,7 +514,8 @@
       "READ_MESSAGES": { "label": "Read Messages", "description": "Allows seeing and reading text channels." },
       "CONNECT": { "label": "Connect", "description": "Allows connecting to voice channels." },
       "SPEAK": { "label": "Speak", "description": "Allows speaking in voice channels." },
-      "MOVE_MEMBERS": { "label": "Move Members", "description": "Allows moving members between voice channels." }
+      "MOVE_MEMBERS": { "label": "Move Members", "description": "Allows moving members between voice channels." },
+      "MUTE_MEMBERS": { "label": "Mute Members", "description": "Allows muting members in voice channels." }
     }
   },
   "channelList": {

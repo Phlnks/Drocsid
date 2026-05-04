@@ -13,7 +13,7 @@ import RenameChannelModal from './ui/RenameChannelModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import VoiceChannelItem from './VoiceChannelItem';
 import UserAvatar from './ui/UserAvatar';
-import { playConnectSound } from '../lib/sounds';
+import { playConnectSound, playMoveSound } from '../lib/sounds';
 import { useInstanceStore } from '../store/instanceStore';
 import { useTranslation } from 'react-i18next';
 
@@ -284,6 +284,7 @@ export default function ChannelList() {
 
   const handleMoveMember = async (userId: string, targetChannelId: string) => {
     if (!hasMoveMembers || !userId) return;
+    playMoveSound();
     socket.emit('move-user', { userId, channelId: targetChannelId });
   };
 

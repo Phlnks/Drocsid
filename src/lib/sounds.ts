@@ -97,8 +97,8 @@ export const playUndeafenSound = () => {
 };
 
 export const playMessageSound = () => {
-  playTone(784, 'sine', 0.1, 0.1, 0); // G5
-  playTone(1046, 'sine', 0.2, 0.1, 0.1); // C6
+  playTone(784, 'sine', 0.1, 0.15, 0); // G5
+  playTone(1046, 'sine', 0.2, 0.15, 0.1); // C6
 };
 
 let ringtoneInterval: any = null;
@@ -161,4 +161,9 @@ export const playScreenShareJoinSound = () => {
 export const playScreenShareLeaveSound = () => {
   playTone(880, 'triangle', 0.1, 0.15, 0);
   playTone(440, 'triangle', 0.2, 0.15, 0.1);
+};
+
+export const playMoveSound = () => {
+  playTone(600, 'sine', 0.1, 0.15, 0);
+  playTone(800, 'sine', 0.1, 0.15, 0.05);
 };

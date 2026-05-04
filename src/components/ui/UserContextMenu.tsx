@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign, MicOff } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
@@ -29,7 +29,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
-  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm } = useAppStore();
+  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm, voiceParticipants } = useAppStore();
 
   useEffect(() => {
     if (!user) return;
@@ -245,10 +245,19 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     }
   };
 
+  const handleMuteUser = () => {
+    if (!userId) return;
+    onClose();
+    const targetVoiceState = Object.values(voiceParticipants).flat().find(p => p.id === userId);
+    const currentlyMuted = targetVoiceState?.isMuted || false;
+    socket.emit('force-mute', { userId, mute: !currentlyMuted });
+  };
+
   let isOwner = false;
   let canKick = false;
   let canBan = false;
   let canMove = false;
+  let canMute = false;
 
   if (serverInfo && currentUserMember) {
     isOwner = serverInfo.owner_id === user?.id;
@@ -265,12 +274,14 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       if (r.permissions?.includes('KICK_MEMBERS')) canKick = true;
       if (r.permissions?.includes('BAN_MEMBERS')) canBan = true;
       if (r.permissions?.includes('MOVE_MEMBERS')) canMove = true;
+      if (r.permissions?.includes('MUTE_MEMBERS')) canMute = true;
     });
 
     if (isOwner || currentUserHasAdmin) {
       canKick = true;
       canBan = true;
       canMove = true;
+      canMute = true;
     }
 
     // Evaluate target user's highest order
@@ -298,8 +309,9 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   // Adjust position to keep menu within viewport
   const menuWidth = 200;
   const isSelf = userId === user?.id;
-  const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove);
-  const menuHeight = showAdminActions ? 280 : 160;
+  const targetVoiceState = Object.values(voiceParticipants).flat().find(p => p.id === userId);
+  const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove || canMute);
+  const menuHeight = showAdminActions ? 320 : 160;
   let x = position.x;
   let y = position.y;
 
@@ -386,6 +398,15 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       {showAdminActions && (
         <>
           <div className="h-px bg-zinc-800 my-1" />
+          {targetVoiceState && canMute && (
+            <button 
+              onClick={handleMuteUser}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+            >
+              <MicOff className="w-4 h-4 text-orange-400" />
+              {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Muer')}
+            </button>
+          )}
           {userVoiceState && canMove && (
             <button 
               onClick={handleDisconnectVoice}

@@ -229,6 +229,15 @@ async function startServer() {
       });
     });
 
+    socket.on("force-mute", (data) => {
+      // data: { userId, mute }
+      const { userId, mute } = data;
+      const sockets = onlineUsers.get(userId);
+      sockets?.forEach(socketId => {
+        io.to(socketId).emit("force-mute", { mute });
+      });
+    });
+
     socket.on("server-kick", (data) => {
       // data: { userId, serverId }
       const { userId, serverId } = data;

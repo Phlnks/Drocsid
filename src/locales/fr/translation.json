@@ -360,6 +360,8 @@
       "message": "Message privé",
       "call": "Appeler",
       "mute": "Rendre muet",
+      "muteMember": "Muer",
+      "unmuteMember": "Rendre la parole",
       "unmute": "Réactiver les notifications",
       "addFriend": "Ajouter en ami",
       "removeFriend": "Retirer des amis",
@@ -509,7 +511,8 @@
       "READ_MESSAGES": { "label": "Lire les messages", "description": "Permet de voir et lire les salons textuels." },
       "CONNECT": { "label": "Se connecter", "description": "Permet de se connecter aux salons vocaux." },
       "SPEAK": { "label": "Parler", "description": "Permet de parler dans les salons vocaux." },
-      "MOVE_MEMBERS": { "label": "Déplacer des membres", "description": "Permet de déplacer des membres entre les salons vocaux." }
+      "MOVE_MEMBERS": { "label": "Déplacer des membres", "description": "Permet de déplacer des membres entre les salons vocaux." },
+      "MUTE_MEMBERS": { "label": "Muer les membres", "description": "Permet de rendre muet des membres dans les salons vocaux." }
     }
   },
   "channelList": {
