@@ -76,10 +76,29 @@ Rename the `.env.example` file to `.env` (or create a new one) and fill in the f
 VITE_SUPABASE_URL=https://your-project.supabase.co
 # Public Anonymous API Key
 VITE_SUPABASE_PUBLISHABLE_KEY=your_public_key
+# Service Role Key (Required for the Node.js backend to clean up dead voice calls)
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Application URL (used for invitations and sockets)
 VITE_BACKEND_URL=http://localhost:3000
 ```
+
+## 🛠️ Setting up your own Supabase Instance
+
+If you want to host Drocsid on your own infrastructure (avoiding free-tier quotas), follow these steps:
+
+1. **Local/Self-Hosted Setup**: You can use the [Supabase CLI](https://supabase.com/docs/guides/cli) to run a local instance using Docker:
+   - Run `supabase init` in the root (requires Supabase CLI).
+   - Use the provided `supabase.sql` file to initialize your schema.
+2. **Schema Deployment**: 
+   - Copy the SQL from `supabase.sql`.
+   - Paste it into your Supabase SQL Editor and run it. This creates all tables, RLS policies, and triggers.
+3. **Storage Buckets**: Ensure you create the following public buckets in your Supabase storage:
+   - `avatars`: For user profile pictures.
+   - `server-icons`: For server logos.
+   - `attachments`: For message file sharing.
+   - `emojis`: For custom server emojis.
+4. **Realtime Configuration**: Ensure "Broadcast" and "Presence" are enabled in your project settings to support the live member list and voice signaling.
 
 ## 🆕 First-Time Setup & Instances
 
@@ -115,8 +134,10 @@ npm run build
 npm run electron:build
 ```
 
-## 📱 Mobile Development (Android)
-The Android version is currently **under development** and will be ready soon. It uses Capacitor to provide a native mobile experience.
+## 📱 Mobile Experience
+Drocsid is fully responsive and optimized for mobile devices:
+- **Instant Browser Access**: No installation required! Simply open your instance URL in your mobile browser (Chrome, Safari, etc.) for a native-like experience.
+- **Android App**: Currently under development, using Capacitor for a focused native mobile experience.
 
 
 ## 🏗️ Multi-Instance Architecture
@@ -130,28 +151,25 @@ Drocsid is built with a **decentralized mindset**. Unlike platforms that lock yo
 
 ## 🚀 Deployment on Render
 
-To deploy the web version of Drocsid on [Render](https://render.com/):
+To deploy the full-stack version of Drocsid on [Render](https://render.com/):
 
 ### 1. Create a Web Service
 - Connect your GitHub repository to Render.
-- Select **Static Site** (or Web Service if you need a proxy, but Static Site is preferred for the Vite build).
+- Select **Web Service** (Drocsid runs a Node.js backend using Express and Socket.io for WebRTC signaling).
 
 ### 2. Build Settings
-- **Build Command**: `npm run build`
-- **Publish Directory**: `dist`
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
 
 ### 3. Environment Variables
-Add the following variables in the Render dashboard:
+Add the following variables in the Render dashboard under your Web Service:
 - `VITE_SUPABASE_URL`: Your Supabase Project URL.
 - `VITE_SUPABASE_PUBLISHABLE_KEY`: Your Supabase Anon Key.
+- `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase Service Role Key (needed for the backend to clean up Socket.io calls).
 - `VITE_BACKEND_URL`: The URL where your app is hosted (e.g., `https://drocsid-app.onrender.com`).
+- `RENDER`: `true`
 
-### 4. Client-Side Routing (Crucial)
-Since Drocsid is a Single Page Application (SPA), ensure you configure **Redirects/Rewrites** in Render:
-- **Source**: `/*`
-- **Destination**: `/index.html`
-- **Action**: Rewrite
-- **Status**: 200
+And that's it! Render will build the Vite frontend and serve it automatically using the Node backend.
 
 ## 🛡️ Advanced Security & Hierarchy
 

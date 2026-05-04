@@ -401,6 +401,9 @@
     "emojis": "Émojis",
     "logs": "Logs",
     "deleteServer": "Supprimer le serveur",
+    "deleteServerConfirm": "Êtes-vous sûr de vouloir supprimer ce serveur ? Cette action est irréversible.",
+    "emojiAdded": "Émoji ajouté !",
+    "emojiDeleted": "Émoji supprimé",
     "serverProfile": "PROFIL DU SERVEUR",
     "serverName": "NOM DU SERVEUR",
     "saveChanges": "Enregistrer les modifications",
@@ -425,7 +428,6 @@
     "roleDeleted": "Rôle supprimé",
     "deleteRoleConfirm": "Voulez-vous vraiment supprimer ce rôle ?",
     "searchMembers": "Rechercher des membres...",
-    "addRole": "Ajouter un rôle",
     "noChannels": "Aucun salon.",
     "noCustomRoles": "Aucun rôle personnalisé.",
     "editChannel": "Modifier le salon : {{name}}",
@@ -443,11 +445,9 @@
     "unban": "Débannir",
     "customEmojisTitle": "Émojis Personnalisés",
     "customEmojisDesc": "Ajoutez jusqu'à 50 émojis personnalisés pour votre serveur.",
-    "addEmoji": "Ajouter un émoji",
     "deleteEmoji": "Supprimer cet émoji",
     "noCustomEmojis": "Aucun émoji personnalisé sur ce serveur.",
     "maxEmojiSize": "Les images doivent peser moins de 2MB.",
-    "invites": "Invitations",
     "generateLink": "Générer un lien",
     "noActiveInvites": "Aucune invitation active.",
     "createdOn": "Créé le {{date}}",
@@ -498,21 +498,66 @@
     "invite_create": "Création d'invitations",
     "invite_delete": "Suppression d'invitations",
     "perms": {
-      "ADMINISTRATOR": { "label": "Administrateur", "description": "Donne tous les droits sur le serveur." },
-      "MANAGE_SERVER": { "label": "Gérer le serveur", "description": "Permet de modifier le nom et supprimer le serveur." },
-      "MANAGE_ROLES": { "label": "Gérer les rôles", "description": "Permet de créer, modifier et supprimer des rôles." },
-      "MANAGE_CHANNELS": { "label": "Gérer les salons", "description": "Permet de créer, modifier et supprimer des salons et catégories." },
-      "MANAGE_MESSAGES": { "label": "Gérer les messages", "description": "Permet de supprimer les messages des autres membres." },
-      "PIN_MESSAGES": { "label": "Épingler des messages", "description": "Permet d'épingler ou de désépingler des messages." },
-      "KICK_MEMBERS": { "label": "Expulser des membres", "description": "Permet d'expulser des membres du serveur." },
-      "BAN_MEMBERS": { "label": "Bannir des membres", "description": "Permet de bannir des membres du serveur." },
-      "CREATE_INVITE": { "label": "Créer une invitation", "description": "Permet de créer des codes d'invitation." },
-      "SEND_MESSAGES": { "label": "Envoyer des messages", "description": "Permet d'envoyer des messages dans les salons textuels." },
-      "READ_MESSAGES": { "label": "Lire les messages", "description": "Permet de voir et lire les salons textuels." },
-      "CONNECT": { "label": "Se connecter", "description": "Permet de se connecter aux salons vocaux." },
-      "SPEAK": { "label": "Parler", "description": "Permet de parler dans les salons vocaux." },
-      "MOVE_MEMBERS": { "label": "Déplacer des membres", "description": "Permet de déplacer des membres entre les salons vocaux." },
-      "MUTE_MEMBERS": { "label": "Rendre muet les membres", "description": "Permet de rendre muet des membres dans les salons vocaux." }
+      "ADMINISTRATOR": {
+        "label": "Administrateur",
+        "description": "Donne tous les droits sur le serveur."
+      },
+      "MANAGE_SERVER": {
+        "label": "Gérer le serveur",
+        "description": "Permet de modifier le nom et supprimer le serveur."
+      },
+      "MANAGE_ROLES": {
+        "label": "Gérer les rôles",
+        "description": "Permet de créer, modifier et supprimer des rôles."
+      },
+      "MANAGE_CHANNELS": {
+        "label": "Gérer les salons",
+        "description": "Permet de créer, modifier et supprimer des salons et catégories."
+      },
+      "MANAGE_MESSAGES": {
+        "label": "Gérer les messages",
+        "description": "Permet de supprimer les messages des autres membres."
+      },
+      "PIN_MESSAGES": {
+        "label": "Épingler des messages",
+        "description": "Permet d'épingler ou de désépingler des messages."
+      },
+      "KICK_MEMBERS": {
+        "label": "Expulser des membres",
+        "description": "Permet d'expulser des membres du serveur."
+      },
+      "BAN_MEMBERS": {
+        "label": "Bannir des membres",
+        "description": "Permet de bannir des membres du serveur."
+      },
+      "CREATE_INVITE": {
+        "label": "Créer une invitation",
+        "description": "Permet de créer des codes d'invitation."
+      },
+      "SEND_MESSAGES": {
+        "label": "Envoyer des messages",
+        "description": "Permet d'envoyer des messages dans les salons textuels."
+      },
+      "READ_MESSAGES": {
+        "label": "Lire les messages",
+        "description": "Permet de voir et lire les salons textuels."
+      },
+      "CONNECT": {
+        "label": "Se connecter",
+        "description": "Permet de se connecter aux salons vocaux."
+      },
+      "SPEAK": {
+        "label": "Parler",
+        "description": "Permet de parler dans les salons vocaux."
+      },
+      "MOVE_MEMBERS": {
+        "label": "Déplacer des membres",
+        "description": "Permet de déplacer des membres entre les salons vocaux."
+      },
+      "MUTE_MEMBERS": {
+        "label": "Rendre muet les membres",
+        "description": "Permet de rendre muet des membres dans les salons vocaux."
+      }
     }
   },
   "channelList": {

@@ -107,18 +107,21 @@
     "noMoreFriends": "No tienes más amigos que añadir.",
     "noFriendFound": "Ningún amigo encontrado.",
     "adding": "Añadiendo...",
-    "add": "Añadir"
+    "add": "Añadir",
+    "notificationFriendRequest": "sent you a friend request",
+    "notificationFriendAccepted": "accepted your friend request"
   },
   "notifications": {
-    "title": "Notificaciones",
-    "mentionsAndNotifications": "Menciones y notificaciones",
-    "markAllRead": "Marcar todo como leído",
-    "unreadDMs": "Mensajes directos no leídos",
-    "newMessageFrom": "Nuevo mensaje de {{name}}",
-    "mentionedBy": "Mencionado por",
-    "markAsRead": "Marcar como leído",
-    "viewMessage": "Ver mensaje",
-    "noNotifications": "No hay notificaciones todavía."
+    "kickedFromServer": "Has sido expulsado del servidor",
+    "title": "Notifications",
+    "mentionsAndNotifications": "Mentions & Notifications",
+    "markAllRead": "Mark all as read",
+    "unreadDMs": "Unread Direct Messages",
+    "newMessageFrom": "New message from {{name}}",
+    "mentionedBy": "Mentioned by",
+    "markAsRead": "Mark as read",
+    "viewMessage": "View message",
+    "noNotifications": "No notifications yet."
   },
   "settings": {
     "title": "Ajustes de usuario",
@@ -364,7 +367,9 @@
       "kick": "Expulsar",
       "ban": "Banear",
       "kickConfirm": "¿Estás seguro de que quieres expulsar a {{username}}?",
-      "banConfirm": "¿Estás seguro de que quieres banear a {{username}}?"
+      "banConfirm": "¿Estás seguro de que quieres banear a {{username}}?",
+      "muteMember": "Mute",
+      "unmuteMember": "Unmute"
     },
     "joinServer": {
       "title": "Únete a un servidor",
@@ -372,6 +377,16 @@
       "inviteLink": "Enlace de invitación",
       "invitePlaceholder": "https://... o código de invitación",
       "join": "Unirse al servidor"
+    },
+    "createServer": {
+      "title": "Customize your server",
+      "description": "Give your new server a personality with a name and an icon. You can always change it later.",
+      "serverName": "Server Name",
+      "serverNamePlaceholder": "My Awesome Server",
+      "isPublic": "Public Server",
+      "isPublicDescription": "Anyone can join this server",
+      "cancel": "Cancel",
+      "create": "Create"
     }
   },
   "serverSettings": {
@@ -413,7 +428,6 @@
     "roleDeleted": "Rol eliminado",
     "deleteRoleConfirm": "¿Estás seguro de que quieres eliminar este rol?",
     "searchMembers": "Buscar miembros...",
-    "addRole": "Añadir rol",
     "noChannels": "Ningún canal.",
     "noCustomRoles": "Ningún rol personalizado.",
     "editChannel": "Editar canal: {{name}}",
@@ -431,11 +445,9 @@
     "unban": "Desbanear",
     "customEmojisTitle": "Emojis personalizados",
     "customEmojisDesc": "Añade hasta 50 emojis personalizados para tu servidor.",
-    "addEmoji": "Añadir emoji",
     "deleteEmoji": "Eliminar este emoji",
     "noCustomEmojis": "Ningún emoji personalizado en este servidor.",
     "maxEmojiSize": "Las imágenes deben pesar menos de 2MB.",
-    "invites": "Invitaciones",
     "generateLink": "Generar enlace",
     "noActiveInvites": "No hay invitaciones activas.",
     "createdOn": "Creado el {{date}}",
@@ -486,20 +498,66 @@
     "invite_create": "Creación de invitación",
     "invite_delete": "Eliminación de invitación",
     "perms": {
-      "ADMINISTRATOR": { "label": "Administrador", "description": "Da todos los permisos en el servidor." },
-      "MANAGE_SERVER": { "label": "Gestionar servidor", "description": "Permite modificar el nombre y eliminar el servidor." },
-      "MANAGE_ROLES": { "label": "Gestionar roles", "description": "Permite crear, modificar y eliminar roles." },
-      "MANAGE_CHANNELS": { "label": "Gestionar canales", "description": "Permite crear, modificar y eliminar canales y categorías." },
-      "MANAGE_MESSAGES": { "label": "Gestionar mensajes", "description": "Permite eliminar mensajes de otros miembros." },
-      "PIN_MESSAGES": { "label": "Fijar mensajes", "description": "Permite fijar o desfijar mensajes." },
-      "KICK_MEMBERS": { "label": "Expulsar miembros", "description": "Permite expulsar miembros del servidor." },
-      "BAN_MEMBERS": { "label": "Banear miembros", "description": "Permite banear miembros del servidor." },
-      "CREATE_INVITE": { "label": "Crear invitación", "description": "Permite crear enlaces de invitación." },
-      "SEND_MESSAGES": { "label": "Enviar mensajes", "description": "Permite enviar mensajes en canales de texto." },
-      "READ_MESSAGES": { "label": "Leer mensajes", "description": "Permite ver y leer canales de texto." },
-      "CONNECT": { "label": "Conectar", "description": "Permite conectarse a canales de voz." },
-      "SPEAK": { "label": "Hablar", "description": "Permite hablar en canales de voz." },
-      "MOVE_MEMBERS": { "label": "Mover miembros", "description": "Permite mover miembros entre canales de voz." }
+      "ADMINISTRATOR": {
+        "label": "Administrador",
+        "description": "Da todos los permisos en el servidor."
+      },
+      "MANAGE_SERVER": {
+        "label": "Gestionar servidor",
+        "description": "Permite modificar el nombre y eliminar el servidor."
+      },
+      "MANAGE_ROLES": {
+        "label": "Gestionar roles",
+        "description": "Permite crear, modificar y eliminar roles."
+      },
+      "MANAGE_CHANNELS": {
+        "label": "Gestionar canales",
+        "description": "Permite crear, modificar y eliminar canales y categorías."
+      },
+      "MANAGE_MESSAGES": {
+        "label": "Gestionar mensajes",
+        "description": "Permite eliminar mensajes de otros miembros."
+      },
+      "PIN_MESSAGES": {
+        "label": "Fijar mensajes",
+        "description": "Permite fijar o desfijar mensajes."
+      },
+      "KICK_MEMBERS": {
+        "label": "Expulsar miembros",
+        "description": "Permite expulsar miembros del servidor."
+      },
+      "BAN_MEMBERS": {
+        "label": "Banear miembros",
+        "description": "Permite banear miembros del servidor."
+      },
+      "CREATE_INVITE": {
+        "label": "Crear invitación",
+        "description": "Permite crear enlaces de invitación."
+      },
+      "SEND_MESSAGES": {
+        "label": "Enviar mensajes",
+        "description": "Permite enviar mensajes en canales de texto."
+      },
+      "READ_MESSAGES": {
+        "label": "Leer mensajes",
+        "description": "Permite ver y leer canales de texto."
+      },
+      "CONNECT": {
+        "label": "Conectar",
+        "description": "Permite conectarse a canales de voz."
+      },
+      "SPEAK": {
+        "label": "Hablar",
+        "description": "Permite hablar en canales de voz."
+      },
+      "MOVE_MEMBERS": {
+        "label": "Mover miembros",
+        "description": "Permite mover miembros entre canales de voz."
+      },
+      "MUTE_MEMBERS": {
+        "label": "Mute Members",
+        "description": "Allows muting members in voice channels."
+      }
     }
   },
   "channelList": {
@@ -576,17 +634,15 @@
     "audioNote": "No olvides marcar \"Compartir audio del sistema\" en la ventana de compartir.",
     "standard": "Estándar (720p 30fps)",
     "high": "Alta (1080p 60fps) - Juegos",
-    "ultra": "Ultra (1440p 60fps)"
-    },
-    "auth": {
-      "welcome": "Bienvenido a Drocsid",
-      "description": "Conéctate con tu comunidad en tiempo real.",
-      "continueWithGoogle": "Continuar con Google",
-      "switchAccount": "Cambiar de cuenta",
-      "connectionProblem": "¿Problema de conexión?",
-      "resetDefaultServer": "Restablecer servidor predeterminado"
-    },
-    "notifications": {
-      "kickedFromServer": "Has sido expulsado del servidor"
-    }
+    "ultra": "Ultra (1440p 60fps)",
+    "afkRestricted": "Restricted Access (AFK Channel)"
+  },
+  "auth": {
+    "welcome": "Bienvenido a Drocsid",
+    "description": "Conéctate con tu comunidad en tiempo real.",
+    "continueWithGoogle": "Continuar con Google",
+    "switchAccount": "Cambiar de cuenta",
+    "connectionProblem": "¿Problema de conexión?",
+    "resetDefaultServer": "Restablecer servidor predeterminado"
+  }
 }
