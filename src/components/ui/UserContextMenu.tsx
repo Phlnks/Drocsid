@@ -25,7 +25,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
   const [serverRoles, setServerRoles] = useState<any[]>([]);
   const [serverInfo, setServerInfo] = useState<any>(null);
-  const [userVoiceState, setUserVoiceState] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
@@ -35,31 +34,44 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     if (!user) return;
 
     const fetchData = async () => {
-      // Fetch relationship
-      const { data: relData } = await supabase.from('relationships').select('*').contains('participants', [user.id]);
-      const rel = relData?.find(r => r.participants.includes(userId));
-      setRelationship(rel || null);
-      setIsLoading(false);
+      // Start fetching relationship
+      const fetchRel = supabase.from('relationships').select('*').contains('participants', [user.id]);
 
-      // Fetch server member info if in server context
+      // Prepare server-related promises
+      let fetchServerMem = Promise.resolve({ data: null });
+      let fetchCurrentMem = Promise.resolve({ data: null });
+      let fetchRoles = Promise.resolve({ data: [] });
+      let fetchServInfo = Promise.resolve({ data: null });
+
       if (serverId) {
-        const { data: memberData } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle();
-        if (memberData) setServerMember(memberData);
-
-        const { data: currentMemberData } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
-        if (currentMemberData) setCurrentUserMember(currentMemberData);
-
-        const { data: rolesData } = await supabase.from('roles').select('*').eq('server_id', serverId);
-        if (rolesData) setServerRoles(rolesData);
-
-        const { data: servData } = await supabase.from('servers').select('*').eq('id', serverId).maybeSingle();
-        if (servData) setServerInfo(servData);
+        fetchServerMem = supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle();
+        fetchCurrentMem = supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
+        fetchRoles = supabase.from('roles').select('*').eq('server_id', serverId);
+        fetchServInfo = supabase.from('servers').select('*').eq('id', serverId).maybeSingle();
       }
 
-      // Check if user is in any voice channel
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if (profileData) {
-        setUserVoiceState(profileData.force_voice_move || null);
+      try {
+        const [relRes, memData, currentMemData, rolesData, servData] = await Promise.all([
+          fetchRel,
+          fetchServerMem,
+          fetchCurrentMem,
+          fetchRoles,
+          fetchServInfo
+        ]);
+
+        const rel = relRes.data?.find(r => r.participants.includes(userId));
+        setRelationship(rel || null);
+
+        if (serverId) {
+          if (memData.data) setServerMember(memData.data);
+          if (currentMemData.data) setCurrentUserMember(currentMemData.data);
+          if (rolesData.data) setServerRoles(rolesData.data);
+          if (servData.data) setServerInfo(servData.data);
+        }
+      } catch (err) {
+        console.error("Error fetching context menu data:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -407,7 +419,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
               {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Muer')}
             </button>
           )}
-          {userVoiceState && canMove && (
+          {targetVoiceState && canMove && (
             <button 
               onClick={handleDisconnectVoice}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
