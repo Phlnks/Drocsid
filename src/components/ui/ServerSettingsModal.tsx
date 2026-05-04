@@ -74,7 +74,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     { id: 'CONNECT', label: t('serverSettings.perms.CONNECT.label'), description: t('serverSettings.perms.CONNECT.description') },
     { id: 'SPEAK', label: t('serverSettings.perms.SPEAK.label'), description: t('serverSettings.perms.SPEAK.description') },
     { id: 'MOVE_MEMBERS', label: t('serverSettings.perms.MOVE_MEMBERS.label'), description: t('serverSettings.perms.MOVE_MEMBERS.description') },
-    { id: 'MUTE_MEMBERS', label: t('serverSettings.perms.MUTE_MEMBERS.label', 'Muer les membres'), description: t('serverSettings.perms.MUTE_MEMBERS.description', 'Permet de rendre muet des membres dans les salons vocaux.') },
+    { id: 'MUTE_MEMBERS', label: t('serverSettings.perms.MUTE_MEMBERS.label', 'Rendre muet les membres'), description: t('serverSettings.perms.MUTE_MEMBERS.description', 'Permet de rendre muet des membres dans les salons vocaux.') },
     { id: 'MANAGE_SOUNDBOARD', label: t('serverSettings.perms.MANAGE_SOUNDBOARD.label', 'Gérer le soundboard'), description: t('serverSettings.perms.MANAGE_SOUNDBOARD.description', 'Permet d\'ajouter et supprimer des sons au soundboard.') },
     { id: 'USE_SOUNDBOARD', label: t('serverSettings.perms.USE_SOUNDBOARD.label', 'Utiliser le soundboard'), description: t('serverSettings.perms.USE_SOUNDBOARD.description', 'Permet de jouer des sons du soundboard.') }
   ];
