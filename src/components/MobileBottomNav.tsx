@@ -35,7 +35,7 @@ export default function MobileBottomNav() {
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'servers' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
         <Server className="w-6 h-6 shrink-0" strokeWidth={2.5} />
-        <span className="text-[10px] font-medium leading-none uppercase">Serveurs</span>
+        <span className="text-[10px] font-medium leading-none">Serveurs</span>
       </button>
 
       <button 
@@ -51,7 +51,7 @@ export default function MobileBottomNav() {
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'profile' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
         <Settings className="w-6 h-6 shrink-0" strokeWidth={2.5} />
-        <span className="text-[10px] font-medium leading-none uppercase">Paramètres</span>
+        <span className="text-[10px] font-medium leading-none">Paramètres</span>
       </button>
     </div>
   );
