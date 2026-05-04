@@ -644,5 +644,21 @@
     "switchAccount": "Switch account",
     "connectionProblem": "Connection problem?",
     "resetDefaultServer": "Reset to default server"
+  },
+  "download": {
+    "title": "Download Drocsid",
+    "subtitle": "Get the best experience by installing our native application.",
+    "windowsBtn": "Download for Windows",
+    "windowsVersion": "Windows 10/11 - 64 bits",
+    "otherPlatforms": "Other platforms",
+    "macLinuxMobile": "macOS, Linux, and mobile versions are currently under development.",
+    "webVersion": "Access on the Web",
+    "webVersionDesc": "Stay connected on any browser without installation.",
+    "features": {
+      "title": "Why download the app?",
+      "voice": "Optimized low-latency voice and video calls.",
+      "notifications": "Native notifications even when the app is closed.",
+      "startup": "Automatically launch Drocsid on startup."
+    }
   }
 }

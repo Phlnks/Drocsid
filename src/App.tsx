@@ -12,8 +12,69 @@ import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import ThemeManager from './components/ThemeManager';
 import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from './lib/sounds';
+import { Routes, Route } from 'react-router-dom';
+import DownloadPage from './pages/DownloadPage';
 
 import { useTranslation } from 'react-i18next';
+
+function MainAppContent() {
+  const { t } = useTranslation();
+  const { user, isAuthReady } = useAuthStore();
+  const { isCurrentInstanceValid } = useInstanceStore();
+  const isInstanceValid = isCurrentInstanceValid();
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isInstanceValid) {
+    return <InstanceSetupScreen />;
+  }
+
+  const isInIframe = window.self !== window.top;
+
+  if (isInIframe) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full space-y-8">
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold text-white tracking-tight">
+              {t('app.readyToChat')}
+            </h1>
+            <p className="text-zinc-400 text-lg">
+              {t('app.openInNewTab')}
+            </p>
+          </div>
+          
+          <button
+            onClick={() => window.open(window.location.href, '_blank')}
+            className="w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            {t('app.launchApp')}
+          </button>
+          
+          <p className="text-zinc-500 text-sm">
+            {t('app.secureLogin')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <ThemeManager />
+      {user ? <Layout /> : <Auth />}
+    </>
+  );
+}
 
 export default function App() {
   const { t } = useTranslation();
@@ -418,9 +479,11 @@ export default function App() {
 
   return (
     <>
-      <ThemeManager />
       <Toaster />
-      {user ? <Layout /> : <Auth />}
+      <Routes>
+        <Route path="/download" element={<DownloadPage />} />
+        <Route path="*" element={<MainAppContent />} />
+      </Routes>
     </>
   );
 }

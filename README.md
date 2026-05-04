@@ -138,6 +138,7 @@ npm run electron:build
 Drocsid is fully responsive and optimized for mobile devices:
 - **Instant Browser Access**: No installation required! Simply open your instance URL in your mobile browser (Chrome, Safari, etc.) for a native-like experience.
 - **Android App**: Currently under development, using Capacitor for a focused native mobile experience.
+- **Windows App**: You can access the official installer for Windows by visiting the `/download` page of your application.
 
 
 ## 🏗️ Multi-Instance Architecture

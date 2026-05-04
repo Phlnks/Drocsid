@@ -965,6 +965,19 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                       </div>
                     </div>
                   </div>
+
+                  <div className="bg-indigo-600/10 p-5 rounded-xl border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-center sm:text-left">
+                      <h3 className="text-base font-bold text-indigo-100 mb-1">{t('download.title')}</h3>
+                      <p className="text-xs text-indigo-300/80 leading-relaxed">{t('download.subtitle')}</p>
+                    </div>
+                    <button 
+                      onClick={() => window.open('/download', '_blank')}
+                      className="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 shrink-0"
+                    >
+                      {t('download.downloadButton')}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
