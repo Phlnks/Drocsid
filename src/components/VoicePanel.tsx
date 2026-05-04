@@ -433,7 +433,7 @@ export default function VoicePanel() {
       {/* Hidden video to keep screen share alive */}
       <video ref={localVideoRef} autoPlay playsInline muted className="absolute w-[1px] h-[1px] opacity-0 pointer-events-none" />
       
-      <div className="flex items-center justify-between px-2">
+      <div className="hidden md:flex items-center justify-between px-2">
         <div 
           className={clsx(
             "flex items-center gap-2 text-emerald-500",
@@ -509,6 +509,13 @@ export default function VoicePanel() {
           title={t('voice.soundboard', 'Soundboard')}
         >
           <Volume2 className="w-4 h-4" />
+        </button>
+        <button 
+          onClick={handleDisconnect}
+          className="flex-1 md:hidden flex items-center justify-center py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-500 transition-colors"
+          title={t('voice.disconnect')}
+        >
+          <PhoneOff className="w-4 h-4" />
         </button>
       </div>
 
