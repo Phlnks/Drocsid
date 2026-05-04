@@ -460,12 +460,14 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
           }
 
           if (mentionedUserIds.size > 0) {
+            const currentProfile = users.find(u => u.id === user.id);
+            const currentUsername = currentProfile?.display_name || currentProfile?.username || user?.user_metadata?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Utilisateur';
             const notifications = Array.from(mentionedUserIds).map(targetId => ({
               user_id: targetId,
               type: 'mention',
               data: {
                 author_id: user.id,
-                author_name: user?.user_metadata?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Utilisateur',
+                author_name: currentUsername,
                 content: textToSend.slice(0, 200),
                 server_id: serverId,
                 channel_id: channelId,
@@ -486,12 +488,14 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
           if (dmData && dmData.participants) {
             const recipients = dmData.participants.filter((p: string) => p !== user.id);
             if (recipients.length > 0) {
+              const currentProfile = users.find(u => u.id === user.id);
+              const currentUsername = currentProfile?.display_name || currentProfile?.username || user?.user_metadata?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Utilisateur';
               const notifications = recipients.map(targetId => ({
                 user_id: targetId,
                 type: 'dm',
                 data: {
                   author_id: user.id,
-                  author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'Utilisateur',
+                  author_name: currentUsername,
                   content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
                   channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
                   message_id: newMessage.id,

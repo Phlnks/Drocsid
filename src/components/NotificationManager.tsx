@@ -45,8 +45,8 @@ export default function NotificationManager() {
             playMessageSound();
           }
           
-          const { data: profile } = await supabase.from('profiles').select('username').eq('id', message.author_id).maybeSingle();
-          const authorName = profile?.username || 'Somebody';
+          const { data: profile } = await supabase.from('profiles').select('username, display_name').eq('id', message.author_id).maybeSingle();
+          const authorName = profile?.display_name || profile?.username || 'Somebody';
           
           showDesktopNotification(`Nouveau message de ${authorName}`, message.content);
         }
