@@ -360,7 +360,7 @@
       "message": "Message privé",
       "call": "Appeler",
       "mute": "Rendre muet",
-      "muteMember": "Muer",
+      "muteMember": "Rendre muet",
       "unmuteMember": "Rendre la parole",
       "unmute": "Réactiver les notifications",
       "addFriend": "Ajouter en ami",

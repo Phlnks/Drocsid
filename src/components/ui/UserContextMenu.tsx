@@ -36,36 +36,30 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Start all independent queries in parallel using real Promises
-        const promises = [
-          supabase.from('relationships').select('*').contains('participants', [user.id])
-        ];
-
+        const relPromise = supabase.from('relationships').select('*').contains('participants', [user.id]);
+        
+        let memPromise, curMemPromise, rolesPromise, servPromise;
         if (serverId) {
-          promises.push(
-            supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle(),
-            supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle(),
-            supabase.from('roles').select('*').eq('server_id', serverId),
-            supabase.from('servers').select('*').eq('id', serverId).maybeSingle()
-          );
+          memPromise = supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', userId).maybeSingle();
+          curMemPromise = supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
+          rolesPromise = supabase.from('roles').select('*').eq('server_id', serverId);
+          servPromise = supabase.from('servers').select('*').eq('id', serverId).maybeSingle();
         }
 
-        const results = await Promise.all(promises);
-        const relRes = results[0];
-
-        const rel = relRes.data?.find((r: any) => r.participants.includes(userId));
+        const { data: relData } = await relPromise;
+        const rel = relData?.find((r: any) => r.participants.includes(userId));
         setRelationship(rel || null);
 
         if (serverId) {
-          const memData = results[1];
-          const currentMemData = results[2];
-          const rolesData = results[3];
-          const servData = results[4];
+          const { data: memData } = await memPromise;
+          const { data: currentMemData } = await curMemPromise;
+          const { data: rolesData } = await rolesPromise;
+          const { data: servData } = await servPromise;
 
-          if (memData?.data) setServerMember(memData.data);
-          if (currentMemData?.data) setCurrentUserMember(currentMemData.data);
-          if (rolesData?.data) setServerRoles(rolesData.data);
-          if (servData?.data) setServerInfo(servData.data);
+          if (memData) setServerMember(memData);
+          if (currentMemData) setCurrentUserMember(currentMemData);
+          if (rolesData) setServerRoles(rolesData);
+          if (servData) setServerInfo(servData);
         }
       } catch (err) {
         console.error("Error fetching context menu data:", err);
@@ -75,7 +69,9 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     };
 
     fetchData();
+  }, [userId, serverId, user?.id]);
 
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
@@ -86,7 +82,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userId, serverId, onClose, user]);
+  }, [onClose]);
 
   const handleDM = async () => {
     if (!user) return;
