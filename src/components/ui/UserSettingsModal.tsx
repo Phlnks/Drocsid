@@ -260,7 +260,7 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="bg-zinc-800 w-full max-w-4xl h-full md:h-[80vh] rounded-none md:rounded-lg shadow-2xl flex flex-col md:flex-row overflow-hidden">
+      <div className="bg-zinc-800 w-full max-w-4xl h-screen md:h-[80vh] rounded-none md:rounded-lg shadow-2xl flex flex-col md:flex-row overflow-hidden">
         
         {/* Sidebar */}
         <div className="w-full md:w-60 bg-zinc-900/50 flex md:flex-col p-4 border-b md:border-b-0 md:border-r border-zinc-700/50 shrink-0 overflow-x-auto md:overflow-y-auto no-scrollbar gap-2 md:gap-1">

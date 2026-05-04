@@ -465,7 +465,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
               type: 'mention',
               data: {
                 author_id: user.id,
-                author_name: user?.user_metadata?.display_name || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur',
+                author_name: user?.user_metadata?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Utilisateur',
                 content: textToSend.slice(0, 200),
                 server_id: serverId,
                 channel_id: channelId,
@@ -491,7 +491,7 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
                 type: 'dm',
                 data: {
                   author_id: user.id,
-                  author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'User',
+                  author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'Utilisateur',
                   content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
                   channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
                   message_id: newMessage.id,
