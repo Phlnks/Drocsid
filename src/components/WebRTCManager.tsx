@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { playConnectSound, playDisconnectSound, playScreenShareStartSound } from '../lib/sounds';
+import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
 import socket from '../lib/socket';
 
 function AudioPlayer({ stream }: { key?: any, stream: any }) {
@@ -334,12 +334,22 @@ export default function WebRTCManager() {
 
       // Using next/previous track for Deafen (Sourdine) toggle
       navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (!isDeafened) {
+          playDeafenSound();
+        } else {
+          playUndeafenSound();
+        }
         setIsDeafened(!isDeafened);
       });
       
       try {
         // @ts-ignore
         navigator.mediaSession.setActionHandler('togglemicrophone', () => {
+          if (!isVoiceMuted) {
+            playMuteSound();
+          } else {
+            playUnmuteSound();
+          }
           setIsVoiceMuted(!isVoiceMuted);
         });
         // @ts-ignore

@@ -11,6 +11,7 @@ import socket from './lib/socket';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import ThemeManager from './components/ThemeManager';
+import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from './lib/sounds';
 
 import { useTranslation } from 'react-i18next';
 
@@ -156,6 +157,11 @@ export default function App() {
         const currentState = useAppStore.getState();
         if (!currentState.isDeafened && currentState.connectedVoiceChannelId) {
           const newState = !currentState.isVoiceMuted;
+          if (newState) {
+            playMuteSound();
+          } else {
+            playUnmuteSound();
+          }
           currentState.setIsVoiceMuted(newState);
         }
       };
@@ -164,6 +170,11 @@ export default function App() {
         const currentState = useAppStore.getState();
         if (currentState.connectedVoiceChannelId) {
           const newState = !currentState.isDeafened;
+          if (newState) {
+            playDeafenSound();
+          } else {
+            playUndeafenSound();
+          }
           currentState.setIsDeafened(newState);
           if (newState && !currentState.isVoiceMuted) {
              currentState.setIsVoiceMuted(true); // Deafening also mutes

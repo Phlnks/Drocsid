@@ -14,7 +14,7 @@ const getAudioContext = () => {
   return audioCtx;
 };
 
-const playTone = (freq: number, type: OscillatorType, duration: number, vol: number = 0.05, startTimeOffset: number = 0) => {
+const playTone = (freq: number, type: OscillatorType, duration: number, vol: number = 0.15, startTimeOffset: number = 0) => {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -40,7 +40,7 @@ const playTone = (freq: number, type: OscillatorType, duration: number, vol: num
   }
 };
 
-const playReverseTone = (freq: number, type: OscillatorType, duration: number, vol: number = 0.05, startTimeOffset: number = 0) => {
+const playReverseTone = (freq: number, type: OscillatorType, duration: number, vol: number = 0.15, startTimeOffset: number = 0) => {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -67,38 +67,38 @@ const playReverseTone = (freq: number, type: OscillatorType, duration: number, v
 };
 
 export const playConnectSound = () => {
-  playTone(440, 'sine', 0.15, 0.05, 0);
-  playTone(554, 'sine', 0.15, 0.05, 0.1);
-  playTone(659, 'sine', 0.3, 0.05, 0.2);
+  playTone(440, 'sine', 0.15, 0.15, 0);
+  playTone(554, 'sine', 0.15, 0.15, 0.1);
+  playTone(659, 'sine', 0.3, 0.15, 0.2);
 };
 
 export const playDisconnectSound = () => {
-  playTone(659, 'sine', 0.15, 0.05, 0);
-  playTone(554, 'sine', 0.15, 0.05, 0.1);
-  playTone(440, 'sine', 0.3, 0.05, 0.2);
+  playTone(659, 'sine', 0.15, 0.15, 0);
+  playTone(554, 'sine', 0.15, 0.15, 0.1);
+  playTone(440, 'sine', 0.3, 0.15, 0.2);
 };
 
 export const playMuteSound = () => {
-  playTone(300, 'sine', 0.2, 0.05, 0);
+  playTone(300, 'sine', 0.2, 0.15, 0);
 };
 
 export const playUnmuteSound = () => {
-  playTone(500, 'sine', 0.2, 0.05, 0);
+  playTone(500, 'sine', 0.2, 0.15, 0);
 };
 
 export const playDeafenSound = () => {
-  playTone(250, 'sine', 0.15, 0.05, 0);
-  playTone(200, 'sine', 0.2, 0.05, 0.15);
+  playTone(250, 'sine', 0.15, 0.15, 0);
+  playTone(200, 'sine', 0.2, 0.15, 0.15);
 };
 
 export const playUndeafenSound = () => {
-  playTone(400, 'sine', 0.15, 0.05, 0);
-  playTone(500, 'sine', 0.2, 0.05, 0.15);
+  playTone(400, 'sine', 0.15, 0.15, 0);
+  playTone(500, 'sine', 0.2, 0.15, 0.15);
 };
 
 export const playMessageSound = () => {
-  playTone(784, 'sine', 0.1, 0.03, 0); // G5
-  playTone(1046, 'sine', 0.2, 0.03, 0.1); // C6
+  playTone(784, 'sine', 0.1, 0.1, 0); // G5
+  playTone(1046, 'sine', 0.2, 0.1, 0.1); // C6
 };
 
 let ringtoneInterval: any = null;
@@ -142,23 +142,23 @@ export const stopRingtone = () => {
 };
 
 export const playScreenShareStartSound = () => {
-  playTone(523.25, 'sine', 0.1, 0.05, 0); // C5
-  playTone(659.25, 'sine', 0.1, 0.05, 0.1); // E5
-  playTone(783.99, 'sine', 0.2, 0.05, 0.2); // G5
+  playTone(523.25, 'sine', 0.1, 0.15, 0); // C5
+  playTone(659.25, 'sine', 0.1, 0.15, 0.1); // E5
+  playTone(783.99, 'sine', 0.2, 0.15, 0.2); // G5
 };
 
 export const playScreenShareStopSound = () => {
-  playTone(783.99, 'sine', 0.1, 0.05, 0); // G5
-  playTone(659.25, 'sine', 0.1, 0.05, 0.1); // E5
-  playTone(523.25, 'sine', 0.2, 0.05, 0.2); // C5
+  playTone(783.99, 'sine', 0.1, 0.15, 0); // G5
+  playTone(659.25, 'sine', 0.1, 0.15, 0.1); // E5
+  playTone(523.25, 'sine', 0.2, 0.15, 0.2); // C5
 };
 
 export const playScreenShareJoinSound = () => {
-  playTone(440, 'triangle', 0.1, 0.05, 0);
-  playTone(880, 'triangle', 0.2, 0.05, 0.1);
+  playTone(440, 'triangle', 0.1, 0.15, 0);
+  playTone(880, 'triangle', 0.2, 0.15, 0.1);
 };
 
 export const playScreenShareLeaveSound = () => {
-  playTone(880, 'triangle', 0.1, 0.05, 0);
-  playTone(440, 'triangle', 0.2, 0.05, 0.1);
+  playTone(880, 'triangle', 0.1, 0.15, 0);
+  playTone(440, 'triangle', 0.2, 0.15, 0.1);
 };

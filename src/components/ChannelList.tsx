@@ -130,7 +130,13 @@ export default function ChannelList() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, (payload) => {
           // Handle updates without full fetch if it's just name or last_message_at
-          setChannels(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
+          setChannels(prev => {
+            const next = prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c);
+            return next.sort((a, b) => {
+              if ((a.order || 0) !== (b.order || 0)) return (a.order || 0) - (b.order || 0);
+              return a.id.localeCompare(b.id);
+            });
+          });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, () => fetchData())
@@ -370,6 +376,21 @@ export default function ChannelList() {
         const targetIndex = newChannelList.findIndex(c => c.id === targetChannel.id);
         newChannelList.splice(targetIndex, 0, draggedChannel);
         
+        // Optimistic update
+        setChannels(prev => {
+          const next = [...prev];
+          newChannelList.forEach((ch, i) => {
+            const index = next.findIndex(c => c.id === ch.id);
+            if (index !== -1) {
+              next[index] = { ...next[index], order: i, category_id: targetCategoryId || null };
+            }
+          });
+          return next.sort((a, b) => {
+            if ((a.order || 0) !== (b.order || 0)) return (a.order || 0) - (b.order || 0);
+            return a.id.localeCompare(b.id);
+          });
+        });
+
         for (let i = 0; i < newChannelList.length; i++) {
           await supabase.from('channels').update({
             order: i,
@@ -415,6 +436,21 @@ export default function ChannelList() {
         let newChannelList = [...targetCategoryChannels];
         newChannelList.push(draggedChannel);
         
+        // Optimistic update
+        setChannels(prev => {
+          const next = [...prev];
+          newChannelList.forEach((ch, i) => {
+            const index = next.findIndex(c => c.id === ch.id);
+            if (index !== -1) {
+              next[index] = { ...next[index], order: i, category_id: categoryId || null };
+            }
+          });
+          return next.sort((a, b) => {
+            if ((a.order || 0) !== (b.order || 0)) return (a.order || 0) - (b.order || 0);
+            return a.id.localeCompare(b.id);
+          });
+        });
+
         for (let i = 0; i < newChannelList.length; i++) {
           await supabase.from('channels').update({
             order: i,
