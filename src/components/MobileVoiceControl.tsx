@@ -59,17 +59,7 @@ export default function MobileVoiceControl() {
   };
 
   return (
-    <div className="md:hidden fixed bottom-16 left-4 right-4 z-50 bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-bottom duration-300">
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping absolute inset-0" />
-          <div className="w-3 h-3 rounded-full bg-emerald-500 relative" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase">Vocal</span>
-          <span className="text-xs font-bold text-emerald-500">Connecté</span>
-        </div>
-      </div>
+    <div className="md:hidden fixed bottom-16 right-4 z-50 bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl rounded-xl p-2 flex items-center justify-end animate-in slide-in-from-bottom duration-300 w-fit">
       <div className="flex items-center gap-2">
         <button 
           onClick={toggleMute}
