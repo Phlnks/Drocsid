@@ -149,8 +149,18 @@ export default function WebRTCManager() {
 
   // Listen for forced voice moves and mutes
   useEffect(() => {
-    const handleForceMove = (data: { channelId: string | null }) => {
-      setConnectedVoiceChannelId(data.channelId);
+    const handleForceMove = async (data: { channelId: string | null }) => {
+      if (data.channelId) {
+        try {
+          const { data: channel } = await supabase.from('channels').select('server_id').eq('id', data.channelId).maybeSingle();
+          setConnectedVoiceChannelId(data.channelId, channel?.server_id);
+        } catch (e) {
+          console.error("Error fetching server_id for forced move:", e);
+          setConnectedVoiceChannelId(data.channelId);
+        }
+      } else {
+        setConnectedVoiceChannelId(null);
+      }
     };
 
     const handleForceMute = (data: { mute: boolean }) => {
@@ -188,10 +198,13 @@ export default function WebRTCManager() {
       socket.emit('voice-state-update', {
         channelId: connectedVoiceChannelId,
         userId: currentUser.id,
-        updates: { isMuted: isVoiceMuted }
+        updates: { 
+          isMuted: isVoiceMuted,
+          isDeafened: isDeafened
+        }
       });
     }
-  }, [isVoiceMuted, connectedVoiceChannelId, currentUser]);
+  }, [isVoiceMuted, isDeafened, connectedVoiceChannelId, currentUser]);
 
   // Enforce AFK channel restrictions
   useEffect(() => {

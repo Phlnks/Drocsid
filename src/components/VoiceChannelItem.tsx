@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
-import { Volume2, MicOff, UserMinus, Ban, PhoneOff, MonitorUp, Moon, Settings } from 'lucide-react';
+import { Volume2, MicOff, HeadphoneOff, UserMinus, Ban, PhoneOff, MonitorUp, Moon, Settings } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
@@ -209,6 +209,7 @@ export default function VoiceChannelItem({
                     </button>
                   )}
                   {p.isMuted && <MicOff className="w-3 h-3 text-red-500" />}
+                  {p.isDeafened && <HeadphoneOff className="w-3 h-3 text-red-500" />}
                 </div>
               </div>
             );
