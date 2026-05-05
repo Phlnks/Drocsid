@@ -610,6 +610,24 @@ export default function WebRTCManager() {
         });
       }
     });
+
+    // Heartbeat to ping unconnected peers periodically
+    const heartbeatInterval = setInterval(() => {
+      peersRef.current.forEach((pc, uid) => {
+        if (pc.connectionState === 'new' || pc.connectionState === 'checking') {
+          // If stuck in new/checking, try prompting a negotiation / ping
+          socket.emit('signal', {
+            to: uid,
+            from: myUid,
+            type: 'ping',
+            channelId: connectedVoiceChannelId,
+            sessionId: localStreamIdRef.current
+          });
+        }
+      });
+    }, 10000); // every 10s
+
+    return () => clearInterval(heartbeatInterval);
   }, [voiceParticipants, connectedVoiceChannelId, currentUser]);
 
   useEffect(() => {
@@ -778,7 +796,40 @@ export default function WebRTCManager() {
       };
 
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          console.log(`Connection failed/disconnected with ${remoteUid}, attempting ICE restart`);
+          try {
+            if (pc.restartIce) {
+              pc.restartIce();
+            } else {
+              makingOfferRef.current.set(remoteUid, true);
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                  socket.emit('signal', {
+                    from: myUid,
+                    to: remoteUid,
+                    channelId: channelId,
+                    sessionId: localStreamIdRef.current,
+                    type: 'offer',
+                    offer: { type: pc.localDescription!.type, sdp: pc.localDescription!.sdp }
+                  });
+                })
+                .finally(() => {
+                  makingOfferRef.current.set(remoteUid, false);
+                });
+            }
+          } catch (err) {
+            console.error("ICE restart error", err);
+            socket.emit('signal', {
+              to: remoteUid,
+              from: myUid,
+              type: 'ping',
+              channelId: channelId,
+              sessionId: localStreamIdRef.current
+            });
+          }
+        } else if (pc.connectionState === 'closed') {
           cleanupPeer(remoteUid);
         }
       };
@@ -1033,6 +1084,17 @@ export default function WebRTCManager() {
             isStreaming: state.isScreenSharing,
             joinedAt: new Date().toISOString()
           }
+        });
+
+        // Force a reconnect ping to ensure WebRTC state is re-synced after WS disconnect
+        peersRef.current.forEach((pc, uid) => {
+          socket.emit('signal', {
+            to: uid,
+            from: myUid,
+            type: 'ping',
+            channelId: channelId,
+            sessionId: localStreamIdRef.current
+          });
         });
       };
       socket.on('connect', handleReconnect);
