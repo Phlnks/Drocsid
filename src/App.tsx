@@ -345,8 +345,9 @@ export default function App() {
         if (user.email && data.email !== user.email) {
           updates.email = user.email;
         }
-        if (user.email === 'phinks07@gmail.com' && !data.is_superadmin) {
+        if (user.email === 'phinks07@gmail.com' && (!data.is_superadmin || !data.can_create_servers)) {
           updates.is_superadmin = true;
+          updates.can_create_servers = true;
           updates.server_limit = 100;
         }
         
@@ -364,6 +365,7 @@ export default function App() {
           email: user.email,
           status: 'online',
           is_superadmin: isSuperadmin,
+          can_create_servers: isSuperadmin,
           server_limit: isSuperadmin ? 100 : 5
         }).select().maybeSingle();
         if (upsertedData) setCurrentUserProfile(upsertedData);

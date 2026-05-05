@@ -613,7 +613,9 @@
     "updateFailed": "Erreur lors de la mise à jour",
     "micAccessDenied": "Impossible d'accéder au microphone. Veuillez vérifier vos permissions.",
     "imageTooComplex": "Cette image est trop complexe pour être compressée suffisamment. Veuillez choisir une image plus légère.",
-    "messageSendFailed": "Erreur lors de l'envoi du message."
+    "messageSendFailed": "Erreur lors de l'envoi du message.",
+    "cannotCreateServer": "Vous n'avez pas la permission de créer des serveurs.",
+    "maxServersReached": "Vous avez atteint la limite de serveurs ({{limit}})."
   },
   "logs": {
     "channelCreate": "Salon {{type}} \"{{name}}\" créé",

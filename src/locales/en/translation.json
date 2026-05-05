@@ -613,7 +613,9 @@
     "updateFailed": "Update error",
     "micAccessDenied": "Cannot access microphone. Please check your permissions.",
     "imageTooComplex": "This image is too complex to be sufficiently compressed. Please choose a lighter image.",
-    "messageSendFailed": "Error sending message."
+    "messageSendFailed": "Error sending message.",
+    "cannotCreateServer": "You do not have permission to create servers.",
+    "maxServersReached": "You have reached the server limit ({{limit}})."
   },
   "logs": {
     "channelCreate": "{{type}} channel \"{{name}}\" created",

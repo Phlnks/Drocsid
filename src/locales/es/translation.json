@@ -95,6 +95,8 @@
     "alreadyFriends": "Ya sois amigos.",
     "requestInProgress": "Ya hay una solicitud en curso.",
     "addFriendSuccess": "¡Solicitud de amistad enviada!",
+    "notificationFriendRequest": "te ha enviado una solicitud de amistad",
+    "notificationFriendAccepted": "ha aceptado tu solicitud de amistad",
     "friendsCount": "AMIGOS — {{count}}",
     "savedMessages": "Mis notas",
     "pinned": "Fijados",
@@ -107,21 +109,19 @@
     "noMoreFriends": "No tienes más amigos que añadir.",
     "noFriendFound": "Ningún amigo encontrado.",
     "adding": "Añadiendo...",
-    "add": "Añadir",
-    "notificationFriendRequest": "sent you a friend request",
-    "notificationFriendAccepted": "accepted your friend request"
+    "add": "Añadir"
   },
   "notifications": {
     "kickedFromServer": "Has sido expulsado del servidor",
-    "title": "Notifications",
-    "mentionsAndNotifications": "Mentions & Notifications",
-    "markAllRead": "Mark all as read",
-    "unreadDMs": "Unread Direct Messages",
-    "newMessageFrom": "New message from {{name}}",
-    "mentionedBy": "Mentioned by",
-    "markAsRead": "Mark as read",
-    "viewMessage": "View message",
-    "noNotifications": "No notifications yet."
+    "title": "Notificaciones",
+    "mentionsAndNotifications": "Menciones y notificaciones",
+    "markAllRead": "Marcar todo como leído",
+    "unreadDMs": "Mensajes directos no leídos",
+    "newMessageFrom": "Nuevo mensaje de {{name}}",
+    "mentionedBy": "Mencionado por",
+    "markAsRead": "Marcar como leído",
+    "viewMessage": "Ver mensaje",
+    "noNotifications": "No hay notificaciones aún."
   },
   "settings": {
     "title": "Ajustes de usuario",
@@ -613,7 +613,9 @@
     "updateFailed": "Error de actualización",
     "micAccessDenied": "No se puede acceder al micrófono. Por favor revisa tus permisos.",
     "imageTooComplex": "Esta imagen es demasiado compleja para comprimirse adecuadamente. Por favor elige otra más ligera.",
-    "messageSendFailed": "Error al enviar el mensaje"
+    "messageSendFailed": "Error al enviar el mensaje",
+    "cannotCreateServer": "No tienes permiso para crear servidores.",
+    "maxServersReached": "Has alcanzado el límite de servidores ({{limit}})."
   },
   "logs": {
     "channelCreate": "Canal {{type}} \"{{name}}\" creado",
