@@ -133,7 +133,7 @@ export default function DMSidebar() {
     if (dms.length > 0) {
       fetchUnreadCounts(dms);
     }
-  }, [currentUserProfile?.last_read, dms.length]);
+  }, [currentUserProfile?.last_read, dms]);
 
   useEffect(() => {
     if (selectedDmId) {
@@ -285,11 +285,11 @@ export default function DMSidebar() {
             )}
           </div>
         )}
-        <div className="flex-1 min-w-0 flex items-center justify-between">
-          <div className="font-medium truncate">
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-2 overflow-hidden">
+          <div className="font-medium truncate shrink min-w-0">
             {dmName}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={(e) => togglePinDm(e, dm.id)}
               className={clsx(
@@ -301,7 +301,7 @@ export default function DMSidebar() {
               <Pin className={clsx("w-3.5 h-3.5", isPinned && "rotate-45")} />
             </button>
             {isUnread && (
-              <div className="bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 flex items-center justify-center px-1 rounded-full shrink-0 border border-zinc-900">
+              <div className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-900 shadow-sm animate-in zoom-in duration-300">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}

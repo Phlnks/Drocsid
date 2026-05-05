@@ -497,7 +497,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                             </button>
                           )}
                         </div>
-                        {(notif.data?.content || notif.content) && (
+                        {(notif.data?.content || notif.content) && !isFriendAccept && (
                           <p className="text-sm text-zinc-300 line-clamp-3 break-words mb-2">
                             {notif.data?.content || notif.content}
                           </p>
