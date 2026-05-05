@@ -936,7 +936,17 @@ export default function WebRTCManager() {
               return;
             }
             ignoreOfferRef.current.set(fromUid, false);
-            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            
+            if (offerCollision) {
+              // Rollback if there's a collision and we are the polite peer
+              await Promise.all([
+                pc.setLocalDescription({ type: 'rollback' }),
+                pc.setRemoteDescription(new RTCSessionDescription(data.offer))
+              ]);
+            } else {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            }
+            
             await pc.setLocalDescription();
             socket.emit('signal', {
               from: myUid,
