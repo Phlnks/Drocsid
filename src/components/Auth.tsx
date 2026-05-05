@@ -25,13 +25,12 @@ export default function Auth() {
 
       const options: any = {
         redirectTo: redirectTo,
-        skipBrowserRedirect: true 
+        skipBrowserRedirect: true,
+        queryParams: {}
       };
 
       if (forceChoice) {
-        options.queryParams = {
-          prompt: 'select_account'
-        };
+        options.queryParams.prompt = 'select_account';
       }
 
       const { data, error } = await supabase.auth.signInWithOAuth({

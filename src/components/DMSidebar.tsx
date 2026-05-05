@@ -289,7 +289,12 @@ export default function DMSidebar() {
           <div className="font-medium truncate shrink min-w-0">
             {dmName}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {isUnread && (
+              <div className="flex-shrink-0 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[1.125rem] h-4 leading-none rounded-full flex items-center justify-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            )}
             <button
               onClick={(e) => togglePinDm(e, dm.id)}
               className={clsx(

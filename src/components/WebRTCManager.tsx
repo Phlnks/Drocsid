@@ -149,11 +149,15 @@ export default function WebRTCManager() {
 
   // Listen for forced voice moves and mutes
   useEffect(() => {
-    const handleForceMove = async (data: { channelId: string | null }) => {
+    const handleForceMove = async (data: { channelId: string | null, serverId?: string | null }) => {
       if (data.channelId) {
         try {
-          const { data: channel } = await supabase.from('channels').select('server_id').eq('id', data.channelId).maybeSingle();
-          setConnectedVoiceChannelId(data.channelId, channel?.server_id);
+          if (data.serverId) {
+             setConnectedVoiceChannelId(data.channelId, data.serverId);
+          } else {
+             const { data: channel } = await supabase.from('channels').select('server_id').eq('id', data.channelId).maybeSingle();
+             setConnectedVoiceChannelId(data.channelId, channel?.server_id);
+          }
         } catch (e) {
           console.error("Error fetching server_id for forced move:", e);
           setConnectedVoiceChannelId(data.channelId);
@@ -1045,10 +1049,10 @@ export default function WebRTCManager() {
       if (cleanupFns) cleanupFns();
       
       const currentState = useAppStore.getState();
-      const isLeavingChannel = !currentState.connectedVoiceChannelId || currentState.connectedVoiceChannelId !== channelId;
+      const isCompletelyDisconnecting = !currentState.connectedVoiceChannelId;
       const isLoggedOut = !useAuthStore.getState().user;
 
-      if (isLeavingChannel || isLoggedOut) {
+      if (isCompletelyDisconnecting || isLoggedOut) {
         console.log("WebRTCManager: Cleaning up media tracks (leaving channel or logged out)");
         if (localStreamRef.current) {
           localStreamRef.current.getTracks().forEach(t => t.stop());
@@ -1063,7 +1067,7 @@ export default function WebRTCManager() {
           setIsScreenSharing(false);
         }
       } else {
-        console.log("WebRTCManager: Component re-mount, preserving media tracks");
+        console.log("WebRTCManager: User moved channels, preserving media tracks");
       }
       
       peersRef.current.forEach(pc => pc.close());
@@ -1076,9 +1080,8 @@ export default function WebRTCManager() {
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
       
-      if (isLeavingChannel || isLoggedOut) {
-        socket.emit('leave-voice-channel', { channelId, userId: myUid });
-      }
+      // Always leave the old channel, even if preserving tracks
+      socket.emit('leave-voice-channel', { channelId, userId: myUid });
     };
   }, [connectedVoiceChannelId, currentUser]);
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
-import { Volume2, MicOff, HeadphoneOff, UserMinus, Ban, PhoneOff, MonitorUp, Moon, Settings } from 'lucide-react';
+import { Volume2, MicOff, Headphones, UserMinus, Ban, PhoneOff, MonitorUp, Moon, Settings } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
@@ -171,6 +171,10 @@ export default function VoiceChannelItem({
             const displayName = userProfile?.username || p.name;
             const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
 
+            // Use local state immediately for the current user to avoid waiting for socket round trip
+            const isMutedUser = isCurrentUser ? useAppStore.getState().isVoiceMuted : p.isMuted;
+            const isDeafenedUser = isCurrentUser ? useAppStore.getState().isDeafened : p.isDeafened;
+
             return (
               <div 
                 key={p.id} 
@@ -208,8 +212,8 @@ export default function VoiceChannelItem({
                       <MonitorUp className="w-4 h-4" />
                     </button>
                   )}
-                  {p.isMuted && <MicOff className="w-3 h-3 text-red-500" />}
-                  {p.isDeafened && <HeadphoneOff className="w-3 h-3 text-red-500" />}
+                  {isMutedUser && <MicOff className="w-3 h-3 text-red-500" />}
+                  {isDeafenedUser && <Headphones className="w-3 h-3 text-red-500" />}
                 </div>
               </div>
             );

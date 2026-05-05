@@ -1,9 +1,14 @@
-const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalShortcut, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalShortcut, Notification, nativeImage, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 // Force app name early
 app.name = 'Drocsid';
+
+// Register custom protocol as privileged before app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'drocsid', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
+]);
 
 let mainWindow = null;
 let tray = null;
@@ -41,7 +46,7 @@ function createWindow() {
     app.setAppUserModelId("com.drocsid.app");
   }
 
-  const startUrl = process.env.ELECTRON_START_URL || `file://${path.join(__dirname, '../dist/index.html')}`;
+  const startUrl = process.env.ELECTRON_START_URL || `drocsid://app/index.html`;
   
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http')) {
@@ -54,7 +59,7 @@ function createWindow() {
   const handleAuthRedirect = (event, url) => {
     // Catch Supabase OAuth redirects either to .run.app, .onrender.com or custom domains
     const isAuthCallback = (url.includes('#access_token=') || url.includes('?code='));
-    const isKnownDomain = url.includes('.run.app') || url.includes('.onrender.com') || url.includes('localhost:3000');
+    const isKnownDomain = url.includes('.run.app') || url.includes('.onrender.com') || url.includes('localhost:3000') || url.includes('drocsid://');
     
     if (isAuthCallback && isKnownDomain) {
       event.preventDefault();
@@ -206,7 +211,13 @@ if (!gotTheLock) {
     }
   });
 
+  // Handle custom protocol for serving files
   app.whenReady().then(() => {
+    protocol.registerFileProtocol('drocsid', (request, callback) => {
+      const url = request.url.substring(14); // strip 'drocsid://app/'
+      callback({ path: path.normalize(`${__dirname}/../dist/${url}`) });
+    });
+
     createWindow();
     createTray();
 

@@ -79,11 +79,15 @@ export default function NotificationManager() {
           const content = n.data?.content || n.content || '';
           
           let title = 'Notification';
+          let finalContent = content;
           if (n.type === 'mention') title = `Mention de ${authorName}`;
           else if (n.type === 'friend_request') title = `Demande d'ami de ${authorName}`;
-          else if (n.type === 'friend_accept') title = `${authorName} a accepté votre demande d'ami`;
+          else if (n.type === 'friend_accept') {
+             title = `${authorName} a accepté votre demande d'ami`;
+             finalContent = ''; // Eviter le doublon dans la description
+          }
 
-          showDesktopNotification(title, content);
+          showDesktopNotification(title, finalContent);
           
           // Mark as notified so we don't trigger it again
           supabase.from('notifications').update({ notified: true }).eq('id', n.id).then();
