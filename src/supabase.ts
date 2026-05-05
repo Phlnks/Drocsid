@@ -37,13 +37,23 @@ const supabaseUrl = config.url;
 const supabaseAnonKey = config.key;
 
 // Generate a unique storage key based on the project reference to avoid session conflicts between instances
-const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || 'default';
-const storageKey = `sb-${projectRef}-auth-token`;
+const getProjectRef = (url: string) => {
+  if (!url) return 'default';
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.split('.')[0];
+  } catch (e) {
+    return 'default';
+  }
+};
+
+const projectRef = getProjectRef(supabaseUrl);
+const storageKey = `drocsid-auth-${projectRef}`;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL or Anon Key is missing. Please check your environment variables or instance settings.');
 } else {
-  console.log(`Supabase initialized for project: ${projectRef.substring(0, 4)}...`);
+  console.log(`Supabase initialized for project: ${projectRef}`);
 }
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
@@ -51,6 +61,7 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
     storageKey: storageKey,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storage: window.localStorage
   }
 });

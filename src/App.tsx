@@ -403,19 +403,26 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
+    // Initial session check
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+        }
+      } catch (e) {
+        console.error("Initial session check failed:", e);
+      } finally {
+        setAuthReady(true);
       }
-      setAuthReady(true);
-    });
+    };
+
+    checkInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth Event:", event);
       if (session?.user) {
-        // Use the store's stable setUser which now has internal checks
         setUser(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);

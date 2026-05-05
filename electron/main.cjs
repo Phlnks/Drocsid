@@ -52,7 +52,11 @@ function createWindow() {
   });
 
   const handleAuthRedirect = (event, url) => {
-    if (url.includes('.run.app') && (url.includes('#access_token=') || url.includes('?code='))) {
+    // Catch Supabase OAuth redirects either to .run.app, .onrender.com or custom domains
+    const isAuthCallback = (url.includes('#access_token=') || url.includes('?code='));
+    const isKnownDomain = url.includes('.run.app') || url.includes('.onrender.com') || url.includes('localhost:3000');
+    
+    if (isAuthCallback && isKnownDomain) {
       event.preventDefault();
       const urlObj = new URL(url);
       const finalUrl = `${startUrl}${urlObj.search}${urlObj.hash}`;

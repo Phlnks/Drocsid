@@ -18,7 +18,7 @@ export default function FriendsDashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [addMessage, setAddMessage] = useState({ type: '', text: '' });
   
-  const { user } = useAuthStore();
+  const { user, currentUserProfile } = useAuthStore();
   const { setSelectedDmId, setIsMobileNavOpen, connectedVoiceChannelId, addNotification } = useAppStore();
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function FriendsDashboard() {
           type: 'friend_accept',
           data: {
             author_id: user?.id,
-            author_name: user?.user_metadata?.username || user?.user_metadata?.display_name || 'Utilisateur',
+            author_name: currentUserProfile?.username || user?.user_metadata?.username || user?.user_metadata?.display_name || 'Utilisateur',
             content: t('friends.notificationFriendAccepted')
           },
           read: false,
@@ -179,7 +179,7 @@ export default function FriendsDashboard() {
         type: 'friend_request',
         data: {
           author_id: user.id,
-          author_name: user.user_metadata?.username || user.user_metadata?.display_name || 'Utilisateur',
+          author_name: currentUserProfile?.username || user.user_metadata?.username || user.user_metadata?.display_name || 'Utilisateur',
           content: t('friends.notificationFriendRequest')
         },
         read: false,

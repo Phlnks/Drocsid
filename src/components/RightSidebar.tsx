@@ -458,11 +458,30 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                             {isDM && <MessageSquare className="w-3 h-3 text-indigo-400" />}
                             {(isFriendRequest || isFriendAccept) && <Bell className="w-3 h-3 text-indigo-400" />}
                             <span>
-                              {isMention && t('notifications.mentionedBy')}
-                              {isDM && t('notifications.newMessageFrom', { name: '' }).trim()}
-                              {isFriendRequest && t('friends.incomingRequest')}
-                              {isFriendAccept && t('friends.notificationFriendAccepted')}
-                              <span className="font-medium text-zinc-300"> {notif.data?.author_name || notif.author_name || 'Utilisateur'}</span>
+                              {isMention && (
+                                <>
+                                  {t('notifications.mentionedBy')}
+                                  <span className="font-medium text-zinc-300"> {notif.data?.author_name || notif.author_name || t('common.user')}</span>
+                                </>
+                              )}
+                              {isDM && (
+                                <>
+                                  {t('notifications.newMessageFrom', { name: '' }).trim()}
+                                  <span className="font-medium text-zinc-300"> {notif.data?.author_name || notif.author_name || t('common.user')}</span>
+                                </>
+                              )}
+                              {isFriendRequest && (
+                                <>
+                                  <span className="font-medium text-zinc-300">{notif.data?.author_name || notif.author_name || t('common.user')} </span>
+                                  {t('friends.incomingRequest')}
+                                </>
+                              )}
+                              {isFriendAccept && (
+                                <>
+                                  <span className="font-medium text-zinc-300">{notif.data?.author_name || notif.author_name || t('common.user')} </span>
+                                  {t('friends.notificationFriendAccepted')}
+                                </>
+                              )}
                             </span>
                           </div>
                           {!notif.read && (
