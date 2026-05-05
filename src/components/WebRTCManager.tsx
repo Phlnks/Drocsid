@@ -622,8 +622,15 @@ export default function WebRTCManager() {
     const servers = {
       iceServers: [
         { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
-        { urls: ['stun:stun3.l.google.com:19302', 'stun:stun4.l.google.com:19302'] },
-        { urls: ['stun:stun.services.mozilla.com'] }
+        { urls: ['stun:141.253.96.110:3478'] },
+        {
+          urls: [
+            'turn:141.253.96.110:3478?transport=udp',
+            'turn:141.253.96.110:3478?transport=tcp'
+          ],
+          username: 'drocsid',
+          credential: 'drocsidPhinks123'
+        }
       ]
     };
 

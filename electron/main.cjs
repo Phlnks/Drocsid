@@ -219,7 +219,21 @@ if (!gotTheLock) {
     protocol.registerFileProtocol('drocsid', (request, callback) => {
       let filepath = request.url.replace('drocsid://app/', '');
       filepath = filepath.split('#')[0].split('?')[0]; // Strip hash and search params
-      callback({ path: path.normalize(`${__dirname}/../dist/${filepath}`) });
+      
+      // Default to index.html if path is empty or just /
+      if (!filepath || filepath === '/' || filepath === 'index.html') {
+        filepath = 'index.html';
+      }
+
+      const fullPath = path.normalize(path.join(__dirname, '../dist', filepath));
+      
+      // Basic security check to stay within dist
+      const distPath = path.normalize(path.join(__dirname, '../dist'));
+      if (!fullPath.startsWith(distPath)) {
+        return callback({ error: -10 }); // DISALLOWED
+      }
+
+      callback({ path: fullPath });
     });
 
     createWindow();
