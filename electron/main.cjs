@@ -17,7 +17,9 @@ let isQuitting = false;
 function createWindow() {
   // Use logo.png or favicon.png
   const possibleIcons = [
+    path.join(__dirname, '../src/assets/logo.png'),
     path.join(__dirname, '../src/assets/logo-bg.png'),
+    path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
@@ -85,11 +87,12 @@ function createWindow() {
 
 function createTray() {
   const possibleIcons = [
+    path.join(__dirname, '../src/assets/logo.png'),
     path.join(__dirname, '../src/assets/logo-bg.png'),
+    path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
-    path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../public/favicon.ico'),
     path.join(__dirname, 'icon.png'),
     path.join(process.resourcesPath, 'src/assets/logo-bg.png'),
@@ -214,8 +217,9 @@ if (!gotTheLock) {
   // Handle custom protocol for serving files
   app.whenReady().then(() => {
     protocol.registerFileProtocol('drocsid', (request, callback) => {
-      const url = request.url.substring(14); // strip 'drocsid://app/'
-      callback({ path: path.normalize(`${__dirname}/../dist/${url}`) });
+      let filepath = request.url.replace('drocsid://app/', '');
+      filepath = filepath.split('#')[0].split('?')[0]; // Strip hash and search params
+      callback({ path: path.normalize(`${__dirname}/../dist/${filepath}`) });
     });
 
     createWindow();
