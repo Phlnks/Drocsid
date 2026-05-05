@@ -396,7 +396,7 @@ export default function WebRTCManager() {
     if (!silentAudioRef.current) {
       const audio = new Audio();
       // Extremely short silent base64 wav
-      audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFav7//v8BAAgAZGF0YQAAAAA=';
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       audio.loop = true;
       silentAudioRef.current = audio;
     }
@@ -621,8 +621,7 @@ export default function WebRTCManager() {
 
     const servers = {
       iceServers: [
-        { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
-        { urls: ['stun:141.253.96.110:3478'] },
+        { urls: 'stun:141.253.96.110:3478' },
         {
           urls: [
             'turn:141.253.96.110:3478?transport=udp',
