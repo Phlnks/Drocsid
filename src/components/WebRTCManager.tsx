@@ -250,18 +250,22 @@ export default function WebRTCManager() {
 
       navigator.mediaSession.playbackState = isVoiceMuted ? 'paused' : 'playing';
 
-      navigator.mediaSession.setActionHandler('play', () => setIsVoiceMuted(false));
-      navigator.mediaSession.setActionHandler('pause', () => setIsVoiceMuted(true));
-      navigator.mediaSession.setActionHandler('stop', () => setConnectedVoiceChannelId(null));
-      navigator.mediaSession.setActionHandler('previoustrack', () => {
-        setIsDeafened(!isDeafened);
-        if (!isDeafened) playDeafenSound(); else playUndeafenSound();
-      });
-      navigator.mediaSession.setActionHandler('togglemicrophone' as any, () => {
-        setIsVoiceMuted(!isVoiceMuted);
-        if (!isVoiceMuted) playMuteSound(); else playUnmuteSound();
-      });
-      navigator.mediaSession.setActionHandler('hangup' as any, () => setConnectedVoiceChannelId(null));
+      try { navigator.mediaSession.setActionHandler('play', () => setIsVoiceMuted(false)); } catch (e) {}
+      try { navigator.mediaSession.setActionHandler('pause', () => setIsVoiceMuted(true)); } catch (e) {}
+      try { navigator.mediaSession.setActionHandler('stop', () => setConnectedVoiceChannelId(null)); } catch (e) {}
+      try {
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          setIsDeafened(!isDeafened);
+          if (!isDeafened) playDeafenSound(); else playUndeafenSound();
+        });
+      } catch (e) {}
+      try {
+        navigator.mediaSession.setActionHandler('togglemicrophone' as any, () => {
+          setIsVoiceMuted(!isVoiceMuted);
+          if (!isVoiceMuted) playMuteSound(); else playUnmuteSound();
+        });
+      } catch (e) {}
+      try { navigator.mediaSession.setActionHandler('hangup' as any, () => setConnectedVoiceChannelId(null)); } catch (e) {}
     }
 
     if (!silentAudioRef.current) {
