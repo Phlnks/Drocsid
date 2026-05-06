@@ -75,54 +75,80 @@ export default function VoicePanel() {
   }, [localScreenShareStream]);
 
   // Keep-alive effect for screen sharing
-  useEffect(() => {
-    if (!localScreenShareStream || !isScreenSharing) return;
+  // Keep-alive effect for screen sharing
+useEffect(() => {
+  if (!localScreenShareStream || !isScreenSharing) return;
 
-    const videoTrack = localScreenShareStream.getVideoTracks()[0];
-    if (!videoTrack) return;
+  const videoTrack = localScreenShareStream.getVideoTracks()[0];
+  if (!videoTrack) return;
 
-    // Use a canvas to force frame processing even in background
-    const canvas = document.createElement('canvas');
-    canvas.width = 10;
-    canvas.height = 10;
-    const ctx = canvas.getContext('2d', { alpha: false });
+  // Canvas keep-alive (inchangé)
+  const canvas = document.createElement('canvas');
+  canvas.width = 10;
+  canvas.height = 10;
+  const ctx = canvas.getContext('2d', { alpha: false });
 
-    const keepAliveInterval = setInterval(() => {
-      if (videoTrack.readyState === 'live') {
-        try {
-          videoTrack.getSettings();
-          if (ctx && localVideoRef.current && localVideoRef.current.videoWidth > 0) {
-            ctx.drawImage(localVideoRef.current, 0, 0, 10, 10);
-          }
-        } catch (e) {}
-      }
-    }, 1000);
-
-    const handleTrackEnd = () => {
-      // We wait a bit longer to be sure it's not a transient state (though ended is usually final)
-      // Some browsers might fire it erroneously or we might want to let it "freeze" instead of "cut"
-      // User says it used to freeze but continue. If it truly ended, it can't continue.
-      // So if it resumed before, it means it wasn't really ended.
-      // We'll be very conservative here.
-      setTimeout(() => {
-        const currentStream = useAppStore.getState().localScreenShareStream;
-        const currentTrack = currentStream?.getVideoTracks()[0];
-        if (!currentTrack || currentTrack.readyState === 'ended') {
-          console.log("Screen share track truly ended, cleaning up state.");
-          playScreenShareStopSound();
-          useAppStore.getState().setIsScreenSharing(false);
-          useAppStore.getState().setLocalScreenShareStream(null);
+  const keepAliveInterval = setInterval(() => {
+    if (videoTrack.readyState === 'live') {
+      try {
+        videoTrack.getSettings();
+        if (ctx && localVideoRef.current && localVideoRef.current.videoWidth > 0) {
+          ctx.drawImage(localVideoRef.current, 0, 0, 10, 10);
         }
-      }, 3000);
-    };
+      } catch (e) {}
+    }
+  }, 1000);
 
-    videoTrack.addEventListener('ended', handleTrackEnd);
+  const handleTrackEnd = () => {
+    // ✅ Vérifier si c'est un arrêt VOLONTAIRE (déclenché par toggleScreenShare)
+    // toggleScreenShare appelle track.stop() puis setLocalScreenShareStream(null)
+    // Si userRequestedStop est true, on ne fait rien ici (déjà géré)
+    const state = useAppStore.getState();
+    
+    // ✅ On attend un peu pour voir si le stream a été remplacé (reprise après minimize)
+    setTimeout(() => {
+      const currentState = useAppStore.getState();
+      const currentStream = currentState.localScreenShareStream;
+      const currentTrack = currentStream?.getVideoTracks()[0];
 
-    return () => {
-      clearInterval(keepAliveInterval);
-      videoTrack.removeEventListener('ended', handleTrackEnd);
-    };
-  }, [localScreenShareStream, isScreenSharing]);
+      // Si le stream a changé (remplacé par replaceTrack) ou si isScreenSharing
+      // a déjà été mis à false par l'utilisateur → ne rien faire
+      if (!currentState.isScreenSharing) return;
+
+      // Si la piste est toujours ended et qu'aucun nouveau stream n'a été injecté
+      if (!currentTrack || currentTrack.readyState === 'ended') {
+        console.log("Screen share track truly ended, cleaning up state.");
+        playScreenShareStopSound();
+        currentState.setIsScreenSharing(false);
+        currentState.setLocalScreenShareStream(null);
+      }
+      // Sinon : la piste a été remplacée ou a repris → on ne coupe rien
+    }, 3000);
+  };
+
+  // ✅ Écouter aussi mute/unmute pour l'overlay pause
+  const handleTrackMute = () => {
+    console.log("Screen share track muted (window minimized?)");
+    // Optionnel : envoyer un signal "paused" via socket ici
+    // socket.emit('screen-share-paused', { channelId: connectedVoiceChannelId });
+  };
+
+  const handleTrackUnmute = () => {
+    console.log("Screen share track unmuted (window restored)");
+    // socket.emit('screen-share-resumed', { channelId: connectedVoiceChannelId });
+  };
+
+  videoTrack.addEventListener('ended', handleTrackEnd);
+  videoTrack.addEventListener('mute', handleTrackMute);
+  videoTrack.addEventListener('unmute', handleTrackUnmute);
+
+  return () => {
+    clearInterval(keepAliveInterval);
+    videoTrack.removeEventListener('ended', handleTrackEnd);
+    videoTrack.removeEventListener('mute', handleTrackMute);
+    videoTrack.removeEventListener('unmute', handleTrackUnmute);
+  };
+}, [localScreenShareStream, isScreenSharing]);
 
   useEffect(() => {
     let wakeLock: any = null;
@@ -419,23 +445,27 @@ export default function VoicePanel() {
   };
 
   const toggleScreenShare = () => {
-    if (window.innerWidth < 768) return; // Prevent on mobile
+  if (window.innerWidth < 768) return;
+
+  if (isScreenSharing) {
+    playScreenShareStopSound();
     
-    if (isScreenSharing) {
-      playScreenShareStopSound();
-      setIsScreenSharing(false);
-      setViewingScreenShares(new Set());
-      setActiveStreamFocus(null);
-      // The stream will be stopped by WebRTCManager or here
-      const stream = useAppStore.getState().localScreenShareStream;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        useAppStore.getState().setLocalScreenShareStream(null);
-      }
-    } else {
-      setShowQualityMenu(!showQualityMenu);
+    // ✅ D'abord mettre isScreenSharing à false — comme ça handleTrackEnd
+    // verra isScreenSharing = false et ne fera rien (évite double cleanup)
+    setIsScreenSharing(false);
+    setViewingScreenShares(new Set());
+    setActiveStreamFocus(null);
+
+    // Ensuite seulement stopper les tracks
+    const stream = useAppStore.getState().localScreenShareStream;
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      useAppStore.getState().setLocalScreenShareStream(null);
     }
-  };
+  } else {
+    setShowQualityMenu(!showQualityMenu);
+  }
+};
 
   const stopWatchingAll = () => {
     setViewingScreenShares(new Set());

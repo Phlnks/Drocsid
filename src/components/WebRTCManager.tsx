@@ -204,9 +204,18 @@ export default function WebRTCManager() {
         if (localScreenShareStream) {
           const videoTrack = localScreenShareStream.getVideoTracks()[0];
           if (videoTrack) {
-            // LiveKit provides a way to publish an existing track
-            const lvt = new LocalVideoTrack(videoTrack, undefined, false);
-            await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
+            // Après — on garde une ref sur la track publiée
+			const publishedScreenTrackRef = useRef<LocalVideoTrack | null>(null);
+
+			if (publishedScreenTrackRef.current) {
+			  // ✅ Hot swap : remplace la track sans couper la connexion côté spectateurs
+			  await publishedScreenTrackRef.current.replaceTrack(videoTrack);
+			} else {
+			  // Première publication
+			  const lvt = new LocalVideoTrack(videoTrack, undefined, false);
+			  await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
+			  publishedScreenTrackRef.current = lvt;
+			}
           }
         } else {
           // Unpublish existing screen tracks
@@ -307,6 +316,46 @@ export default function WebRTCManager() {
       }
     });
   }, [voiceParticipants, currentUser, isScreenSharing, setRemoteScreenShares, setViewingScreenShares, setActiveStreamFocus]);
+
+  // ✅ Ajout : écouter mute/unmute sur les remote tracks côté spectateurs
+  useEffect(() => {
+    if (!roomRef.current) return;
+
+    const handleTrackSubscribed = (
+      track: RemoteTrack,
+      publication: RemoteTrackPublication,
+      participant: Participant
+    ) => {
+      if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
+        const mediaTrack = track.mediaStreamTrack;
+
+        const handleMute = () => {
+          console.log(`Remote screen share muted for ${participant.identity} (window minimized)`);
+          // Décommenter pour afficher un overlay chez le spectateur :
+          // useAppStore.getState().setRemoteStreamPaused(participant.identity, true);
+        };
+
+        const handleUnmute = () => {
+          console.log(`Remote screen share unmuted for ${participant.identity} (window restored)`);
+          // useAppStore.getState().setRemoteStreamPaused(participant.identity, false);
+        };
+
+        mediaTrack.addEventListener('mute', handleMute);
+        mediaTrack.addEventListener('unmute', handleUnmute);
+
+        track.once('ended', () => {
+          mediaTrack.removeEventListener('mute', handleMute);
+          mediaTrack.removeEventListener('unmute', handleUnmute);
+        });
+      }
+    };
+
+    roomRef.current.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+
+    return () => {
+      roomRef.current?.off(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+    };
+  }, [connectedVoiceChannelId]);  // ← se rebranche si on change de channel
 
   // Main LiveKit Connection Loop
   useEffect(() => {
@@ -445,6 +494,8 @@ export default function WebRTCManager() {
     return () => {
       isMounted = false;
       window.removeEventListener('beforeunload', handleBeforeUnload);
+	  // ✅ Ajout : vider la ref pour éviter qu'une reconnexion utilise une ref périmée
+	  publishedScreenTrackRef.current = null;
       
       const currentState = useAppStore.getState();
       const isCompletelyDisconnecting = !currentState.connectedVoiceChannelId;
