@@ -85,7 +85,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
       // 1. Check if a DM with these EXACT participants already exists
       const { data: existingDms } = await supabase.from('dms')
         .select('*')
-        .contains('participants', newParticipantsList);
+        .contains('participants', [currentUser.id]);
       
       // Filter for exact match in participants length and content
       const exactMatch = existingDms?.find(dm => 
@@ -122,8 +122,7 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
         // Create new group DM
         const { data: newDm, error } = await supabase.from('dms')
           .insert({
-            participants: newParticipantsList,
-            type: 'group'
+            participants: newParticipantsList
           })
           .select()
           .single();

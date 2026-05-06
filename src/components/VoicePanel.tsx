@@ -503,13 +503,15 @@ export default function VoicePanel() {
         >
           {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
         </button>
-        <button 
-          onClick={() => setShowSoundboard(!showSoundboard)}
-          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${showSoundboard ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}
-          title={t('voice.soundboard', 'Soundboard')}
-        >
-          <Volume2 className="w-4 h-4" />
-        </button>
+        {!isCall && (
+          <button 
+            onClick={() => setShowSoundboard(!showSoundboard)}
+            className={`flex-1 flex flex-col md:flex-row items-center justify-center py-1.5 rounded-md transition-colors ${showSoundboard ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}
+            title={t('voice.soundboard', 'Soundboard')}
+          >
+            <Volume2 className="w-4 h-4" />
+          </button>
+        )}
         <button 
           onClick={handleDisconnect}
           className="flex-1 md:hidden flex items-center justify-center py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-500 transition-colors"
