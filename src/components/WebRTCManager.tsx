@@ -14,11 +14,15 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
   useEffect(() => {
     if (audioRef.current && stream) {
       audioRef.current.srcObject = stream;
-      audioRef.current.play().catch(e => {
-        if (e.name !== 'AbortError') {
-          console.error("Audio play error:", e);
-        }
-      });
+      // We rely on autoPlay + the useEffect but handle errors gracefully
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+          if (e.name !== 'AbortError' && e.name !== 'NotAllowedError') {
+            console.error("Audio play error:", e);
+          }
+        });
+      }
     }
   }, [stream]);
 
@@ -37,7 +41,10 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
   useEffect(() => {
     if (audioRef.current && voiceSettings.selectedSpeakerId && (audioRef.current as any).setSinkId) {
       (audioRef.current as any).setSinkId(voiceSettings.selectedSpeakerId)
-        .catch((e: any) => console.error("Error setting output device:", e));
+        .catch((e: any) => {
+          // Swallow setSinkId errors if it's just a permission/device issue to avoid console spam
+          if (e.name !== 'NotAllowedError') console.error("Error setting output device:", e);
+        });
     }
   }, [voiceSettings.selectedSpeakerId]);
 
@@ -374,6 +381,18 @@ export default function WebRTCManager() {
           }
         });
 
+        // Use IsSpeakingChanged for high responsiveness on indicators
+        const updateSpeaking = (p: Participant, speaking: boolean) => {
+          setSpeakingUsers(prev => {
+            if (prev[p.identity] === speaking) return prev;
+            return { ...prev, [p.identity]: speaking };
+          });
+        };
+
+        room.on(RoomEvent.ParticipantConnected, (p) => {
+          p.on(Track.Event.SpeakingChanged, (s) => updateSpeaking(p, s));
+        });
+
         room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
           if (track.kind === Track.Kind.Video) {
             setRemoteScreenShares(prev => {
@@ -398,16 +417,14 @@ export default function WebRTCManager() {
           }
         });
 
-        room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-          const speakingMap: Record<string, boolean> = {};
-          speakers.forEach(speaker => {
-            speakingMap[speaker.identity] = true;
-          });
-          setSpeakingUsers(speakingMap);
-        });
-
         await room.connect(livekitUrl, token);
         console.log("Connected to LiveKit Room:", connectedVoiceChannelId);
+
+        // Track initial participants and local user
+        room.participants.forEach(p => {
+          p.on(Track.Event.SpeakingChanged, (s) => updateSpeaking(p, s));
+        });
+        room.localParticipant.on(Track.Event.SpeakingChanged, (s) => updateSpeaking(room.localParticipant, s));
 
         // Fetch user profile from profiles table for presence
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
