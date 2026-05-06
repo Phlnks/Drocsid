@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Star, Trash2, Edit2, Check, AlertTriangle, Database, Globe, Key } from 'lucide-react';
