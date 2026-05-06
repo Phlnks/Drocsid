@@ -21,11 +21,13 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({ is
     name: '',
     supabaseUrl: '',
     supabaseAnonKey: '',
-    socketUrl: ''
+    socketUrl: '',
+    livekitUrl: '',
+    livekitTokenEndpoint: ''
   });
 
   const handleOpenAdd = () => {
-    setFormData({ name: '', supabaseUrl: '', supabaseAnonKey: '', socketUrl: '' });
+    setFormData({ name: '', supabaseUrl: '', supabaseAnonKey: '', socketUrl: '', livekitUrl: '', livekitTokenEndpoint: '' });
     setIsAdding(true);
     setEditingId(null);
   };
@@ -35,7 +37,9 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({ is
       name: instance.name,
       supabaseUrl: instance.supabaseUrl,
       supabaseAnonKey: instance.supabaseAnonKey,
-      socketUrl: instance.socketUrl
+      socketUrl: instance.socketUrl,
+      livekitUrl: instance.livekitUrl || '',
+      livekitTokenEndpoint: instance.livekitTokenEndpoint || ''
     });
     setEditingId(instance.id);
     setIsAdding(true);
@@ -185,6 +189,35 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({ is
                   onChange={e => setFormData({ ...formData, supabaseAnonKey: e.target.value })}
                   className="w-full bg-[#1e1f22] text-[#f2f3f5] p-2 rounded border border-transparent focus:border-[#5865F2] outline-none transition-all font-mono text-sm"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[#b5bac1] text-xs font-bold uppercase flex justify-between">
+                    <span>{t('instances.livekitUrl', 'LiveKit URL')}</span>
+                    <span className="text-[#949ba4] font-normal normal-case">(Optionnel)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.livekitUrl}
+                    onChange={e => setFormData({ ...formData, livekitUrl: e.target.value })}
+                    placeholder="wss://votre-livekit.com"
+                    className="w-full bg-[#1e1f22] text-[#f2f3f5] p-2 rounded border border-transparent focus:border-[#5865F2] outline-none transition-all placeholder:text-[#5c5e66]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[#b5bac1] text-xs font-bold uppercase flex justify-between">
+                    <span>{t('instances.livekitTokenEndpoint', 'LiveKit Token API')}</span>
+                    <span className="text-[#949ba4] font-normal normal-case">(Optionnel)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.livekitTokenEndpoint}
+                    onChange={e => setFormData({ ...formData, livekitTokenEndpoint: e.target.value })}
+                    placeholder="https://votre-serveur.com/api/livekit/token"
+                    className="w-full bg-[#1e1f22] text-[#f2f3f5] p-2 rounded border border-transparent focus:border-[#5865F2] outline-none transition-all placeholder:text-[#5c5e66]"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

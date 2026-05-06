@@ -6,6 +6,8 @@ export interface Instance {
   supabaseUrl: string;
   supabaseAnonKey: string;
   socketUrl: string;
+  livekitUrl?: string;
+  livekitTokenEndpoint?: string;
   isFavorite: boolean;
   lastUsed: number;
 }

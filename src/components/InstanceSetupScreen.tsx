@@ -13,7 +13,9 @@ export const InstanceSetupScreen: React.FC = () => {
     name: '',
     supabaseUrl: '',
     supabaseAnonKey: '',
-    socketUrl: window.location.origin
+    socketUrl: window.location.origin,
+    livekitUrl: '',
+    livekitTokenEndpoint: ''
   });
 
   const handleSave = (e: React.FormEvent) => {
@@ -119,6 +121,35 @@ export const InstanceSetupScreen: React.FC = () => {
                 onChange={e => setFormData({ ...formData, socketUrl: e.target.value })}
                 className="w-full bg-[#1e1f22] text-[#f2f3f5] p-2.5 rounded border border-transparent focus:border-[#5865F2] outline-none transition-all"
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[#b5bac1] text-xs font-bold uppercase flex justify-between">
+                  <span>{t('instances.livekitUrl', 'LiveKit URL')}</span>
+                  <span className="text-[#949ba4] font-normal normal-case">(Optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.livekitUrl}
+                  onChange={e => setFormData({ ...formData, livekitUrl: e.target.value })}
+                  placeholder="wss://votre-livekit.com"
+                  className="w-full bg-[#1e1f22] text-[#f2f3f5] p-2.5 rounded border border-transparent focus:border-[#5865F2] outline-none transition-all placeholder:text-[#5c5e66]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[#b5bac1] text-xs font-bold uppercase flex justify-between">
+                  <span>{t('instances.livekitTokenEndpoint', 'LiveKit Token API')}</span>
+                  <span className="text-[#949ba4] font-normal normal-case">(Optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.livekitTokenEndpoint}
+                  onChange={e => setFormData({ ...formData, livekitTokenEndpoint: e.target.value })}
+                  placeholder="https://votre-serveur.com/api/livekit/token"
+                  className="w-full bg-[#1e1f22] text-[#f2f3f5] p-2.5 rounded border border-transparent focus:border-[#5865F2] outline-none transition-all placeholder:text-[#5c5e66]"
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 pt-4">

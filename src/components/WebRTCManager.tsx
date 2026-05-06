@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
+import { useInstanceStore } from '../store/instanceStore';
 import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
 import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, createLocalAudioTrack, LocalTrack, LocalVideoTrack } from 'livekit-client';
@@ -44,6 +45,7 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
 }
 
 export default function WebRTCManager() {
+  const { getCurrentInstance } = useInstanceStore();
   const { user: currentUser } = useAuthStore();
   const { 
     connectedVoiceChannelId, 
@@ -322,13 +324,14 @@ export default function WebRTCManager() {
 
     const connectToLiveKit = async () => {
       try {
-        const livekitUrl = import.meta.env.VITE_LIVEKIT_URL;
+        const currentInstance = getCurrentInstance();
+        const livekitUrl = currentInstance?.livekitUrl || import.meta.env.VITE_LIVEKIT_URL;
         if (!livekitUrl) {
            console.warn("VITE_LIVEKIT_URL is not set. LiveKit will not connect.");
            return;
         }
 
-        const tokenEndpoint = import.meta.env.VITE_LIVEKIT_TOKEN_ENDPOINT || '/api/livekit/token';
+        const tokenEndpoint = currentInstance?.livekitTokenEndpoint || import.meta.env.VITE_LIVEKIT_TOKEN_ENDPOINT || '/api/livekit/token';
         const res = await fetch(tokenEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
