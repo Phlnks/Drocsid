@@ -60,15 +60,69 @@ export default function VoicePanel() {
         const video = localVideoRef.current;
         const callback = () => {
           if (localScreenShareStream.active && localVideoRef.current === video) {
-            (video as any).requestVideoFrameCallback(callback);
+            try {
+              (video as any).requestVideoFrameCallback(callback);
+            } catch (e) {}
           }
         };
-        (video as any).requestVideoFrameCallback(callback);
+        try {
+          (video as any).requestVideoFrameCallback(callback);
+        } catch (e) {}
       }
     } else if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
   }, [localScreenShareStream]);
+
+  // Keep-alive effect for screen sharing
+  useEffect(() => {
+    if (!localScreenShareStream || !isScreenSharing) return;
+
+    const videoTrack = localScreenShareStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+
+    // Use a canvas to force frame processing even in background
+    const canvas = document.createElement('canvas');
+    canvas.width = 10;
+    canvas.height = 10;
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    const keepAliveInterval = setInterval(() => {
+      if (videoTrack.readyState === 'live') {
+        try {
+          videoTrack.getSettings();
+          if (ctx && localVideoRef.current && localVideoRef.current.videoWidth > 0) {
+            ctx.drawImage(localVideoRef.current, 0, 0, 10, 10);
+          }
+        } catch (e) {}
+      }
+    }, 1000);
+
+    const handleTrackEnd = () => {
+      // We wait a bit longer to be sure it's not a transient state (though ended is usually final)
+      // Some browsers might fire it erroneously or we might want to let it "freeze" instead of "cut"
+      // User says it used to freeze but continue. If it truly ended, it can't continue.
+      // So if it resumed before, it means it wasn't really ended.
+      // We'll be very conservative here.
+      setTimeout(() => {
+        const currentStream = useAppStore.getState().localScreenShareStream;
+        const currentTrack = currentStream?.getVideoTracks()[0];
+        if (!currentTrack || currentTrack.readyState === 'ended') {
+          console.log("Screen share track truly ended, cleaning up state.");
+          playScreenShareStopSound();
+          useAppStore.getState().setIsScreenSharing(false);
+          useAppStore.getState().setLocalScreenShareStream(null);
+        }
+      }, 3000);
+    };
+
+    videoTrack.addEventListener('ended', handleTrackEnd);
+
+    return () => {
+      clearInterval(keepAliveInterval);
+      videoTrack.removeEventListener('ended', handleTrackEnd);
+    };
+  }, [localScreenShareStream, isScreenSharing]);
 
   useEffect(() => {
     let wakeLock: any = null;
@@ -316,13 +370,14 @@ export default function VoicePanel() {
           video: {
             width: { ideal: quality.width, max: 2560 },
             height: { ideal: quality.height, max: 1440 },
-            frameRate: { ideal: quality.frameRate, max: 60 }
+            frameRate: { ideal: quality.frameRate, max: 60 },
+            displaySurface: 'window' 
           },
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            suppressLocalAudioPlayback: true
+            suppressLocalAudioPlayback: false // Set to false to encourage system to keep audio/video alive
           }
         } as any);
       }
@@ -344,52 +399,7 @@ export default function VoicePanel() {
       useAppStoreState.setLocalScreenShareStream(stream);
       useAppStoreState.setIsScreenSharing(true);
       
-      // Keep-alive interval to prevent background freezing
-      const keepAliveInterval = setInterval(() => {
-        if (videoTrack && videoTrack.readyState === 'live') {
-          // Accessing settings and constraints to keep the track "used" by the system
-          try {
-            videoTrack.getSettings();
-            videoTrack.getConstraints();
-          } catch (e) {}
-          
-          // Force frame decoding periodically to keep the process active even when minimized
-          if (localVideoRef.current && localVideoRef.current.videoWidth > 0) {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = 2; // Slightly larger than 1 to ensure some work is done
-              canvas.height = 2;
-              const ctx = canvas.getContext('2d', { alpha: false });
-              if (ctx) {
-                ctx.drawImage(localVideoRef.current, 0, 0, 2, 2);
-              }
-            } catch (e) {}
-          }
-        } else {
-          clearInterval(keepAliveInterval);
-        }
-      }, 2000);
-      
-      const handleTrackEnd = () => {
-        clearInterval(keepAliveInterval);
-        
-        // Use a small delay before stopping to prevent transient "ended" states on minimize
-        // If the track is truly ended, it won't resume, but this avoids flickering
-        setTimeout(() => {
-          const currentStream = useAppStore.getState().localScreenShareStream;
-          const currentTrack = currentStream?.getVideoTracks()[0];
-          
-          if (!currentTrack || currentTrack.readyState === 'ended') {
-             playScreenShareStopSound();
-             useAppStore.getState().setIsScreenSharing(false);
-             useAppStore.getState().setLocalScreenShareStream(null);
-          }
-        }, 500);
-      };
-
-      stream.getVideoTracks()[0].addEventListener('ended', handleTrackEnd);
-      
-      // Cleanup listener on stream change/stop logic is handled by setting it to null
+      // Keep-alive logic moved to useEffect
     } catch (err) {
       console.error("Error sharing screen", err);
       useAppStore.getState().setIsScreenSharing(false);
@@ -452,7 +462,7 @@ export default function VoicePanel() {
         autoPlay 
         playsInline 
         muted 
-        className="absolute w-1 h-1 opacity-[0.01] pointer-events-none" 
+        className="fixed -left-[2000px] -top-[2000px] w-10 h-10 opacity-[0.05] pointer-events-none z-[-1]" 
       />
       
       <div className="hidden md:flex items-center justify-between px-2">
