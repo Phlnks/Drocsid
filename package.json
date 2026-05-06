@@ -64,6 +64,8 @@
     "i18next": "^26.0.7",
     "i18next-browser-languagedetector": "^8.2.1",
     "jimp": "^1.6.1",
+    "livekit-client": "^2.18.9",
+    "livekit-server-sdk": "^2.15.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",

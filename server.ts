@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import { AccessToken } from "livekit-server-sdk";
 
 dotenv.config();
 
@@ -30,6 +31,38 @@ async function startServer() {
   });
 
   const PORT = Number(process.env.PORT) || 3000;
+
+  // LiveKit Token generation
+  app.post('/api/livekit/token', express.json(), (req, res) => {
+    const { roomName, participantIdentity, participantName } = req.body;
+    
+    if (!roomName || !participantIdentity) {
+      return res.status(400).json({ error: 'roomName and participantIdentity are required' });
+    }
+
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+    if (!apiKey || !apiSecret) {
+      // Return a demo token or just error (error is safer to prevent surprises)
+      return res.status(500).json({ error: 'LiveKit server credentials are not configured on this server.' });
+    }
+
+    try {
+      const at = new AccessToken(apiKey, apiSecret, {
+        identity: participantIdentity,
+        name: participantName || participantIdentity,
+      });
+
+      at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
+      const token = at.toJwt();
+      
+      res.json({ token });
+    } catch (err) {
+      console.error('Error generating LiveKit token:', err);
+      res.status(500).json({ error: 'Failed to generate token' });
+    }
+  });
 
   // Track online users: userId -> Set of socketIds
   const onlineUsers = new Map<string, Set<string>>();
