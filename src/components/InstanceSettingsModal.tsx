@@ -254,130 +254,65 @@ interface InstanceCardProps {
 }
 
 const InstanceCard: React.FC<InstanceCardProps> = ({ instance, isCurrent, onSwitch, onEdit, onDelete, onFavorite, t }) => {
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const touchTimer = useRef<any>(null);
-
-  const handleTouchStart = () => {
-    touchTimer.current = setTimeout(() => {
-      setShowMobileMenu(true);
-    }, 600);
-  };
-
-  const handleTouchEnd = () => {
-    if (touchTimer.current) clearTimeout(touchTimer.current);
-  };
-
   return (
-    <>
-      <div 
-        onDoubleClick={!isCurrent ? onSwitch : undefined}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchEnd}
-        className={`p-4 rounded-md border flex items-center justify-between transition-all group cursor-pointer relative ${
-        isCurrent ? 'bg-[#35373c] border-[#5865F2]' : 'bg-[#2b2d31] border-[#1e1f22] hover:bg-[#35373c]'
-      }`}>
-        <div className="flex items-center gap-3 w-full">
-          <button 
-            onClick={onFavorite}
-            className={`shrink-0 ${instance.isFavorite ? 'text-[#f1c40f]' : 'text-[#4e5058] hover:text-[#b5bac1]'} transition-colors`}
-          >
-            <Star className={`w-5 h-5 ${instance.isFavorite ? 'fill-current' : ''}`} />
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-white font-medium truncate">{instance.name}</h4>
-              {isCurrent && <span className="shrink-0 bg-[#23a559] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">{t('instances.current')}</span>}
-              {instance.id === 'default' && <span className="shrink-0 bg-[#4e5058] text-[#b5bac1] text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">{t('instances.default')}</span>}
+    <div 
+      onDoubleClick={!isCurrent ? onSwitch : undefined}
+      className={`p-4 rounded-md border flex items-center justify-between transition-all group cursor-pointer ${
+      isCurrent ? 'bg-[#35373c] border-[#5865F2]' : 'bg-[#2b2d31] border-[#1e1f22] hover:bg-[#35373c]'
+    }`}>
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onFavorite}
+          className={`${instance.isFavorite ? 'text-[#f1c40f]' : 'text-[#4e5058] hover:text-[#b5bac1]'} transition-colors`}
+        >
+          <Star className={`w-5 h-5 ${instance.isFavorite ? 'fill-current' : ''}`} />
+        </button>
+        <div>
+          <div className="flex items-center gap-2">
+            <h4 className="text-white font-medium">{instance.name}</h4>
+            {isCurrent && <span className="bg-[#23a559] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">{t('instances.current')}</span>}
+            {instance.id === 'default' && <span className="bg-[#4e5058] text-[#b5bac1] text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">{t('instances.default')}</span>}
+          </div>
+          <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-1 text-[10px] text-[#949ba4]">
+              <Globe className="w-3 h-3" />
+              <span className="truncate max-w-[120px]">{new URL(instance.socketUrl).hostname}</span>
             </div>
-            <div className="flex items-center gap-3 mt-1 overflow-hidden">
-              <div className="flex items-center gap-1 text-[10px] text-[#949ba4] min-w-0">
-                <Globe className="w-3 h-3 shrink-0" />
-                <span className="truncate">{new URL(instance.socketUrl).hostname}</span>
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-[#949ba4] min-w-0">
-                <Database className="w-3 h-3 shrink-0" />
-                <span className="truncate">{new URL(instance.supabaseUrl).hostname}</span>
-              </div>
+            <div className="flex items-center gap-1 text-[10px] text-[#949ba4]">
+              <Database className="w-3 h-3" />
+              <span className="truncate max-w-[120px]">{new URL(instance.supabaseUrl).hostname}</span>
             </div>
           </div>
         </div>
-
-        <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          {!isCurrent && (
-            <button
-              onClick={onSwitch}
-              className="p-2 text-[#949ba4] hover:text-[#23a559] transition-colors"
-              title={t('instances.switch')}
-            >
-              <Check className="w-5 h-5" />
-            </button>
-          )}
-          <button
-            onClick={onEdit}
-            className="p-2 text-[#949ba4] hover:text-white transition-colors"
-            title={t('common.edit')}
-          >
-            <Edit2 className="w-5 h-5" />
-          </button>
-          {instance.id !== 'default' && (
-            <button
-              onClick={onDelete}
-              className="p-2 text-[#949ba4] hover:text-[#f23f42] transition-colors"
-              title={t('common.delete')}
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-          )}
-        </div>
       </div>
 
-      {showMobileMenu && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center sm:hidden" onClick={() => setShowMobileMenu(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <motion.div 
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            className="w-full bg-[#1e1f22] rounded-t-xl overflow-hidden relative z-10 flex flex-col"
-            onClick={e => e.stopPropagation()}
+      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isCurrent && (
+          <button
+            onClick={onSwitch}
+            className="p-2 text-[#949ba4] hover:text-[#23a559] transition-colors"
+            title={t('instances.switch')}
           >
-            <div className="p-4 border-b border-[#2b2d31] flex items-center justify-between">
-              <h3 className="text-white font-bold">{instance.name}</h3>
-              <button onClick={() => setShowMobileMenu(false)} className="text-[#949ba4] p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-2 flex flex-col gap-1">
-              {!isCurrent && (
-                <button
-                  onClick={() => { onSwitch(); setShowMobileMenu(false); }}
-                  className="w-full text-left px-4 py-3 text-[#f2f3f5] hover:bg-[#2b2d31] active:bg-[#2b2d31] rounded-md flex items-center gap-3 font-medium text-sm"
-                >
-                  <Check className="w-5 h-5 text-[#23a559]" />
-                  Se connecter
-                </button>
-              )}
-              <button
-                onClick={() => { onEdit(); setShowMobileMenu(false); }}
-                className="w-full text-left px-4 py-3 text-[#f2f3f5] hover:bg-[#2b2d31] active:bg-[#2b2d31] rounded-md flex items-center gap-3 font-medium text-sm"
-              >
-                <Edit2 className="w-5 h-5 text-white" />
-                Modifier
-              </button>
-              {instance.id !== 'default' && (
-                <button
-                  onClick={() => { onDelete(); setShowMobileMenu(false); }}
-                  className="w-full text-left px-4 py-3 text-[#f23f42] hover:bg-[#2b2d31] active:bg-[#2b2d31] rounded-md flex items-center gap-3 font-medium text-sm"
-                >
-                  <Trash2 className="w-5 h-5" />
-                  Supprimer
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </>
+            <Check className="w-5 h-5" />
+          </button>
+        )}
+        <button
+          onClick={onEdit}
+          className="p-2 text-[#949ba4] hover:text-white transition-colors"
+          title={t('common.edit')}
+        >
+          <Edit2 className="w-5 h-5" />
+        </button>
+        {instance.id !== 'default' && (
+          <button
+            onClick={onDelete}
+            className="p-2 text-[#949ba4] hover:text-[#f23f42] transition-colors"
+            title={t('common.delete')}
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 };

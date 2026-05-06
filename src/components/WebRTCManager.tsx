@@ -5,7 +5,7 @@ import { useAppStore } from '../store/appStore';
 import { useInstanceStore } from '../store/instanceStore';
 import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
 import socket from '../lib/socket';
-import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, createLocalAudioTrack, LocalTrack, LocalVideoTrack, ConnectionState } from 'livekit-client';
+import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, createLocalAudioTrack, LocalTrack, LocalVideoTrack } from 'livekit-client';
 
 function AudioPlayer({ stream }: { key?: any, stream: any }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -159,17 +159,10 @@ export default function WebRTCManager() {
 
   // Handle local mute status on LiveKit
   useEffect(() => {
-    const updateMicrophone = async () => {
-      try {
-        if (roomRef.current?.state === ConnectionState.Connected && roomRef.current.localParticipant) {
-          const isMutedNow = isVoiceMuted || isDeafened;
-          await roomRef.current.localParticipant.setMicrophoneEnabled(!isMutedNow);
-        }
-      } catch (e) {
-        console.warn("Could not update microphone state:", e);
-      }
-    };
-    updateMicrophone();
+    if (roomRef.current && roomRef.current.localParticipant) {
+      const isMutedNow = isVoiceMuted || isDeafened;
+      roomRef.current.localParticipant.setMicrophoneEnabled(!isMutedNow);
+    }
     
     if (connectedVoiceChannelId && currentUser) {
       socket.emit('voice-state-update', {
@@ -205,15 +198,15 @@ export default function WebRTCManager() {
     
     const updateScreenshare = async () => {
       try {
-        if (roomRef.current?.state !== ConnectionState.Connected) return;
-
         const participant = roomRef.current?.localParticipant;
         if (!participant) return;
         
         if (localScreenShareStream) {
           const videoTrack = localScreenShareStream.getVideoTracks()[0];
           if (videoTrack) {
-            await participant.publishTrack(videoTrack, { name: 'screen', source: Track.Source.ScreenShare });
+            // LiveKit provides a way to publish an existing track
+            const lvt = new LocalVideoTrack(videoTrack, undefined, false);
+            await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
           }
         } else {
           // Unpublish existing screen tracks
@@ -224,7 +217,7 @@ export default function WebRTCManager() {
           });
         }
       } catch (e) {
-         console.warn("Screen share publish error:", e);
+         console.error("Screen share publish error:", e);
       }
     };
     updateScreenshare();
@@ -279,7 +272,7 @@ export default function WebRTCManager() {
 
     if (!silentAudioRef.current) {
       const audio = new Audio();
-      audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       audio.loop = true;
       silentAudioRef.current = audio;
     }

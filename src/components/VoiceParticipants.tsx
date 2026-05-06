@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAppStore } from '../store/appStore';
-import { MicOff, MonitorUp, Headphones } from 'lucide-react';
+import { MicOff, MonitorUp } from 'lucide-react';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
 import UserProfileModal from './ui/UserProfileModal';
@@ -101,14 +101,9 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
               {displayName}
             </span>
             <div className="absolute -top-2 -right-2 flex gap-1">
-              {p.isMuted && !p.isDeafened && (
-                <div className="bg-zinc-800 rounded-full p-1 border border-zinc-900 shadow-md">
+              {p.isMuted && (
+                <div className="bg-zinc-800 rounded-full p-1 border border-zinc-900">
                   <MicOff className="w-3 h-3 text-red-500" />
-                </div>
-              )}
-              {p.isDeafened && (
-                <div className="bg-zinc-800 rounded-full p-1 border border-zinc-900 shadow-md">
-                  <Headphones className="w-3 h-3 text-red-500" />
                 </div>
               )}
               {(p.isStreaming || isSharingScreen) && (

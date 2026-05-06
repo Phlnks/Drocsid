@@ -107,18 +107,31 @@ export const playRingtone = () => {
   if (ringtoneInterval) return;
   
   const ring = () => {
-    // Sonnerie téléphone fixe classique (Années 90) - Double tonalité
+    // Professional melodic ringtone (Skype/Teams style) - Faster and more present version
     const now = 0;
-    const vol = 0.2;
+    const speed = 0.65; // Slightly faster
+    const vol = 0.25; // Increased volume
     
-    // Pattern: 2 secondes ON
-    // Utilisation de 440Hz + 480Hz (standard US/International) pour faire l'effet téléphone rouge
-    playTone(440.00, 'sine', 2.0, vol, now);
-    playTone(480.00, 'sine', 2.0, vol, now);
+    // Main melody (triangle wave for more presence than sine)
+    // Rising sequence
+    playTone(392.00, 'triangle', 0.2 * speed, vol, now);       // G4
+    playTone(523.25, 'triangle', 0.2 * speed, vol, now + 0.2 * speed); // C5
+    playTone(659.25, 'triangle', 0.2 * speed, vol, now + 0.4 * speed);  // E5
+    playTone(783.99, 'triangle', 0.4 * speed, vol, now + 0.6 * speed); // G5
+    
+    // Response sequence
+    playTone(880.00, 'triangle', 0.2 * speed, vol - 0.05, now + 1.1 * speed); // A5
+    playTone(783.99, 'triangle', 0.2 * speed, vol - 0.05, now + 1.3 * speed); // G5
+    playTone(659.25, 'triangle', 0.2 * speed, vol - 0.05, now + 1.5 * speed);  // E5
+    playTone(523.25, 'triangle', 0.4 * speed, vol - 0.05, now + 1.7 * speed);  // C5
+    
+    // Low harmonic support
+    playTone(261.63, 'square', 0.8, 0.05, now + 0.4 * speed);  // C4
+    playTone(349.23, 'square', 0.8, 0.05, now + 1.3 * speed); // F4
   };
   
   ring();
-  ringtoneInterval = setInterval(ring, 6000); // 6 secondes boucle (2s ON, 4s OFF)
+  ringtoneInterval = setInterval(ring, 3000); // 3 second professional loop (faster)
 };
 
 export const stopRingtone = () => {
