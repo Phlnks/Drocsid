@@ -7,15 +7,14 @@
 ## ✨ Key Features
 
 - **💬 Real-Time Messaging**: Instant chat with Markdown support, emojis, and file sharing.
-- **🔊 Voice & Video (LiveKit)**: High-performance voice and video infrastructure powered by LiveKit SFU. Supports hundreds of participants with low latency.
-- **🖥️ Screen Sharing**: Share your screen or a specific window with other members in high definition (1080p/60fps support).
+- **🔊 Voice Channels**: Connect instantly via voice with your friends (native WebRTC support via browser/Electron).
 - **📊 Interactive Polls**: Create and participate in polls within text channels and DMs, with support for multiple choices and anonymity.
 - **🎵 Soundboard**: Express yourself with sounds in voice channels (curated and server-specific).
 - **🎬 GIF Picker**: Integrated GIF search to express yourself.
 - **🛡️ Role Hierarchy**: Advanced role system with priority ordering (Position). A member with a lower-ranked role cannot perform administrative actions on a higher-ranked member.
 - **🔒 Per-Channel Permissions**: Total granular control. Authorize or deny access to any specific channel for each role.
 - **🔗 Invite System**: Generate unique invitation codes to grow your community effortlessly.
-- **📱 Private Calls**: Direct calling system for DMs with custom ringtones (double tone) and 4-second pattern.
+- **🖥️ Screen Sharing**: (Electron Version) Share your screen or a specific window with other members in the voice channel.
 - **🔔 Smart Notifications**: Customizable desktop notifications and sound alerts.
 - **🎨 Custom Themes**: Multiple themes (Dark, Indigo, Nature, Matrix, etc.) to adapt the application to your preferences.
 - **📱 Responsive & Desktop**: Works perfectly on mobile, tablet, or desktop via your browser or as a native application via Electron.
@@ -82,12 +81,6 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Application URL (used for invitations and sockets)
 VITE_BACKEND_URL=http://localhost:3000
-
-# LiveKit (Voice/Video) Configuration
-# Global fallback if not defined in the instance settings
-# For Windows app, ensure VITE_LIVEKIT_TOKEN_ENDPOINT points to your hosted backend URL
-VITE_LIVEKIT_URL=wss://your-livekit-server.com
-VITE_LIVEKIT_TOKEN_ENDPOINT=http://localhost:3000/api/livekit/token
 ```
 
 ## 🛠️ Setting up your own Supabase Instance
@@ -106,20 +99,6 @@ If you want to host Drocsid on your own infrastructure (avoiding free-tier quota
    - `attachments`: For message file sharing.
    - `emojis`: For custom server emojis.
 4. **Realtime Configuration**: Ensure "Broadcast" and "Presence" are enabled in your project settings to support the live member list and voice signaling.
-
-## 🛠️ Setting up your own LiveKit Server
-
-To have full control over your voice and video infrastructure:
-
-1. **Self-Hosting (Docker)**: You can easily run LiveKit on your own server using Docker:
-   - Follow the [LiveKit Deployment Guide](https://docs.livekit.io/realtime/self-hosting/deployment/).
-2. **Token Generation**:
-   - LiveKit requires a JWT token for clients to join a room.
-   - We recommend using a dedicated API or your own backend to handle token distribution securely.
-   - Drocsid is pre-configured to fetch tokens from the endpoint specified in `VITE_LIVEKIT_TOKEN_ENDPOINT`.
-3. **Frontend Integration**:
-   - Set `VITE_LIVEKIT_URL` to your LiveKit server's WebSocket address (e.g., `wss://livekit.mydomain.com`).
-   - Set `VITE_LIVEKIT_TOKEN_ENDPOINT` to your backend's API endpoint (e.g., `https://drocsid-api.mydomain.com/api/livekit/token`).
 
 ## 🆕 First-Time Setup & Instances
 
@@ -162,28 +141,11 @@ Drocsid is fully responsive and optimized for mobile devices:
 - **Windows App**: You can access the official installer for Windows by visiting the `/download` page of your application.
 
 
-## 🎙️ LiveKit Integration
-
-Drocsid has evolved from basic Peer-to-Peer WebRTC to a professional **SFU (Selective Forwarding Unit)** architecture powered by **LiveKit**.
-
-### Why LiveKit?
-1. **Scalability**: Unlike P2P which slows down with 3+ people, LiveKit handles hundreds of participants by managing streams on the server.
-2. **Quality & Stability**: Advanced jitter buffering and packet loss concealment for a "Discord-like" audio experience.
-3. **Screen Sharing**: Native support for high-quality screen sharing with automatic bitrate adaptation.
-
-### Configuration
-LiveKit can be configured at two levels:
-*   **Global (Environment)**: Defined in `.env` for the main application deployment.
-*   **Per-Instance (User Settings)**: Advanced users can go to **Instance Settings** and provide a specific LiveKit URL and Token Endpoint for that particular instance. This allows for total infrastructure isolation between communities.
-
-The Token Endpoint should be a POST API that returns a JSON object: `{ "token": "..." }`.
-
 ## 🏗️ Multi-Instance Architecture
 
 Drocsid is built with a **decentralized mindset**. Unlike platforms that lock you into a single database, Drocsid supports **Multiple Instances**:
 
 - **Switch Backends**: Effortlessly switch between different Supabase backends (Private, Corporate, Community).
-- **Independent Infrastructure**: Custom Supabase URL, Socket URL, and **LiveKit Endpoint** can be defined per-instance.
 - **Independent Data**: Each instance has its own users, servers, and history.
 - **Portability**: Your application remains the same, but the "home" it connects to follows you.
 - **Local Persistence**: Instances are securely stored in your local storage, allowing you to jump between communities in seconds.
@@ -206,8 +168,6 @@ Add the following variables in the Render dashboard under your Web Service:
 - `VITE_SUPABASE_PUBLISHABLE_KEY`: Your Supabase Anon Key.
 - `SUPABASE_SERVICE_ROLE_KEY`: Your Supabase Service Role Key (needed for the backend to clean up Socket.io calls).
 - `VITE_BACKEND_URL`: The URL where your app is hosted (e.g., `https://drocsid-app.onrender.com`).
-- `VITE_LIVEKIT_URL`: Your LiveKit Server URL (`wss://...`).
-- `VITE_LIVEKIT_TOKEN_ENDPOINT`: Your hosted backend token URL (e.g., `https://drocsid-app.onrender.com/api/livekit/token`).
 - `RENDER`: `true`
 
 And that's it! Render will build the Vite frontend and serve it automatically using the Node backend.

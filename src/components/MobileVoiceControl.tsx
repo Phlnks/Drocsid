@@ -12,28 +12,15 @@ export default function MobileVoiceControl() {
     setIsVoiceMuted, 
     isDeafened, 
     setIsDeafened,
-    isMobileNavOpen,
-    voiceParticipants: voiceParticipantsMap
+    isMobileNavOpen
   } = useAppStore();
 
   const { user: currentUser } = useAuthStore();
-  const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
-
   if (!connectedVoiceChannelId || isMobileNavOpen) return null;
 
   const handleDisconnect = async () => {
     if (!currentUser) return;
     try {
-      if (connectedVoiceChannelId) {
-        // Find if this is a call
-        const { data: dm } = await supabase.from('dms').select('id').eq('id', connectedVoiceChannelId).maybeSingle();
-        if (dm) {
-          if (voiceParticipants.length <= 1) {
-            await supabase.from('calls').delete().eq('id', connectedVoiceChannelId);
-          }
-        }
-      }
-      
       await supabase.from('profiles').update({
         voice_state: null
       }).eq('id', currentUser.id);

@@ -111,14 +111,14 @@ export const playRingtone = () => {
     const now = 0;
     const vol = 0.2;
     
-    // Pattern: 4 secondes ON
+    // Pattern: 2 secondes ON
     // Utilisation de 440Hz + 480Hz (standard US/International) pour faire l'effet téléphone rouge
-    playTone(440.00, 'sine', 4.0, vol, now);
-    playTone(480.00, 'sine', 4.0, vol, now);
+    playTone(440.00, 'sine', 2.0, vol, now);
+    playTone(480.00, 'sine', 2.0, vol, now);
   };
   
   ring();
-  ringtoneInterval = setInterval(ring, 8000); // 8 secondes boucle (4s ON, 4s OFF)
+  ringtoneInterval = setInterval(ring, 6000); // 6 secondes boucle (2s ON, 4s OFF)
 };
 
 export const stopRingtone = () => {

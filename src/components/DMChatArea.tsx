@@ -650,13 +650,9 @@ export default function DMChatArea() {
     }
   };
 
-  const handleJoinCall = async () => {
+  const handleJoinCall = () => {
     playConnectSound();
     setConnectedVoiceChannelId(selectedDmId);
-    
-    if (activeCall && activeCall.status === 'ringing') {
-      await supabase.from('calls').update({ status: 'active' }).eq('id', activeCall.id);
-    }
   };
 
   const handleLeaveGroup = async () => {
@@ -810,7 +806,7 @@ export default function DMChatArea() {
             </div>
           </div>
 
-          {selectedDmId && connectedVoiceChannelId !== selectedDmId && (voiceParticipantsMap[selectedDmId] || []).length > 0 && (
+          {activeCall && selectedDmId && connectedVoiceChannelId !== selectedDmId && (voiceParticipantsMap[selectedDmId] || []).length > 0 && (
             <div className="bg-emerald-500/10 border-b border-emerald-500/20 p-3 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 text-emerald-400">
                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center animate-pulse">
