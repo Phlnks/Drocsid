@@ -165,13 +165,11 @@ export default function WebRTCManager() {
 
         if (localScreenShareStream) {
           const videoTrack = localScreenShareStream.getVideoTracks()[0];
-          // Audio système : présent sur écran entier (Electron ou navigateur si coché)
           const audioTrack = localScreenShareStream.getAudioTracks()[0];
 
-          // ── Publication / remplacement vidéo ──
+          // ── Vidéo ──
           if (videoTrack) {
             if (publishedScreenTrackRef.current) {
-              // Hot swap — ne pas dépublier, juste remplacer la track sous-jacente
               try {
                 await publishedScreenTrackRef.current.replaceTrack(videoTrack);
                 console.log('[WebRTC] Screen video track replaced (hot swap)');
@@ -180,22 +178,44 @@ export default function WebRTCManager() {
                 await participant.unpublishTrack(publishedScreenTrackRef.current);
                 publishedScreenTrackRef.current = null;
                 const lvt = new LocalVideoTrack(videoTrack, undefined, false);
-                await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
+                await participant.publishTrack(lvt, {
+                  name: 'screen',
+                  source: Track.Source.ScreenShare,
+                  // ✅ Piste 1 — pas de simulcast : un seul flux, pas 3 résolutions en parallèle
+                  simulcast: false,
+                  // ✅ Piste 4 — encodage limité : pas besoin de plus pour un screen share
+                  videoEncoding: {
+                    maxBitrate: 3_000_000,   // 3 Mbps — suffisant pour 1080p/1440p screen share
+                    maxFramerate: 30,
+                    priority: 'high'
+                  }
+                });
                 publishedScreenTrackRef.current = lvt;
                 (useAppStore.getState() as any).publishedScreenTrack = lvt;
               }
             } else {
               const lvt = new LocalVideoTrack(videoTrack, undefined, false);
-              await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
+              await participant.publishTrack(lvt, {
+                name: 'screen',
+                source: Track.Source.ScreenShare,
+                // ✅ Piste 1 — désactiver le simulcast pour le screen share
+                // Le simulcast publie 2-3 résolutions en parallèle → RAM/CPU inutile à 2-3 personnes
+                simulcast: false,
+                // ✅ Piste 4 — limiter l'encodage
+                // Évite que LiveKit encode en 4K ou à 60fps sans limite
+                videoEncoding: {
+                  maxBitrate: 3_000_000,   // 3 Mbps
+                  maxFramerate: 60,
+                  priority: 'high'
+                }
+              });
               publishedScreenTrackRef.current = lvt;
               (useAppStore.getState() as any).publishedScreenTrack = lvt;
-              console.log('[WebRTC] Screen video track published');
+              console.log('[WebRTC] Screen video track published (no simulcast, H.264 preferred, 3Mbps max)');
             }
           }
 
-          // ── Publication audio système ──
-          // Disponible uniquement sur : écran entier Electron, ou navigateur si l'utilisateur
-          // a coché "Partager l'audio du système" dans la boîte de dialogue du navigateur.
+          // ── Audio système ──
           if (audioTrack) {
             if (!publishedScreenAudioTrackRef.current) {
               try {
@@ -207,13 +227,10 @@ export default function WebRTCManager() {
                 publishedScreenAudioTrackRef.current = lat;
                 console.log('[WebRTC] Screen audio track published');
               } catch (e) {
-                // Pas bloquant — le stream vidéo continue sans audio système
                 console.warn('[WebRTC] Screen audio publish failed:', e);
               }
             }
           } else {
-            // Pas d'audio dans ce stream (fenêtre d'app Electron, ou navigateur sans audio coché)
-            // Dépublier proprement si une track audio était active (ex : changement de source)
             if (publishedScreenAudioTrackRef.current) {
               try {
                 await participant.unpublishTrack(publishedScreenAudioTrackRef.current);
@@ -226,7 +243,7 @@ export default function WebRTCManager() {
           }
 
         } else {
-          // ── Arrêt du partage : dépublier vidéo + audio ──
+          // ── Arrêt du partage ──
           if (publishedScreenTrackRef.current) {
             participant.getTrackPublications().forEach(pub => {
               if (pub.source === Track.Source.ScreenShare) participant.unpublishTrack(pub.track as LocalTrack);
@@ -235,7 +252,6 @@ export default function WebRTCManager() {
             (useAppStore.getState() as any).publishedScreenTrack = null;
             console.log('[WebRTC] Screen video track unpublished');
           }
-
           if (publishedScreenAudioTrackRef.current) {
             try {
               await participant.unpublishTrack(publishedScreenAudioTrackRef.current);
@@ -325,10 +341,29 @@ export default function WebRTCManager() {
     let isMounted = true;
     const room = new Room({
       adaptiveStream: true,
+      // ✅ dynacast: true — ajuste dynamiquement la qualité selon le nombre de spectateurs
+      // Compatible avec simulcast: false car dynacast agit sur la couche d'encodage, pas les flux
       dynacast: true,
       videoCaptureDefaults: screenShareQuality ? {
-        resolution: { width: screenShareQuality.width, height: screenShareQuality.height, frameRate: screenShareQuality.frameRate }
-      } : undefined
+        resolution: {
+          width: screenShareQuality.width,
+          height: screenShareQuality.height,
+          frameRate: screenShareQuality.frameRate
+        }
+      } : undefined,
+      // ✅ Piste 4 — Forcer H.264 comme codec vidéo préféré
+      // H.264 est accéléré matériellement par Intel Quick Sync, NVIDIA NVENC, AMD VCE
+      // → divise par 3-5 la charge CPU/RAM de l'encodage et du décodage vs VP8/VP9 logiciel
+      // Si le navigateur ou la carte graphique ne supporte pas H.264, LiveKit bascule sur VP8
+      publishDefaults: {
+        videoCodec: 'h264',
+        // Encodage screen share global (complété par videoEncoding dans publishTrack)
+        screenShareEncoding: {
+          maxBitrate: 3_000_000,  // 3 Mbps — suffisant pour 1080p screen share
+          maxFramerate: 30,
+          priority: 'high'
+        }
+      }
     });
     roomRef.current = room;
 
@@ -355,14 +390,13 @@ export default function WebRTCManager() {
 
         // ── Réception des tracks distantes ──
         room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
-
           if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
             // Vidéo du partage d'écran
             const stream = new MediaStream([track.mediaStreamTrack]);
             setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            // Audio système du partage d'écran — clé distincte pour ne pas écraser le micro
+            // Audio système du partage — clé distincte pour ne pas écraser le micro
             const stream = new MediaStream([track.mediaStreamTrack]);
             setRemoteStreams(prev => {
               const map = new Map(prev);
@@ -385,7 +419,6 @@ export default function WebRTCManager() {
             if (useAppStore.getState().activeStreamFocus === participant.identity) useAppStore.getState().setActiveStreamFocus(null);
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            // Retirer l'audio screen share sans toucher au micro
             setRemoteStreams(prev => {
               const map = new Map(prev);
               map.delete(`${participant.identity}_screenaudio`);
