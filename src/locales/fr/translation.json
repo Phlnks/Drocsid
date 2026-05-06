@@ -637,7 +637,8 @@
     "audioNote": "N'oubliez pas de cocher \"Partager l'audio du système\" dans la fenêtre de partage.",
     "standard": "Standard (720p 30fps)",
     "high": "Haute (1080p 60fps) - Jeux",
-    "ultra": "Ultra (1440p 60fps)"
+    "ultra": "Ultra (1440p 60fps)",
+    "fullScreenOnly": "Seul le partage d'écran complet est autorisé sur navigateur."
   },
   "auth": {
     "welcome": "Bienvenue sur Drocsid",

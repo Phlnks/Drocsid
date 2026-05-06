@@ -637,6 +637,7 @@
     "standard": "Estándar (720p 30fps)",
     "high": "Alta (1080p 60fps) - Juegos",
     "ultra": "Ultra (1440p 60fps)",
+    "fullScreenOnly": "Solo se permite compartir la pantalla completa en el navegador.",
     "afkRestricted": "Restricted Access (AFK Channel)"
   },
   "auth": {

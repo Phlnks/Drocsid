@@ -336,9 +336,32 @@ export default function VoicePanel() {
         }
       } else {
         stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { width: { ideal: quality.width, max: 2560 }, height: { ideal: quality.height, max: 1440 }, frameRate: { ideal: quality.frameRate, max: 60 }, displaySurface: 'window' },
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, suppressLocalAudioPlayback: false }
+          video: { 
+            width: { ideal: quality.width, max: 2560 }, 
+            height: { ideal: quality.height, max: 1440 }, 
+            frameRate: { ideal: quality.frameRate, max: 60 },
+            displaySurface: 'monitor',
+          } as any,
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, suppressLocalAudioPlayback: false },
+          // Hint to the browser to prioritize screen sharing and exclude current tab/windows if supported
+          preferCurrentTab: false,
+          selfBrowserSurface: 'exclude',
+          surfaceSwitching: 'exclude',
+          systemAudio: 'include'
         } as any);
+
+        // Validation strict pour le navigateur : On veut l'écran complet
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          const settings = videoTrack.getSettings();
+          // displaySurface est 'monitor' pour l'écran complet, 'window' ou 'browser' (tab) sinon
+          if (settings.displaySurface && settings.displaySurface !== 'monitor') {
+            videoTrack.stop();
+            stream.getTracks().forEach(t => t.stop());
+            useAppStore.getState().addNotification(t('voice.fullScreenOnly'), 'error');
+            return;
+          }
+        }
       }
 
       const videoTrack = stream.getVideoTracks()[0];
