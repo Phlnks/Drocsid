@@ -314,9 +314,9 @@ export default function WebRTCManager() {
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
-      videoCaptureDefaults: {
+      videoCaptureDefaults: screenShareQuality ? {
         resolution: { width: screenShareQuality.width, height: screenShareQuality.height, frameRate: screenShareQuality.frameRate }
-      }
+      } : undefined
     });
     roomRef.current = room;
 
