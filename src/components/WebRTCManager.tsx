@@ -213,9 +213,7 @@ export default function WebRTCManager() {
         if (localScreenShareStream) {
           const videoTrack = localScreenShareStream.getVideoTracks()[0];
           if (videoTrack) {
-            // LiveKit provides a way to publish an existing track
-            const lvt = new LocalVideoTrack(videoTrack, undefined, false);
-            await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
+            await participant.publishTrack(videoTrack, { name: 'screen', source: Track.Source.ScreenShare });
           }
         } else {
           // Unpublish existing screen tracks
