@@ -228,8 +228,14 @@ export default function VoicePanel() {
 
   const handleDisconnect = async () => {
     playDisconnectSound();
-    // We don't need to delete from calls table here, it should be handled by the server or left as is
-    // since it's a persistent record of the call.
+    
+    if (isCall && connectedVoiceChannelId) {
+      if (voiceParticipants.length <= 1) {
+        // If we are the last person (or alone), end the call
+        await supabase.from('calls').delete().eq('id', connectedVoiceChannelId);
+      }
+    }
+    
     setConnectedVoiceChannelId(null);
   };
 

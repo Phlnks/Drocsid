@@ -113,9 +113,7 @@ export default function IncomingCallModal() {
     setConnectedVoiceChannelId(incomingCall.dm_id);
     setSelectedDmId(incomingCall.dm_id);
     
-    if (incomingCall.participants.length <= 2) {
-      await supabase.from('calls').update({ status: 'active' }).eq('id', incomingCall.id);
-    }
+    await supabase.from('calls').update({ status: 'active' }).eq('id', incomingCall.id);
     
     setIncomingCall(null);
   };
