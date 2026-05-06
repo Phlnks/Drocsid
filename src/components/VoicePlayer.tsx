@@ -1,93 +1,557 @@
-import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { supabase } from '../supabase';
+import { useAuthStore } from '../store/authStore';
+import { useAppStore } from '../store/appStore';
+import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2, PauseCircle } from 'lucide-react';
+import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound, playRingtone, stopRingtone } from '../lib/sounds';
+import clsx from 'clsx';
+import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
+import SoundboardPicker from './SoundboardPicker';
+import socket from '../lib/socket';
+import { useTranslation } from 'react-i18next';
 
-interface VoicePlayerProps {
-  url: string;
-  filename?: string;
-}
+export default function VoicePanel() {
+  const { t } = useTranslation();
+  const { user: currentUser } = useAuthStore();
+  const {
+    connectedVoiceChannelId,
+    setConnectedVoiceChannelId,
+    isVoiceMuted,
+    setIsVoiceMuted,
+    isDeafened,
+    setIsDeafened,
+    isScreenSharing,
+    setIsScreenSharing,
+    setScreenShareQuality,
+    viewingScreenShares,
+    setViewingScreenShares,
+    setActiveStreamFocus,
+    localScreenShareStream,
+    setSelectedDmId,
+    setSelectedServerId,
+    selectedServerId,
+  } = useAppStore();
 
-export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [channelName, setChannelName] = useState('Voice Channel');
+  const [callDuration, setCallDuration] = useState(0);
+  const [isCall, setIsCall] = useState(false);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [showSoundboard, setShowSoundboard] = useState(false);
+  const [pendingQuality, setPendingQuality] = useState<any>(null);
+  const [streamViewers, setStreamViewers] = useState<any[]>([]);
+  const [isStreamPaused, setIsStreamPaused] = useState(false);
 
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+
+  // ─── Refs pour la stratégie canvas "pause frame" ───────────────────────────
+  // Quand la fenêtre partagée est minimisée, la vraie track se "mute" (readyState=live mais plus de frames).
+  // On substitue une canvas noire animée (1 fps) pour garder la track LiveKit en vie côté spectateurs.
+  // Quand la fenêtre revient, on reswap sur la vraie track via replaceTrack.
+  const realVideoTrackRef = useRef<MediaStreamTrack | null>(null);    // la vraie track capturée
+  const canvasStreamRef = useRef<MediaStream | null>(null);           // stream canvas de substitution
+  const canvasIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // boucle canvas
+  const isPausedRef = useRef(false);                                  // état pause interne (sans re-render)
+  const userStoppedRef = useRef(false);                               // true si arrêt volontaire
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
+  const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
+
+  // ─── Vidéo locale keep-alive ───────────────────────────────────────────────
+  useEffect(() => {
+    if (localVideoRef.current && localScreenShareStream) {
+      localVideoRef.current.srcObject = localScreenShareStream;
+      localVideoRef.current.play().catch(console.error);
+    } else if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+  }, [localScreenShareStream]);
+
+  // ─── Stratégie canvas : substitution quand la fenêtre est minimisée ────────
+  useEffect(() => {
+    if (!localScreenShareStream || !isScreenSharing) {
+      // Cleanup canvas si le stream s'arrête
+      cleanupCanvas();
+      return;
+    }
+
+    const videoTrack = localScreenShareStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+
+    realVideoTrackRef.current = videoTrack;
+    userStoppedRef.current = false;
+    isPausedRef.current = false;
+
+    // ── Obtenir les dimensions réelles de la track ──
+    const settings = videoTrack.getSettings();
+    const canvasW = settings.width || 1920;
+    const canvasH = settings.height || 1080;
+
+    // ── Créer la canvas de substitution ──
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dessiner une frame initiale noire avec texte "Stream en pause"
+    const drawPauseFrame = () => {
+      ctx.fillStyle = '#18181b'; // zinc-900
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.fillStyle = '#a1a1aa'; // zinc-400
+      ctx.font = `bold ${Math.round(canvasH * 0.04)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⏸  Stream en pause', canvasW / 2, canvasH / 2);
+      ctx.font = `${Math.round(canvasH * 0.025)}px Inter, sans-serif`;
+      ctx.fillStyle = '#71717a'; // zinc-500
+      ctx.fillText('La fenêtre partagée est minimisée', canvasW / 2, canvasH / 2 + canvasH * 0.065);
+    };
+
+    // Créer le stream canvas (1 fps suffit pour garder la track "active")
+    const canvasStream = canvas.captureStream(1);
+    canvasStreamRef.current = canvasStream;
+
+    // ── Listener mute/unmute sur la vraie track ──
+    const handleMute = async () => {
+      if (isPausedRef.current || userStoppedRef.current) return;
+      isPausedRef.current = true;
+      setIsStreamPaused(true);
+      console.log('[ScreenShare] Track muted — switching to canvas placeholder');
+
+      // Dessiner la frame pause et démarrer la boucle canvas (re-dessine toutes les 2s pour éviter le freeze)
+      drawPauseFrame();
+      canvasIntervalRef.current = setInterval(drawPauseFrame, 2000);
+
+      // Récupérer le LocalVideoTrack LiveKit publié et remplacer par la canvas
+      const appState = useAppStore.getState();
+      const publishedTrack = (appState as any).publishedScreenTrack as any;
+      const canvasTrack = canvasStream.getVideoTracks()[0];
+
+      if (publishedTrack && canvasTrack) {
+        try {
+          await publishedTrack.replaceTrack(canvasTrack);
+          console.log('[ScreenShare] Replaced with canvas track (spectators see pause frame)');
+        } catch (e) {
+          console.warn('[ScreenShare] replaceTrack to canvas failed:', e);
+        }
       }
-      setIsPlaying(!isPlaying);
+    };
+
+    const handleUnmute = async () => {
+      if (!isPausedRef.current || userStoppedRef.current) return;
+      isPausedRef.current = false;
+      setIsStreamPaused(false);
+      console.log('[ScreenShare] Track unmuted — restoring real track');
+
+      // Arrêter la boucle canvas
+      if (canvasIntervalRef.current) {
+        clearInterval(canvasIntervalRef.current);
+        canvasIntervalRef.current = null;
+      }
+
+      // Rebasculer sur la vraie track
+      const appState = useAppStore.getState();
+      const publishedTrack = (appState as any).publishedScreenTrack as any;
+      const realTrack = realVideoTrackRef.current;
+
+      if (publishedTrack && realTrack) {
+        try {
+          await publishedTrack.replaceTrack(realTrack);
+          console.log('[ScreenShare] Restored real track (stream resumed for spectators)');
+        } catch (e) {
+          console.warn('[ScreenShare] replaceTrack to real track failed:', e);
+        }
+      }
+    };
+
+    // ── Listener ended : la track est vraiment terminée (utilisateur a cliqué "Stop" dans le navigateur) ──
+    const handleEnded = () => {
+      if (userStoppedRef.current) return; // arrêt depuis le bouton de l'app → déjà géré
+      console.log('[ScreenShare] Track ended (user clicked browser stop button)');
+      cleanupCanvas();
+      playScreenShareStopSound();
+      useAppStore.getState().setIsScreenSharing(false);
+      useAppStore.getState().setLocalScreenShareStream(null);
+      setIsStreamPaused(false);
+    };
+
+    videoTrack.addEventListener('mute', handleMute);
+    videoTrack.addEventListener('unmute', handleUnmute);
+    videoTrack.addEventListener('ended', handleEnded);
+
+    return () => {
+      videoTrack.removeEventListener('mute', handleMute);
+      videoTrack.removeEventListener('unmute', handleUnmute);
+      videoTrack.removeEventListener('ended', handleEnded);
+      cleanupCanvas();
+    };
+  }, [localScreenShareStream, isScreenSharing]);
+
+  // ─── Cleanup canvas helper ──────────────────────────────────────────────────
+  const cleanupCanvas = useCallback(() => {
+    if (canvasIntervalRef.current) {
+      clearInterval(canvasIntervalRef.current);
+      canvasIntervalRef.current = null;
+    }
+    if (canvasStreamRef.current) {
+      canvasStreamRef.current.getTracks().forEach(t => t.stop());
+      canvasStreamRef.current = null;
+    }
+    isPausedRef.current = false;
+  }, []);
+
+  // ─── Wake Lock ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && connectedVoiceChannelId) {
+          const status = await (navigator as any).permissions.query({ name: 'screen-wake-lock' }).catch(() => null);
+          if (status && status.state === 'denied') return;
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err: any) {
+        if (err.name !== 'NotAllowedError' && !err.message?.includes('permissions policy')) {
+          console.error("Wake Lock error:", err);
+        }
+      }
+    };
+    if (connectedVoiceChannelId) requestWakeLock();
+    const handleVisibilityChange = () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') requestWakeLock();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock !== null) wakeLock.release().catch(console.error);
+    };
+  }, [connectedVoiceChannelId]);
+
+  // ─── Infos channel ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !currentUser) return;
+    setCallDuration(0);
+    setIsCall(false);
+    const fetchChannelInfo = async () => {
+      const { data: channel } = await supabase.from('channels').select('name').eq('id', connectedVoiceChannelId).maybeSingle();
+      if (channel) {
+        setChannelName(channel.name);
+        setIsCall(false);
+      } else {
+        const { data: dm } = await supabase.from('dms').select('*').eq('id', connectedVoiceChannelId).maybeSingle();
+        if (dm) {
+          setIsCall(true);
+          const otherIds = dm.participants.filter((id: string) => id !== currentUser.id);
+          let names = [];
+          for (const id of otherIds) {
+            if (!id) continue;
+            const { data: profile } = await supabase.from('profiles').select('username, display_name').eq('id', id).maybeSingle();
+            if (profile) names.push(profile.username || profile.display_name);
+          }
+          setChannelName(names.join(', ') || t('voice.privateCall'));
+        }
+      }
+    };
+    fetchChannelInfo();
+    const chanName = `voice_panel_channel_${connectedVoiceChannelId}_${currentUser.id}_${Math.random().toString(36).substring(7)}`;
+    const channelSub = supabase.channel(chanName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dms', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
+      .subscribe();
+    return () => { supabase.removeChannel(channelSub); };
+  }, [connectedVoiceChannelId, currentUser]);
+
+  // ─── Viewers du stream ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !currentUser || !isScreenSharing) {
+      setStreamViewers([]);
+      return;
+    }
+    const myUid = currentUser.id;
+    const viewers = voiceParticipants
+      .filter((p: any) => p.id !== myUid && Array.isArray(p.viewingStreams) && p.viewingStreams.includes(myUid))
+      .map(p => ({ id: p.id, name: p.name }));
+    setStreamViewers(viewers);
+  }, [connectedVoiceChannelId, isScreenSharing, currentUser, voiceParticipants]);
+
+  // ─── Timer d'appel ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    let interval: any;
+    if (connectedVoiceChannelId && isCall) {
+      interval = setInterval(() => setCallDuration(prev => prev + 1), 1000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [connectedVoiceChannelId, isCall]);
+
+  // ─── Sonnerie ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !isCall || !currentUser) { stopRingtone(); return; }
+    let isCaller = false;
+    const checkCaller = async () => {
+      const { data: call } = await supabase.from('calls').select('caller_id').eq('id', connectedVoiceChannelId).maybeSingle();
+      if (call && call.caller_id === currentUser.id) {
+        isCaller = true;
+        if (voiceParticipants.length === 1) playRingtone();
+      }
+    };
+    checkCaller();
+    if (voiceParticipants.length === 1 && isCaller) playRingtone();
+    else if (voiceParticipants.length > 1) stopRingtone();
+    return () => { stopRingtone(); };
+  }, [connectedVoiceChannelId, isCall, currentUser, voiceParticipants.length]);
+
+  const formatDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleDisconnect = async () => {
+    playDisconnectSound();
+    setConnectedVoiceChannelId(null);
+  };
+
+  const toggleMute = () => {
+    if (isDeafened) return;
+    if (isVoiceMuted) playUnmuteSound(); else playMuteSound();
+    setIsVoiceMuted(!isVoiceMuted);
+  };
+
+  const toggleDeafen = () => {
+    if (isDeafened) { playUndeafenSound(); setIsDeafened(false); }
+    else { playDeafenSound(); setIsDeafened(true); if (!isVoiceMuted) setIsVoiceMuted(true); }
+  };
+
+  const handleScreenShare = async (quality: { width: number, height: number, frameRate: number }, sourceId?: string) => {
+    try {
+      const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+      let stream: MediaStream;
+
+      if (isElectron && sourceId) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const isScreen = sourceId.startsWith('screen:');
+        try {
+          if (!isScreen) throw new Error("Audio capture is only supported for entire screens");
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { mandatory: { chromeMediaSource: 'desktop' } },
+            video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sourceId, maxWidth: quality.width, maxHeight: quality.height, maxFrameRate: quality.frameRate } }
+          } as any);
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sourceId, maxWidth: quality.width, maxHeight: quality.height, maxFrameRate: quality.frameRate } }
+          } as any);
+        }
+      } else {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { width: { ideal: quality.width, max: 2560 }, height: { ideal: quality.height, max: 1440 }, frameRate: { ideal: quality.frameRate, max: 60 }, displaySurface: 'window' },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, suppressLocalAudioPlayback: false }
+        } as any);
+      }
+
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && 'contentHint' in videoTrack) (videoTrack as any).contentHint = 'motion';
+
+      userStoppedRef.current = false;
+      setIsStreamPaused(false);
+      playScreenShareStartSound();
+      setScreenShareQuality(quality);
+      setShowQualityMenu(false);
+      setShowPicker(false);
+
+      useAppStore.getState().setLocalScreenShareStream(stream);
+      useAppStore.getState().setIsScreenSharing(true);
+    } catch (err) {
+      console.error("Error sharing screen", err);
+      useAppStore.getState().setIsScreenSharing(false);
+      useAppStore.getState().setLocalScreenShareStream(null);
     }
   };
 
-  const onLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
+  const startScreenShareFlow = (quality: { width: number, height: number, frameRate: number }) => {
+    const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+    if (isElectron) { setPendingQuality(quality); setShowPicker(true); setShowQualityMenu(false); }
+    else handleScreenShare(quality);
+  };
+
+  const toggleScreenShare = () => {
+    if (window.innerWidth < 768) return;
+    if (isScreenSharing) {
+      // Arrêt volontaire
+      userStoppedRef.current = true;
+      setIsStreamPaused(false);
+      setIsScreenSharing(false);
+      setViewingScreenShares(new Set());
+      setActiveStreamFocus(null);
+      playScreenShareStopSound();
+      const stream = useAppStore.getState().localScreenShareStream;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        useAppStore.getState().setLocalScreenShareStream(null);
+      }
+    } else {
+      setShowQualityMenu(!showQualityMenu);
     }
   };
 
-  const onTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
+  const stopWatchingAll = () => { setViewingScreenShares(new Set()); setActiveStreamFocus(null); };
+
+  if (!connectedVoiceChannelId) return null;
+
+  const handlePanelClick = () => {
+    if (isCall && connectedVoiceChannelId) { setSelectedServerId(null); setSelectedDmId(connectedVoiceChannelId); }
   };
 
-  const onEnded = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-
-  const formatTime = (time: number) => {
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const isAfk = channelName.endsWith(' [AFK]');
+  const displayChannelName = isAfk ? channelName.replace(' [AFK]', '') : channelName;
 
   return (
-    <div className="bg-zinc-800 border border-zinc-700/50 rounded-2xl p-3 mt-2 max-w-sm flex items-center gap-4 shadow-sm group hover:border-zinc-700 transition-all">
-      <audio 
-        ref={audioRef} 
-        src={url} 
-        onLoadedMetadata={onLoadedMetadata}
-        onTimeUpdate={onTimeUpdate}
-        onEnded={onEnded}
-        hidden
+    <div className="bg-zinc-950 border-t border-zinc-800 p-2 flex flex-col gap-2 shrink-0 relative">
+      {/* Vidéo cachée keep-alive */}
+      <video
+        ref={localVideoRef}
+        autoPlay
+        playsInline
+        muted
+        className="fixed -left-[2000px] -top-[2000px] w-10 h-10 opacity-[0.05] pointer-events-none z-[-1]"
       />
-      
-      <button 
-        onClick={togglePlay}
-        className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white hover:bg-indigo-600 transition-colors shrink-0 shadow-lg shadow-indigo-500/20"
-      >
-        {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-      </button>
 
-      <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-        {filename && (
-          <div className="text-[11px] font-medium text-zinc-400 truncate mb-0.5" title={filename}>
-            {filename}
-          </div>
-        )}
-        <div className="relative h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-          <div 
-            className="absolute top-0 left-0 h-full bg-indigo-400 transition-all duration-100 ease-linear"
-            style={{ width: `${(currentTime / duration) * 100}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono font-medium text-indigo-300">
-            {formatTime(currentTime)}
-          </span>
-          <div className="flex items-center gap-1">
-             <Volume2 className="w-3 h-3 text-zinc-500" />
-             <span className="text-[10px] font-mono font-medium text-zinc-500">
-              {formatTime(duration)}
+      <div className="hidden md:flex items-center justify-between px-2">
+        <div
+          className={clsx("flex items-center gap-2 text-emerald-500", isCall && "cursor-pointer hover:opacity-80 transition-opacity")}
+          onClick={handlePanelClick}
+        >
+          <SignalHigh className="w-4 h-4" />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold">
+              {isCall ? t('voice.inCall', { duration: formatDuration(callDuration) }) : t('voice.voiceConnected')}
             </span>
+            <span className="text-[10px] text-zinc-400 truncate max-w-[120px]">{displayChannelName}</span>
           </div>
         </div>
+        <button
+          onClick={handleDisconnect}
+          className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-500 transition-colors"
+          title={t('voice.disconnect')}
+        >
+          <PhoneOff className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Overlay "Stream en pause" */}
+      {isScreenSharing && isStreamPaused && (
+        <div className="px-2">
+          <div className="w-full flex items-center justify-center gap-2 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-md text-xs font-medium border border-yellow-500/20 animate-pulse">
+            <PauseCircle className="w-3 h-3" />
+            Stream en pause — fenêtre minimisée
+          </div>
+        </div>
+      )}
+
+      {viewingScreenShares.size > 0 && (
+        <div className="px-2">
+          <button
+            onClick={stopWatchingAll}
+            className="w-full flex items-center justify-center gap-2 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-md text-xs font-medium transition-colors border border-indigo-500/20"
+          >
+            <MonitorOff className="w-3 h-3" />
+            {t('voice.leaveStreamCount', { count: viewingScreenShares.size })}
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-1 px-1">
+        <div className="relative flex-1 hidden md:block">
+          <button
+            onClick={toggleScreenShare}
+            disabled={isAfk}
+            className={`w-full flex items-center justify-center py-1.5 rounded-md transition-colors ${
+              isScreenSharing
+                ? isStreamPaused
+                  ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+                  : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
+                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'
+            } ${isAfk ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isScreenSharing ? t('voice.stopSharing') : (isAfk ? t('voice.afkRestricted') : t('voice.shareScreen'))}
+          >
+            {isScreenSharing
+              ? isStreamPaused ? <PauseCircle className="w-4 h-4" /> : <MonitorOff className="w-4 h-4" />
+              : <MonitorUp className="w-4 h-4" />
+            }
+          </button>
+          {isScreenSharing && streamViewers.length > 0 && (
+            <div className="absolute -top-2 -right-2 bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shadow-md" title={streamViewers.map(v => v.name).join(', ')}>
+              <Eye className="w-3 h-3" />
+              {streamViewers.length}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={toggleMute}
+          disabled={isAfk}
+          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${isVoiceMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'} ${isDeafened || isAfk ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {isVoiceMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+        </button>
+
+        <button
+          onClick={toggleDeafen}
+          disabled={isAfk}
+          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${isDeafened ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'} ${isAfk ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
+        </button>
+
+        <button
+          onClick={() => setShowSoundboard(!showSoundboard)}
+          className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${showSoundboard ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}
+        >
+          <Volume2 className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={handleDisconnect}
+          className="flex-1 md:hidden flex items-center justify-center py-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-500 transition-colors"
+        >
+          <PhoneOff className="w-4 h-4" />
+        </button>
+      </div>
+
+      <SoundboardPicker
+        isOpen={showSoundboard}
+        onClose={() => setShowSoundboard(false)}
+        channelId={connectedVoiceChannelId}
+        serverId={selectedServerId}
+      />
+
+      {showQualityMenu && !isScreenSharing && (
+        <div className="absolute bottom-full left-2 mb-2 w-48 bg-zinc-800 border border-zinc-700 rounded-md shadow-lg overflow-hidden z-50 hidden md:block">
+          <div className="px-3 py-2 border-b border-zinc-700 bg-zinc-900/50 flex items-center gap-2">
+            <Settings2 className="w-4 h-4 text-zinc-400" />
+            <span className="text-xs font-medium text-zinc-300">{t('voice.qualityTitle')}</span>
+          </div>
+          <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
+            {t('voice.audioNote')}
+          </div>
+          <button onClick={() => startScreenShareFlow({ width: 1280, height: 720, frameRate: 30 })} className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors">
+            {t('voice.standard')}
+          </button>
+          <button onClick={() => startScreenShareFlow({ width: 1920, height: 1080, frameRate: 60 })} className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors">
+            {t('voice.high')}
+          </button>
+          <button onClick={() => startScreenShareFlow({ width: 2560, height: 1440, frameRate: 60 })} className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors">
+            {t('voice.ultra')}
+          </button>
+        </div>
+      )}
+
+      <ScreenSharePickerModal
+        isOpen={showPicker}
+        onClose={() => setShowPicker(false)}
+        onSelect={(sourceId) => handleScreenShare(pendingQuality, sourceId)}
+      />
     </div>
   );
 }

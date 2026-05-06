@@ -64,7 +64,7 @@ export default function WebRTCManager() {
   const roomRef = useRef<Room | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // ✅ Déclaré au niveau du composant (pas dans un useEffect)
+  // ✅ Déclaré au niveau du composant — accessible dans tous les useEffect
   const publishedScreenTrackRef = useRef<LocalVideoTrack | null>(null);
 
   const prevVoiceParticipantsRef = useRef<any[]>([]);
@@ -81,78 +81,59 @@ export default function WebRTCManager() {
       prevVoiceChannelRef.current = null;
       return;
     }
-
     const currentParticipants = voiceParticipants;
     const prevParticipants = prevVoiceParticipantsRef.current;
-
     if (prevVoiceChannelRef.current === connectedVoiceChannelId && prevParticipants.length > 0) {
       const currentUids = new Set(currentParticipants.map(p => p.id));
       const prevUids = new Set(prevParticipants.map(p => p.id));
       let joined = false, left = false, startedStream = false;
-
       currentParticipants.forEach(p => { if (!prevUids.has(p.id) && p.id !== currentUser.id) joined = true; });
       prevParticipants.forEach(p => { if (!currentUids.has(p.id) && p.id !== currentUser.id) left = true; });
       currentParticipants.forEach(curr => {
         const prev = prevParticipants.find(p => p.id === curr.id);
         if (prev && curr.id !== currentUser.id && curr.isStreaming && !prev.isStreaming) startedStream = true;
       });
-
       if (joined) playConnectSound();
       if (left && !joined) playDisconnectSound();
       if (startedStream) playScreenShareStartSound();
     }
-
     prevVoiceParticipantsRef.current = currentParticipants;
     prevVoiceChannelRef.current = connectedVoiceChannelId;
   }, [voiceParticipants, connectedVoiceChannelId, currentUser]);
 
-  // Listen for forced voice moves and mutes
+  // Force move / force mute
   useEffect(() => {
     const handleForceMove = async (data: { channelId: string | null, serverId?: string | null }) => {
       if (data.channelId) {
         try {
-          if (data.serverId) {
-            setConnectedVoiceChannelId(data.channelId, data.serverId);
-          } else {
+          if (data.serverId) { setConnectedVoiceChannelId(data.channelId, data.serverId); }
+          else {
             const { data: channel } = await supabase.from('channels').select('server_id').eq('id', data.channelId).maybeSingle();
             setConnectedVoiceChannelId(data.channelId, channel?.server_id);
           }
-        } catch (e) {
-          setConnectedVoiceChannelId(data.channelId);
-        }
-      } else {
-        setConnectedVoiceChannelId(null);
-      }
+        } catch (e) { setConnectedVoiceChannelId(data.channelId); }
+      } else { setConnectedVoiceChannelId(null); }
     };
-
     const handleForceMute = (data: { mute: boolean }) => {
       if (data.mute && !isVoiceMuted) { playMuteSound(); setIsVoiceMuted(true); }
       else if (!data.mute && isVoiceMuted) { playUnmuteSound(); setIsVoiceMuted(false); }
     };
-
     socket.on('force-move', handleForceMove);
     socket.on('force-mute', handleForceMute);
-    return () => {
-      socket.off('force-move', handleForceMove);
-      socket.off('force-mute', handleForceMute);
-    };
+    return () => { socket.off('force-move', handleForceMove); socket.off('force-mute', handleForceMute); };
   }, [setConnectedVoiceChannelId, isVoiceMuted, setIsVoiceMuted]);
 
-  // Handle local mute status on LiveKit
+  // Mute local mic
   useEffect(() => {
     if (roomRef.current?.localParticipant) {
       roomRef.current.localParticipant.setMicrophoneEnabled(!(isVoiceMuted || isDeafened));
     }
     if (connectedVoiceChannelId && currentUser) {
-      socket.emit('voice-state-update', {
-        channelId: connectedVoiceChannelId,
-        userId: currentUser.id,
-        updates: { isMuted: isVoiceMuted, isDeafened }
-      });
+      socket.emit('voice-state-update', { channelId: connectedVoiceChannelId, userId: currentUser.id, updates: { isMuted: isVoiceMuted, isDeafened } });
     }
   }, [isVoiceMuted, isDeafened, connectedVoiceChannelId, currentUser]);
 
-  // Enforce AFK channel restrictions
+  // AFK
   useEffect(() => {
     if (!connectedVoiceChannelId) return;
     const checkChannelAfk = async () => {
@@ -165,7 +146,10 @@ export default function WebRTCManager() {
     checkChannelAfk();
   }, [connectedVoiceChannelId, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened]);
 
-  // ✅ Gestion screen share avec replaceTrack (publishedScreenTrackRef au bon scope)
+  // ─── Screen share publish avec replaceTrack ────────────────────────────────
+  // publishedScreenTrackRef stocke le LocalVideoTrack LiveKit publié.
+  // VoicePanel.tsx accède à ce même objet via (useAppStore.getState() as any).publishedScreenTrack
+  // pour faire le replaceTrack canvas ↔ real sans passer par React state.
   useEffect(() => {
     if (!connectedVoiceChannelId || !currentUser || !roomRef.current) return;
 
@@ -179,85 +163,65 @@ export default function WebRTCManager() {
           if (!videoTrack) return;
 
           if (publishedScreenTrackRef.current) {
-            // ✅ Hot swap : remplace la track sans couper WebRTC côté spectateurs
+            // Hot swap — ne pas dépublier, juste remplacer la track sous-jacente
             try {
               await publishedScreenTrackRef.current.replaceTrack(videoTrack);
-              console.log("Screen share track replaced (hot swap).");
+              console.log('[WebRTC] Screen track replaced (hot swap)');
             } catch (e) {
-              console.warn("replaceTrack failed, republishing:", e);
+              console.warn('[WebRTC] replaceTrack failed, republishing:', e);
               await participant.unpublishTrack(publishedScreenTrackRef.current);
               publishedScreenTrackRef.current = null;
               const lvt = new LocalVideoTrack(videoTrack, undefined, false);
               await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
               publishedScreenTrackRef.current = lvt;
+              // ✅ Exposer au store pour que VoicePanel puisse faire replaceTrack
+              (useAppStore.getState() as any).publishedScreenTrack = lvt;
             }
           } else {
-            // Première publication
             const lvt = new LocalVideoTrack(videoTrack, undefined, false);
             await participant.publishTrack(lvt, { name: 'screen', source: Track.Source.ScreenShare });
             publishedScreenTrackRef.current = lvt;
-            console.log("Screen share track published.");
+            // ✅ Exposer au store pour que VoicePanel puisse faire replaceTrack
+            (useAppStore.getState() as any).publishedScreenTrack = lvt;
+            console.log('[WebRTC] Screen track published');
           }
         } else {
           // Dépublier
           if (publishedScreenTrackRef.current) {
             participant.getTrackPublications().forEach(pub => {
-              if (pub.source === Track.Source.ScreenShare) {
-                participant.unpublishTrack(pub.track as LocalTrack);
-              }
+              if (pub.source === Track.Source.ScreenShare) participant.unpublishTrack(pub.track as LocalTrack);
             });
             publishedScreenTrackRef.current = null;
-            console.log("Screen share track unpublished.");
+            (useAppStore.getState() as any).publishedScreenTrack = null;
+            console.log('[WebRTC] Screen track unpublished');
           }
         }
       } catch (e) {
-        console.error("Screen share publish error:", e);
+        console.error('[WebRTC] Screen share publish error:', e);
       }
     };
 
     updateScreenshare();
   }, [localScreenShareStream, connectedVoiceChannelId, currentUser]);
 
-  // Sync background stuff, Media Session API
+  // Media Session API
   useEffect(() => {
     if (!connectedVoiceChannelId || !currentUser) {
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
       if (silentAudioRef.current) silentAudioRef.current.pause();
       return;
     }
-
     if ('mediaSession' in navigator) {
-      const status = [
-        isVoiceMuted ? 'Micro : OFF' : 'Micro : ON',
-        isDeafened ? 'Sourdine : ON' : 'Sourdine : OFF'
-      ].join(' | ');
-
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'Conversation Vocale',
-        artist: 'Drocsid',
-        album: status,
-        artwork: [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }]
-      });
+      const status = [isVoiceMuted ? 'Micro : OFF' : 'Micro : ON', isDeafened ? 'Sourdine : ON' : 'Sourdine : OFF'].join(' | ');
+      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Conversation Vocale', artist: 'Drocsid', album: status, artwork: [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }] });
       navigator.mediaSession.playbackState = isVoiceMuted ? 'paused' : 'playing';
-
       try { navigator.mediaSession.setActionHandler('play', () => setIsVoiceMuted(false)); } catch (e) {}
       try { navigator.mediaSession.setActionHandler('pause', () => setIsVoiceMuted(true)); } catch (e) {}
       try { navigator.mediaSession.setActionHandler('stop', () => setConnectedVoiceChannelId(null)); } catch (e) {}
-      try {
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          setIsDeafened(!isDeafened);
-          if (!isDeafened) playDeafenSound(); else playUndeafenSound();
-        });
-      } catch (e) {}
-      try {
-        navigator.mediaSession.setActionHandler('togglemicrophone' as any, () => {
-          setIsVoiceMuted(!isVoiceMuted);
-          if (!isVoiceMuted) playMuteSound(); else playUnmuteSound();
-        });
-      } catch (e) {}
+      try { navigator.mediaSession.setActionHandler('previoustrack', () => { setIsDeafened(!isDeafened); if (!isDeafened) playDeafenSound(); else playUndeafenSound(); }); } catch (e) {}
+      try { navigator.mediaSession.setActionHandler('togglemicrophone' as any, () => { setIsVoiceMuted(!isVoiceMuted); if (!isVoiceMuted) playMuteSound(); else playUnmuteSound(); }); } catch (e) {}
       try { navigator.mediaSession.setActionHandler('hangup' as any, () => setConnectedVoiceChannelId(null)); } catch (e) {}
     }
-
     if (!silentAudioRef.current) {
       const audio = new Audio();
       audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
@@ -267,58 +231,31 @@ export default function WebRTCManager() {
     silentAudioRef.current.play().catch(() => {});
   }, [connectedVoiceChannelId, currentUser, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened, setConnectedVoiceChannelId]);
 
-  // Sync remote streams with participants logic
+  // Sync remote streams / participants
   useEffect(() => {
     voiceParticipants.forEach(p => {
       const isMe = p.id === currentUser?.id;
       const isStillStreaming = isMe ? isScreenSharing : p.isStreaming;
-
       if (!isStillStreaming) {
-        setRemoteScreenShares(prev => {
-          if (!prev[p.id]) return prev;
-          const newMap = { ...prev };
-          delete newMap[p.id];
-          return newMap;
-        });
-        setViewingScreenShares(prev => {
-          if (!prev.has(p.id)) return prev;
-          const next = new Set(prev);
-          next.delete(p.id);
-          return next;
-        });
+        setRemoteScreenShares(prev => { if (!prev[p.id]) return prev; const m = { ...prev }; delete m[p.id]; return m; });
+        setViewingScreenShares(prev => { if (!prev.has(p.id)) return prev; const n = new Set(prev); n.delete(p.id); return n; });
         if (useAppStore.getState().activeStreamFocus === p.id) setActiveStreamFocus(null);
       }
     });
   }, [voiceParticipants, currentUser, isScreenSharing, setRemoteScreenShares, setViewingScreenShares, setActiveStreamFocus]);
 
-  // ✅ Écouter mute/unmute sur les remote tracks côté spectateurs
+  // ✅ Écouter TrackMuted/TrackUnmuted LiveKit côté spectateurs (overlay pause)
   useEffect(() => {
     if (!roomRef.current) return;
 
-    const handleTrackSubscribed = (
-      track: RemoteTrack,
-      publication: RemoteTrackPublication,
-      participant: Participant
-    ) => {
+    const handleTrackSubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
       if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
         const mediaTrack = track.mediaStreamTrack;
-
-        const handleMute = () => {
-          console.log(`Remote screen share muted for ${participant.identity} (window minimized)`);
-          // Pour afficher un overlay chez le spectateur :
-          // useAppStore.getState().setRemoteStreamPaused(participant.identity, true);
-        };
-        const handleUnmute = () => {
-          console.log(`Remote screen share unmuted for ${participant.identity} (window restored)`);
-          // useAppStore.getState().setRemoteStreamPaused(participant.identity, false);
-        };
-
+        const handleMute = () => console.log(`[WebRTC] Remote screen muted for ${participant.identity}`);
+        const handleUnmute = () => console.log(`[WebRTC] Remote screen unmuted for ${participant.identity}`);
         mediaTrack.addEventListener('mute', handleMute);
         mediaTrack.addEventListener('unmute', handleUnmute);
-        track.once('ended', () => {
-          mediaTrack.removeEventListener('mute', handleMute);
-          mediaTrack.removeEventListener('unmute', handleUnmute);
-        });
+        track.once('ended', () => { mediaTrack.removeEventListener('mute', handleMute); mediaTrack.removeEventListener('unmute', handleUnmute); });
       }
     };
 
@@ -350,13 +287,8 @@ export default function WebRTCManager() {
         const res = await fetch(tokenEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            roomName: connectedVoiceChannelId,
-            participantIdentity: currentUser.id,
-            participantName: (currentUser as any).user_metadata?.username || 'Utilisateur'
-          })
+          body: JSON.stringify({ roomName: connectedVoiceChannelId, participantIdentity: currentUser.id, participantName: (currentUser as any).user_metadata?.username || 'Utilisateur' })
         });
-
         if (!res.ok) { console.error("Failed to fetch LiveKit token:", await res.text()); return; }
 
         const data = await res.json();
@@ -389,21 +321,13 @@ export default function WebRTCManager() {
         });
 
         await room.connect(livekitUrl, token);
-        console.log("Connected to LiveKit Room:", connectedVoiceChannelId);
+        console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);
 
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-
         socket.emit('join-channel', connectedVoiceChannelId);
         socket.emit('join-voice-channel', {
           channelId: connectedVoiceChannelId,
-          user: {
-            id: currentUser.id,
-            name: profile?.username || profile?.display_name || 'Utilisateur',
-            avatarUrl: profile?.avatar_url,
-            isMuted: isVoiceMuted,
-            isStreaming: isScreenSharing,
-            joinedAt: new Date().toISOString()
-          }
+          user: { id: currentUser.id, name: profile?.username || profile?.display_name || 'Utilisateur', avatarUrl: profile?.avatar_url, isMuted: isVoiceMuted, isStreaming: isScreenSharing, joinedAt: new Date().toISOString() }
         });
 
         try {
@@ -413,37 +337,29 @@ export default function WebRTCManager() {
             autoGainControl: voiceSettings.autoGainControl,
             deviceId: voiceSettings.selectedMicrophoneId || undefined
           });
-        } catch (e) {
-          console.error("Could not capture microphone:", e);
-        }
+        } catch (e) { console.error("Could not capture microphone:", e); }
 
-      } catch (err) {
-        console.error("Error connecting to LiveKit:", err);
-      }
+      } catch (err) { console.error("Error connecting to LiveKit:", err); }
     };
 
     connectToLiveKit();
 
-    const handleBeforeUnload = () => {
-      socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
-    };
+    const handleBeforeUnload = () => { socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id }); };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       isMounted = false;
       window.removeEventListener('beforeunload', handleBeforeUnload);
 
-      // ✅ Vider la ref ici (accessible car déclarée au niveau du composant)
+      // ✅ Vider la ref et l'accès store
       publishedScreenTrackRef.current = null;
+      (useAppStore.getState() as any).publishedScreenTrack = null;
 
       const currentState = useAppStore.getState();
       const isCompletelyDisconnecting = !currentState.connectedVoiceChannelId;
       const isLoggedOut = !useAuthStore.getState().user;
 
-      if (roomRef.current) {
-        roomRef.current.disconnect();
-        roomRef.current = null;
-      }
+      if (roomRef.current) { roomRef.current.disconnect(); roomRef.current = null; }
 
       if (isCompletelyDisconnecting || isLoggedOut) {
         if (localScreenShareStream) {
@@ -458,21 +374,17 @@ export default function WebRTCManager() {
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
       setSpeakingUsers({});
-
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
     };
   }, [connectedVoiceChannelId, currentUser]);
 
-  // Sync remaining state to socket
+  // Sync socket
   useEffect(() => {
     if (!connectedVoiceChannelId || !currentUser) return;
     socket.emit('voice-state-update', {
       channelId: connectedVoiceChannelId,
       userId: currentUser.id,
-      updates: {
-        viewingStreams: Array.from(viewingScreenShares),
-        isStreaming: isScreenSharing
-      }
+      updates: { viewingStreams: Array.from(viewingScreenShares), isStreaming: isScreenSharing }
     });
   }, [viewingScreenShares, isScreenSharing, connectedVoiceChannelId, currentUser]);
 
