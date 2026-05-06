@@ -12,14 +12,14 @@ export default function MobileVoiceControl() {
     setIsVoiceMuted, 
     isDeafened, 
     setIsDeafened,
-    isMobileNavOpen
+    isMobileNavOpen,
+    voiceParticipants: voiceParticipantsMap
   } = useAppStore();
 
   const { user: currentUser } = useAuthStore();
-  if (!connectedVoiceChannelId || isMobileNavOpen) return null;
-
-  const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
+
+  if (!connectedVoiceChannelId || isMobileNavOpen) return null;
 
   const handleDisconnect = async () => {
     if (!currentUser) return;

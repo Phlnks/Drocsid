@@ -64,7 +64,8 @@ export default function WebRTCManager() {
     setRemoteScreenShares,
     viewingScreenShares,
     setViewingScreenShares,
-    setActiveStreamFocus
+    setActiveStreamFocus,
+    voiceParticipants: voiceParticipantsMap
   } = useAppStore();
   
   const roomRef = useRef<Room | null>(null);
@@ -72,7 +73,6 @@ export default function WebRTCManager() {
 
   const prevVoiceParticipantsRef = useRef<any[]>([]);
   const prevVoiceChannelRef = useRef<string | null>(null);
-  const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
 
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());

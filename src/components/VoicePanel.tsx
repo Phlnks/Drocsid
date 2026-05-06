@@ -31,7 +31,8 @@ export default function VoicePanel() {
     setSelectedServerId,
     selectedServerId,
     soundboardVolume,
-    isSoundboardMuted
+    isSoundboardMuted,
+    voiceParticipants: voiceParticipantsMap
   } = useAppStore();
   
   const [channelName, setChannelName] = useState('Voice Channel');
@@ -44,7 +45,6 @@ export default function VoicePanel() {
   const [streamViewers, setStreamViewers] = useState<any[]>([]);
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
-  const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
 
   // Soundboard listener removed - now handled globally in App.tsx
