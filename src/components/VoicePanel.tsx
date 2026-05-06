@@ -68,125 +68,127 @@ export default function VoicePanel() {
     }
   }, [localScreenShareStream]);
 
-  // ─── Stratégie canvas : substitution quand la fenêtre est minimisée ────────
-  useEffect(() => {
-    if (!localScreenShareStream || !isScreenSharing) {
-      // Cleanup canvas si le stream s'arrête
-      cleanupCanvas();
-      return;
-    }
 
-    const videoTrack = localScreenShareStream.getVideoTracks()[0];
-    if (!videoTrack) return;
+	// ─── Stratégie "last frame freeze" via canvas ──────────────────────────────
+	useEffect(() => {
+	  if (!localScreenShareStream || !isScreenSharing) {
+		cleanupCanvas();
+		return;
+	  }
 
-    realVideoTrackRef.current = videoTrack;
-    userStoppedRef.current = false;
-    isPausedRef.current = false;
+	  const videoTrack = localScreenShareStream.getVideoTracks()[0];
+	  if (!videoTrack) return;
 
-    // ── Obtenir les dimensions réelles de la track ──
-    const settings = videoTrack.getSettings();
-    const canvasW = settings.width || 1920;
-    const canvasH = settings.height || 1080;
+	  realVideoTrackRef.current = videoTrack;
+	  userStoppedRef.current = false;
 
-    // ── Créer la canvas de substitution ──
-    const canvas = document.createElement('canvas');
-    canvas.width = canvasW;
-    canvas.height = canvasH;
-    const ctx = canvas.getContext('2d')!;
+	  // Créer une vidéo source pour lire la vraie track
+	  const sourceVideo = document.createElement('video');
+	  sourceVideo.srcObject = new MediaStream([videoTrack]);
+	  sourceVideo.muted = true;
+	  sourceVideo.autoplay = true;
+	  sourceVideo.playsInline = true;
+	  sourceVideo.play().catch(console.error);
 
-    // Dessiner une frame initiale noire avec texte "Stream en pause"
-    const drawPauseFrame = () => {
-      ctx.fillStyle = '#18181b'; // zinc-900
-      ctx.fillRect(0, 0, canvasW, canvasH);
-      ctx.fillStyle = '#a1a1aa'; // zinc-400
-      ctx.font = `bold ${Math.round(canvasH * 0.04)}px Inter, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⏸  Stream en pause', canvasW / 2, canvasH / 2);
-      ctx.font = `${Math.round(canvasH * 0.025)}px Inter, sans-serif`;
-      ctx.fillStyle = '#71717a'; // zinc-500
-      ctx.fillText('La fenêtre partagée est minimisée', canvasW / 2, canvasH / 2 + canvasH * 0.065);
-    };
+	  // Canvas qui reçoit chaque frame
+	  const canvas = document.createElement('canvas');
+	  let canvasReady = false;
+	  const ctx = canvas.getContext('2d', { alpha: false })!;
 
-    // Créer le stream canvas (1 fps suffit pour garder la track "active")
-    const canvasStream = canvas.captureStream(1);
-    canvasStreamRef.current = canvasStream;
+	  // Boucle requestVideoFrameCallback — copie chaque frame dans la canvas
+	  const copyFrame = () => {
+		if (userStoppedRef.current) return;
 
-    // ── Listener mute/unmute sur la vraie track ──
-    const handleMute = async () => {
-      if (isPausedRef.current || userStoppedRef.current) return;
-      isPausedRef.current = true;
-      setIsStreamPaused(true);
-      console.log('[ScreenShare] Track muted — switching to canvas placeholder');
+		if (sourceVideo.videoWidth > 0 && sourceVideo.videoHeight > 0) {
+		  if (!canvasReady) {
+			canvas.width = sourceVideo.videoWidth;
+			canvas.height = sourceVideo.videoHeight;
+			canvasReady = true;
+		  }
+		  ctx.drawImage(sourceVideo, 0, 0, canvas.width, canvas.height);
+		}
 
-      // Dessiner la frame pause et démarrer la boucle canvas (re-dessine toutes les 2s pour éviter le freeze)
-      drawPauseFrame();
-      canvasIntervalRef.current = setInterval(drawPauseFrame, 2000);
+		// Continuer la boucle tant que la track est live
+		if (videoTrack.readyState === 'live') {
+		  if ('requestVideoFrameCallback' in sourceVideo) {
+			(sourceVideo as any).requestVideoFrameCallback(copyFrame);
+		  } else {
+			// Fallback : requestAnimationFrame si rVFC non supporté
+			requestAnimationFrame(copyFrame);
+		  }
+		}
+		// Si readyState !== 'live' → on arrête la boucle mais la canvas garde la dernière frame
+	  };
 
-      // Récupérer le LocalVideoTrack LiveKit publié et remplacer par la canvas
-      const appState = useAppStore.getState();
-      const publishedTrack = (appState as any).publishedScreenTrack as any;
-      const canvasTrack = canvasStream.getVideoTracks()[0];
+	  if ('requestVideoFrameCallback' in sourceVideo) {
+		(sourceVideo as any).requestVideoFrameCallback(copyFrame);
+	  } else {
+		requestAnimationFrame(copyFrame);
+	  }
 
-      if (publishedTrack && canvasTrack) {
-        try {
-          await publishedTrack.replaceTrack(canvasTrack);
-          console.log('[ScreenShare] Replaced with canvas track (spectators see pause frame)');
-        } catch (e) {
-          console.warn('[ScreenShare] replaceTrack to canvas failed:', e);
-        }
-      }
-    };
+	  // Stream canvas à 30fps — c'est CE stream qui va dans LiveKit, pas la vraie track
+	  const canvasStream = canvas.captureStream(30);
+	  canvasStreamRef.current = canvasStream;
 
-    const handleUnmute = async () => {
-      if (!isPausedRef.current || userStoppedRef.current) return;
-      isPausedRef.current = false;
-      setIsStreamPaused(false);
-      console.log('[ScreenShare] Track unmuted — restoring real track');
+	  // ✅ Injecter le stream canvas dans LiveKit dès le départ
+	  // WebRTCManager va publier le canvasStream au lieu du vrai stream
+	  // On remplace le stream dans le store pour que WebRTCManager le récupère
+	  const canvasVideoTrack = canvasStream.getVideoTracks()[0];
 
-      // Arrêter la boucle canvas
-      if (canvasIntervalRef.current) {
-        clearInterval(canvasIntervalRef.current);
-        canvasIntervalRef.current = null;
-      }
+	  const publishedTrack = (useAppStore.getState() as any).publishedScreenTrack;
+	  if (publishedTrack) {
+		// Déjà publié → remplacer par la canvas track
+		publishedTrack.replaceTrack(canvasVideoTrack)
+		  .then(() => console.log('[ScreenShare] LiveKit now receives canvas stream'))
+		  .catch((e: any) => console.warn('[ScreenShare] replaceTrack to canvas failed:', e));
+	  }
+	  // Sinon WebRTCManager va publier localScreenShareStream → on remplace aussi la track dans le MediaStream
+	  // pour que la première publication parte déjà sur la canvas
+	  try {
+		localScreenShareStream.removeTrack(videoTrack);
+		localScreenShareStream.addTrack(canvasVideoTrack);
+	  } catch (e) {
+		console.warn('[ScreenShare] Could not swap track in MediaStream:', e);
+	  }
 
-      // Rebasculer sur la vraie track
-      const appState = useAppStore.getState();
-      const publishedTrack = (appState as any).publishedScreenTrack as any;
-      const realTrack = realVideoTrackRef.current;
+	  // Quand la vraie track se termine → la canvas garde la dernière frame, on affiche l'overlay
+	  const handleEnded = () => {
+		if (userStoppedRef.current) return;
+		console.log('[ScreenShare] Real track ended — canvas holding last frame for LiveKit');
+		setIsStreamPaused(true);
 
-      if (publishedTrack && realTrack) {
-        try {
-          await publishedTrack.replaceTrack(realTrack);
-          console.log('[ScreenShare] Restored real track (stream resumed for spectators)');
-        } catch (e) {
-          console.warn('[ScreenShare] replaceTrack to real track failed:', e);
-        }
-      }
-    };
+		// Dessiner un overlay "En pause" par-dessus la dernière frame
+		if (canvasReady) {
+		  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+		  ctx.fillRect(0, 0, canvas.width, canvas.height);
+		  ctx.fillStyle = '#a1a1aa';
+		  ctx.font = `bold ${Math.round(canvas.height * 0.04)}px Inter, sans-serif`;
+		  ctx.textAlign = 'center';
+		  ctx.textBaseline = 'middle';
+		  ctx.fillText('⏸  Stream en pause', canvas.width / 2, canvas.height / 2);
+		  ctx.font = `${Math.round(canvas.height * 0.025)}px Inter, sans-serif`;
+		  ctx.fillStyle = '#71717a';
+		  ctx.fillText('La fenêtre partagée est minimisée', canvas.width / 2, canvas.height / 2 + canvas.height * 0.065);
+		}
 
-    // ── Listener ended : la track est vraiment terminée (utilisateur a cliqué "Stop" dans le navigateur) ──
-    const handleEnded = () => {
-      if (userStoppedRef.current) return; // arrêt depuis le bouton de l'app → déjà géré
-      console.log('[ScreenShare] Track ended (user clicked browser stop button)');
-      cleanupCanvas();
-      playScreenShareStopSound();
-      useAppStore.getState().setIsScreenSharing(false);
-      useAppStore.getState().setLocalScreenShareStream(null);
-      setIsStreamPaused(false);
-    };
+		// Garder la canvas "active" avec un redraw toutes les 2s (évite que captureStream freeze)
+		canvasIntervalRef.current = setInterval(() => {
+		  if (canvasReady && !userStoppedRef.current) {
+			// Juste un pixel transparent pour forcer captureStream à émettre des frames
+			ctx.fillStyle = 'rgba(0,0,0,0.001)';
+			ctx.fillRect(0, 0, 1, 1);
+		  }
+		}, 2000);
+	  };
 
-    videoTrack.addEventListener('mute', handleMute);
-    videoTrack.addEventListener('unmute', handleUnmute);
-    videoTrack.addEventListener('ended', handleEnded);
+	  videoTrack.addEventListener('ended', handleEnded);
 
-    return () => {
-      videoTrack.removeEventListener('mute', handleMute);
-      videoTrack.removeEventListener('unmute', handleUnmute);
-      videoTrack.removeEventListener('ended', handleEnded);
-      cleanupCanvas();
-    };
-  }, [localScreenShareStream, isScreenSharing]);
+	  return () => {
+		videoTrack.removeEventListener('ended', handleEnded);
+		sourceVideo.srcObject = null;
+		cleanupCanvas();
+	  };
+	}, [localScreenShareStream, isScreenSharing]);
 
   // ─── Cleanup canvas helper ──────────────────────────────────────────────────
   const cleanupCanvas = useCallback(() => {
