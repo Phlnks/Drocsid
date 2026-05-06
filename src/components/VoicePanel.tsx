@@ -314,16 +314,17 @@ export default function VoicePanel() {
         // Browser standard capture
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            width: { ideal: quality.width },
-            height: { ideal: quality.height },
-            frameRate: { ideal: quality.frameRate },
-            displaySurface: 'browser',
-            surfaceSwitching: 'include',
-            selfBrowserSurface: 'include',
-            systemAudio: 'include'
-          } as any,
-          audio: true
-        });
+            width: { ideal: quality.width, max: 2560 },
+            height: { ideal: quality.height, max: 1440 },
+            frameRate: { ideal: quality.frameRate, max: 60 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            suppressLocalAudioPlayback: true
+          }
+        } as any);
       }
       
       console.log("Screen share stream obtained:", stream.id);
@@ -346,34 +347,49 @@ export default function VoicePanel() {
       // Keep-alive interval to prevent background freezing
       const keepAliveInterval = setInterval(() => {
         if (videoTrack && videoTrack.readyState === 'live') {
-          // Just accessing settings can sometimes keep the track from being throttled
-          videoTrack.getSettings();
+          // Accessing settings and constraints to keep the track "used" by the system
+          try {
+            videoTrack.getSettings();
+            videoTrack.getConstraints();
+          } catch (e) {}
           
-          // Force frame decoding to keep the track completely active even in background
+          // Force frame decoding periodically to keep the process active even when minimized
           if (localVideoRef.current && localVideoRef.current.videoWidth > 0) {
             try {
               const canvas = document.createElement('canvas');
-              canvas.width = 1;
-              canvas.height = 1;
-              const ctx = canvas.getContext('2d');
+              canvas.width = 2; // Slightly larger than 1 to ensure some work is done
+              canvas.height = 2;
+              const ctx = canvas.getContext('2d', { alpha: false });
               if (ctx) {
-                ctx.drawImage(localVideoRef.current, 0, 0, 1, 1);
+                ctx.drawImage(localVideoRef.current, 0, 0, 2, 2);
               }
-            } catch (e) {
-              // Ignore errors
-            }
+            } catch (e) {}
           }
         } else {
           clearInterval(keepAliveInterval);
         }
-      }, 1000);
+      }, 2000);
       
-      stream.getVideoTracks()[0].onended = () => {
+      const handleTrackEnd = () => {
         clearInterval(keepAliveInterval);
-        playScreenShareStopSound();
-        useAppStore.getState().setIsScreenSharing(false);
-        useAppStore.getState().setLocalScreenShareStream(null);
+        
+        // Use a small delay before stopping to prevent transient "ended" states on minimize
+        // If the track is truly ended, it won't resume, but this avoids flickering
+        setTimeout(() => {
+          const currentStream = useAppStore.getState().localScreenShareStream;
+          const currentTrack = currentStream?.getVideoTracks()[0];
+          
+          if (!currentTrack || currentTrack.readyState === 'ended') {
+             playScreenShareStopSound();
+             useAppStore.getState().setIsScreenSharing(false);
+             useAppStore.getState().setLocalScreenShareStream(null);
+          }
+        }, 500);
       };
+
+      stream.getVideoTracks()[0].addEventListener('ended', handleTrackEnd);
+      
+      // Cleanup listener on stream change/stop logic is handled by setting it to null
     } catch (err) {
       console.error("Error sharing screen", err);
       useAppStore.getState().setIsScreenSharing(false);
@@ -431,7 +447,13 @@ export default function VoicePanel() {
   return (
     <div className="bg-zinc-950 border-t border-zinc-800 p-2 flex flex-col gap-2 shrink-0 relative">
       {/* Hidden video to keep screen share alive */}
-      <video ref={localVideoRef} autoPlay playsInline muted className="absolute w-[1px] h-[1px] opacity-0 pointer-events-none" />
+      <video 
+        ref={localVideoRef} 
+        autoPlay 
+        playsInline 
+        muted 
+        className="absolute w-1 h-1 opacity-[0.01] pointer-events-none" 
+      />
       
       <div className="hidden md:flex items-center justify-between px-2">
         <div 
