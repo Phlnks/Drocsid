@@ -5,7 +5,7 @@ import { useAppStore } from '../store/appStore';
 import { useInstanceStore } from '../store/instanceStore';
 import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
 import socket from '../lib/socket';
-import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, createLocalAudioTrack, LocalTrack, LocalVideoTrack, ConnectionState } from 'livekit-client';
+import { Room, RoomEvent, ParticipantEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, createLocalAudioTrack, LocalTrack, LocalVideoTrack, ConnectionState } from 'livekit-client';
 
 function AudioPlayer({ stream }: { key?: any, stream: any }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -390,7 +390,7 @@ export default function WebRTCManager() {
         };
 
         room.on(RoomEvent.ParticipantConnected, (p) => {
-          p.on(Track.Event.SpeakingChanged, (s) => updateSpeaking(p, s));
+          p.on(ParticipantEvent.IsSpeakingChanged, (s) => updateSpeaking(p, s));
         });
 
         room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
@@ -421,10 +421,10 @@ export default function WebRTCManager() {
         console.log("Connected to LiveKit Room:", connectedVoiceChannelId);
 
         // Track initial participants and local user
-        room.participants.forEach(p => {
-          p.on(Track.Event.SpeakingChanged, (s) => updateSpeaking(p, s));
+        room.remoteParticipants.forEach(p => {
+          p.on(ParticipantEvent.IsSpeakingChanged, (s) => updateSpeaking(p, s));
         });
-        room.localParticipant.on(Track.Event.SpeakingChanged, (s) => updateSpeaking(room.localParticipant, s));
+        room.localParticipant.on(ParticipantEvent.IsSpeakingChanged, (s) => updateSpeaking(room.localParticipant, s));
 
         // Fetch user profile from profiles table for presence
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
