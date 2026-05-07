@@ -1,5 +1,23 @@
 import { create } from 'zustand';
 
+function safeParse<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function participantsSig(arr: any[] | undefined): string {
+  if (!arr || arr.length === 0) return '';
+  return arr
+    .map(p => `${p.id}:${p.isMuted ? 1 : 0}:${p.isDeafened ? 1 : 0}:${p.isStreaming ? 1 : 0}:${p.name ?? ''}`)
+    .sort()
+    .join('|');
+}
+
 interface VoiceSettings {
   echoCancellation: boolean;
   noiseSuppression: boolean;
@@ -130,10 +148,10 @@ export const useAppStore = create<AppState>((set) => ({
   connectedVoiceServerId: null,
   isVoiceMuted: false,
   isDeafened: false,
-  voiceSettings: JSON.parse(localStorage.getItem('drocsid-voice-settings') || '{"echoCancellation":true,"noiseSuppression":true,"autoGainControl":true,"micSensitivity":10}'),
-  notificationSettings: JSON.parse(localStorage.getItem('drocsid-notification-settings') || '{"desktop":true,"sounds":true,"everyone":true,"preference":"all"}'),
-  mutedServers: JSON.parse(localStorage.getItem('drocsid-muted-servers') || '[]'),
-  mutedDms: JSON.parse(localStorage.getItem('drocsid-muted-dms') || '[]'),
+  voiceSettings: safeParse('drocsid-voice-settings', { echoCancellation: true, noiseSuppression: true, autoGainControl: true, micSensitivity: 10 }),
+  notificationSettings: safeParse('drocsid-notification-settings', { desktop: true, sounds: true, everyone: true, preference: 'all' }),
+  mutedServers: safeParse('drocsid-muted-servers', []),
+  mutedDms: safeParse('drocsid-muted-dms', []),
   speakingUsers: {},
   isScreenSharing: false,
   screenShareQuality: null,
@@ -145,24 +163,24 @@ export const useAppStore = create<AppState>((set) => ({
   isMobileNavOpen: true,
   mobileTab: 'messages',
   theme: (localStorage.getItem('drocsid-theme') as 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom') || 'classic',
-  customTheme: JSON.parse(localStorage.getItem('drocsid-custom-theme') || '{"primaryColor":"#5865F2","intensity":75,"appearance":"dark"}'),
+  customTheme: safeParse('drocsid-custom-theme', { primaryColor: '#5865F2', intensity: 75, appearance: 'dark' }),
   onlineUserIds: [],
   voiceParticipants: {},
   globalProfiles: {},
   highlightedMessageId: null,
   notifications: [],
-  drafts: JSON.parse(localStorage.getItem('drocsid-drafts') || '{}'),
-  soundboardVolume: JSON.parse(localStorage.getItem('drocsid-soundboard-volume') || '0.5'),
-  isSoundboardMuted: JSON.parse(localStorage.getItem('drocsid-soundboard-muted') || 'false'),
-  voiceVolume: JSON.parse(localStorage.getItem('drocsid-voice-volume') || '1.0'),
-  isVoiceVolumeMuted: JSON.parse(localStorage.getItem('drocsid-voice-volume-muted') || 'false'),
+  drafts: safeParse('drocsid-drafts', {}),
+  soundboardVolume: safeParse('drocsid-soundboard-volume', 0.5),
+  isSoundboardMuted: safeParse('drocsid-soundboard-muted', false),
+  voiceVolume: safeParse('drocsid-voice-volume', 1.0),
+  isVoiceVolumeMuted: safeParse('drocsid-voice-volume-muted', false),
   serverSettingsModal: {
     isOpen: false,
     serverId: null,
     initialTab: null
   },
-  keybinds: JSON.parse(localStorage.getItem('drocsid-keybinds') || '{"mute": "CommandOrControl+Shift+M", "deafen": "CommandOrControl+Shift+D"}'),
-  appSettings: JSON.parse(localStorage.getItem('drocsid-app-settings') || '{"launchAtStartup":false,"dateFormat":"dd/MM/yyyy","timeFormat":"HH:mm"}'),
+  keybinds: safeParse('drocsid-keybinds', { mute: 'CommandOrControl+Shift+M', deafen: 'CommandOrControl+Shift+D' }),
+  appSettings: safeParse('drocsid-app-settings', { launchAtStartup: false, dateFormat: 'dd/MM/yyyy', timeFormat: 'HH:mm' }),
   
   setSelectedServerId: (id) => set((state) => {
     if (state.selectedServerId === id && id !== null) return state;
@@ -284,12 +302,10 @@ export const useAppStore = create<AppState>((set) => ({
     return { customTheme: newCustomTheme };
   }),
   setOnlineUserIds: (ids: string[]) => set({ onlineUserIds: ids }),
-  setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
-    // Check if participants significantly changed to avoid unnecessary re-renders
+    setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
+    // ✅ FIX: comparaison légère — JSON.stringify plante sur les Set
     const current = state.voiceParticipants[channelId];
-    if (JSON.stringify(current) === JSON.stringify(participants)) {
-      return state;
-    }
+    if (participantsSig(current) === participantsSig(participants)) return state;
     return {
       voiceParticipants: {
         ...state.voiceParticipants,

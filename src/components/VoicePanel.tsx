@@ -149,6 +149,67 @@ export default function VoicePanel() {
     };
   }, [connectedVoiceChannelId]);
 
+	// ✅ FIX: reprise automatique du stream quand la fenêtre revient au premier plan
+useEffect(() => {
+  if (!isScreenSharing || !isStreamPaused) return;
+
+  const handleVisibilityChange = async () => {
+    if (document.visibilityState !== 'visible') return;
+    console.log('[VoicePanel] visibility restored → resuming screen share');
+
+    const quality = useAppStore.getState().screenShareQuality;
+    if (!quality) return;
+
+    try {
+      const newStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: quality.width, max: 2560 },
+          height: { ideal: quality.height, max: 1440 },
+          frameRate: { ideal: quality.frameRate, max: 60 },
+        },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } as any,
+      });
+
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) return;
+
+      // Re-attacher onended sur la nouvelle track
+      newVideoTrack.onended = () => {
+        if (!userStoppedRef.current) setIsStreamPaused(true);
+      };
+
+      // ✅ replaceTrack dans LiveKit sans casser la connexion WebRTC
+      const publishedTrack = (useAppStore.getState() as any).publishedScreenTrack;
+      if (publishedTrack) {
+        try {
+          await publishedTrack.replaceTrack(newVideoTrack);
+          console.log('[VoicePanel] replaceTrack OK after resume');
+        } catch (e) {
+          console.warn('[VoicePanel] replaceTrack failed:', e);
+        }
+      }
+
+      useAppStore.getState().setLocalScreenShareStream(newStream);
+      setIsStreamPaused(false);
+
+    } catch {
+      // L'utilisateur a refusé → arrêt réel
+      userStoppedRef.current = true;
+      setIsStreamPaused(false);
+      setIsScreenSharing(false);
+      setViewingScreenShares(new Set());
+      setActiveStreamFocus(null);
+      playScreenShareStopSound();
+      const s = useAppStore.getState().localScreenShareStream;
+      if (s) s.getTracks().forEach(t => t.stop());
+      useAppStore.getState().setLocalScreenShareStream(null);
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+}, [isScreenSharing, isStreamPaused]);
+
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -233,6 +294,14 @@ export default function VoicePanel() {
 
       userStoppedRef.current = false;
       setIsStreamPaused(false);
+	  
+	  videoTrack.onended = () => {
+  	    if (userStoppedRef.current) return; // arrêt volontaire → déjà géré par toggleScreenShare
+	    // Arrêt involontaire (fenêtre minimisée) → mettre en pause sans couper LiveKit
+	    console.log('[VoicePanel] track ended involuntarily → paused');
+	    setIsStreamPaused(true);
+	  };
+	  
       playScreenShareStartSound();
       setScreenShareQuality(quality);
       setShowQualityMenu(false);

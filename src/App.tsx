@@ -373,14 +373,37 @@ export default function App() {
     };
     fetchProfile();
 
-    // Global profiles block
-    const fetchAllProfiles = async () => {
-      const { data } = await supabase.from('profiles').select('*');
-      if (data) {
-        useAppStore.getState().setGlobalProfiles(data);
-      }
-    };
-    fetchAllProfiles();
+    // Charger uniquement les profils des serveurs où l'utilisateur est membre
+	const fetchRelevantProfiles = async () => {
+	  // 1. Récupérer les serveurs de l'utilisateur
+	  const { data: memberships } = await supabase
+		.from('server_members')
+		.select('server_id')
+		.eq('user_id', user.id)
+
+	  if (!memberships || memberships.length === 0) return
+
+	  const serverIds = memberships.map(m => m.server_id)
+
+	  // 2. Récupérer uniquement les membres de ces serveurs
+	  const { data: serverMembers } = await supabase
+		.from('server_members')
+		.select('user_id')
+		.in('server_id', serverIds)
+
+	  if (!serverMembers) return
+
+	  const userIds = [...new Set(serverMembers.map(m => m.user_id))]
+
+	  // 3. Charger uniquement ces profils
+	  const { data: profiles } = await supabase
+		.from('profiles')
+		.select('*')
+		.in('id', userIds)
+
+	  if (profiles) useAppStore.getState().setGlobalProfiles(profiles)
+	}
+	fetchRelevantProfiles()
 
     // Global profile subscription for all users
     const channelName = `global_profiles_listener_${user.id}_${Math.random().toString(36).substring(7)}`;

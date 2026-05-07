@@ -175,13 +175,45 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
     }
   }, [channelId, drafts]);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const { data } = await supabase.from('profiles').select('*');
+// ✅ FIX: chargement filtré — avant: select('*') chargeait TOUTE la table profiles
+useEffect(() => {
+  if (!user) return;
+  const fetchUsers = async () => {
+    try {
+      let memberIds: string[] = [];
+
+      if (serverId && !isDM) {
+        const { data: members } = await supabase
+          .from('server_members')
+          .select('user_id')
+          .eq('server_id', serverId);
+        memberIds = (members ?? []).map((m: any) => m.user_id).filter(Boolean);
+      } else {
+        const { data: dms } = await supabase
+          .from('dms')
+          .select('participants')
+          .contains('participants', [user.id]);
+        const set = new Set<string>();
+        (dms ?? []).forEach((dm: any) =>
+          dm.participants?.forEach((p: string) => { if (p !== user.id) set.add(p); })
+        );
+        memberIds = Array.from(set);
+      }
+
+      if (memberIds.length === 0) return;
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', memberIds);
+
       if (data) setUsers(data);
-    };
-    fetchUsers();
-  }, []);
+    } catch (err) {
+      console.error('[MessageInput] fetchUsers error:', err);
+    }
+  };
+  fetchUsers();
+}, [serverId, isDM, user]);
 
   useEffect(() => {
     if (serverId && !isDM) {
