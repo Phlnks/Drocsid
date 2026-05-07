@@ -81,7 +81,11 @@ export default function IncomingCallModal() {
     socket.on('call-declined', handleCallDeclined);
     socket.on('call-accepted', handleCallAccepted);
 
-    const channel = supabase.channel(`incoming_calls_${user.id}`)
+    const channelName = `incoming_calls_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'calls' }, (payload) => {
         const call = payload.new as any || payload.old as any;
         if (call && call.participants && call.participants.includes(user.id)) {

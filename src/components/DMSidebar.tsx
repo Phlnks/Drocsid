@@ -115,6 +115,9 @@ export default function DMSidebar() {
     fetchDMs();
 
     const channelName = `dm-changes-${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms' }, () => fetchDMs())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages' }, (payload) => {
@@ -152,6 +155,9 @@ export default function DMSidebar() {
     fetchUsers();
 
     const channelName = `user-changes-${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
         fetchUsers();

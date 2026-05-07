@@ -87,6 +87,9 @@ export default function VoicePanel() {
     fetchChannelInfo();
     // ✅ FIX: nom déterministe — Math.random() créait des channels zombies à chaque re-render
     const chanName = `voice_panel_channel_${connectedVoiceChannelId}_${currentUser.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${chanName}`) supabase.removeChannel(c);
+    });
     const channelSub = supabase.channel(chanName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())

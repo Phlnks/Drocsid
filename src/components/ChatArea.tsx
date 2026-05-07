@@ -405,6 +405,9 @@ export default function ChatArea() {
 
     // ✅ FIX: nom déterministe — Math.random() créait des channels Supabase zombies sans les fermer
     const channelName = `server_chat_${selectedServerId}_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
     const serverSub = supabase.channel(channelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, (payload) => {
         setServer(payload.new);

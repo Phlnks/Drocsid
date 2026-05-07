@@ -26,7 +26,11 @@ export default function NotificationManager() {
     };
 
     // Subscribe to new DM messages (RLS ensures we only get our own DMs)
-    const dmMessagesSub = supabase.channel(`global_dm_messages_${user.id}`)
+    const dmChannelName = `global_dm_messages_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${dmChannelName}`) supabase.removeChannel(c);
+    });
+    const dmMessagesSub = supabase.channel(dmChannelName)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages' }, async (payload) => {
         const message = payload.new as any;
         
@@ -54,7 +58,11 @@ export default function NotificationManager() {
       .subscribe();
 
     // Subscribe to mentions in the notifications table globally
-    const notifSub = supabase.channel(`global_notifs_${user.id}`)
+    const notifChannelName = `global_notifs_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${notifChannelName}`) supabase.removeChannel(c);
+    });
+    const notifSub = supabase.channel(notifChannelName)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, async (payload) => {
         const n = payload.new as any;
         
