@@ -85,7 +85,8 @@ export default function VoicePanel() {
       }
     };
     fetchChannelInfo();
-    const chanName = `voice_panel_channel_${connectedVoiceChannelId}_${currentUser.id}_${Math.random().toString(36).substring(7)}`;
+    // ✅ FIX: nom déterministe — Math.random() créait des channels zombies à chaque re-render
+    const chanName = `voice_panel_channel_${connectedVoiceChannelId}_${currentUser.id}`;
     const channelSub = supabase.channel(chanName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms', filter: `id=eq.${connectedVoiceChannelId}` }, () => fetchChannelInfo())
@@ -149,66 +150,6 @@ export default function VoicePanel() {
     };
   }, [connectedVoiceChannelId]);
 
-	// ✅ FIX: reprise automatique du stream quand la fenêtre revient au premier plan
-useEffect(() => {
-  if (!isScreenSharing || !isStreamPaused) return;
-
-  const handleVisibilityChange = async () => {
-    if (document.visibilityState !== 'visible') return;
-    console.log('[VoicePanel] visibility restored → resuming screen share');
-
-    const quality = useAppStore.getState().screenShareQuality;
-    if (!quality) return;
-
-    try {
-      const newStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: quality.width, max: 2560 },
-          height: { ideal: quality.height, max: 1440 },
-          frameRate: { ideal: quality.frameRate, max: 60 },
-        },
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } as any,
-      });
-
-      const newVideoTrack = newStream.getVideoTracks()[0];
-      if (!newVideoTrack) return;
-
-      // Re-attacher onended sur la nouvelle track
-      newVideoTrack.onended = () => {
-        if (!userStoppedRef.current) setIsStreamPaused(true);
-      };
-
-      // ✅ replaceTrack dans LiveKit sans casser la connexion WebRTC
-      const publishedTrack = (useAppStore.getState() as any).publishedScreenTrack;
-      if (publishedTrack) {
-        try {
-          await publishedTrack.replaceTrack(newVideoTrack);
-          console.log('[VoicePanel] replaceTrack OK after resume');
-        } catch (e) {
-          console.warn('[VoicePanel] replaceTrack failed:', e);
-        }
-      }
-
-      useAppStore.getState().setLocalScreenShareStream(newStream);
-      setIsStreamPaused(false);
-
-    } catch {
-      // L'utilisateur a refusé → arrêt réel
-      userStoppedRef.current = true;
-      setIsStreamPaused(false);
-      setIsScreenSharing(false);
-      setViewingScreenShares(new Set());
-      setActiveStreamFocus(null);
-      playScreenShareStopSound();
-      const s = useAppStore.getState().localScreenShareStream;
-      if (s) s.getTracks().forEach(t => t.stop());
-      useAppStore.getState().setLocalScreenShareStream(null);
-    }
-  };
-
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-}, [isScreenSharing, isStreamPaused]);
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -295,13 +236,27 @@ useEffect(() => {
       userStoppedRef.current = false;
       setIsStreamPaused(false);
 	  
-	  videoTrack.onended = () => {
-  	    if (userStoppedRef.current) return; // arrêt volontaire → déjà géré par toggleScreenShare
-	    // Arrêt involontaire (fenêtre minimisée) → mettre en pause sans couper LiveKit
-	    console.log('[VoicePanel] track ended involuntarily → paused');
-	    setIsStreamPaused(true);
-	  };
-	  
+      // Electron → pause (fenêtre minimisée, reprise possible via visibilitychange)
+      // Navigateur → arrêt propre immédiat (la reprise n'est pas fiable sur navigateur)
+      videoTrack.onended = () => {
+        if (userStoppedRef.current) return;
+        if (isElectron) {
+          console.log('[VoicePanel] track ended (Electron) → paused');
+          setIsStreamPaused(true);
+        } else {
+          console.log('[VoicePanel] track ended (browser) → stopping cleanly');
+          userStoppedRef.current = true;
+          setIsStreamPaused(false);
+          setIsScreenSharing(false);
+          setViewingScreenShares(new Set());
+          setActiveStreamFocus(null);
+          playScreenShareStopSound();
+          const s = useAppStore.getState().localScreenShareStream;
+          if (s) s.getTracks().forEach(t => t.stop());
+          useAppStore.getState().setLocalScreenShareStream(null);
+        }
+      };
+
       playScreenShareStartSound();
       setScreenShareQuality(quality);
       setShowQualityMenu(false);
@@ -390,7 +345,7 @@ useEffect(() => {
       </div>
 
       {/* Bannière "Stream en pause" — visible seulement sur Electron (fenêtre minimisée) */}
-      {isScreenSharing && isStreamPaused && (
+      {isElectron && isScreenSharing && isStreamPaused && (
         <div className="px-2">
           <div className="w-full flex items-center justify-center gap-2 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-md text-xs font-medium border border-yellow-500/20 animate-pulse">
             <PauseCircle className="w-3 h-3" />
@@ -415,7 +370,7 @@ useEffect(() => {
             disabled={isAfk}
             className={`w-full flex items-center justify-center py-1.5 rounded-md transition-colors ${
               isScreenSharing
-                ? isStreamPaused
+                ? (isElectron && isStreamPaused)
                   ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
                   : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
                 : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'
@@ -423,7 +378,7 @@ useEffect(() => {
             title={isScreenSharing ? t('voice.stopSharing') : (isAfk ? t('voice.afkRestricted') : t('voice.shareScreen'))}
           >
             {isScreenSharing
-              ? isStreamPaused ? <PauseCircle className="w-4 h-4" /> : <MonitorOff className="w-4 h-4" />
+              ? (isElectron && isStreamPaused) ? <PauseCircle className="w-4 h-4" /> : <MonitorOff className="w-4 h-4" />
               : <MonitorUp className="w-4 h-4" />}
           </button>
           {isScreenSharing && streamViewers.length > 0 && (
