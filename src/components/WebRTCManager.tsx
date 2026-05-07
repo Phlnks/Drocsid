@@ -390,20 +390,27 @@ export default function WebRTCManager() {
 
         // ── Réception des tracks distantes ──
         room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
+          
           if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
-            // Vidéo du partage d'écran
-            const stream = new MediaStream([track.mediaStreamTrack]);
+            // ✅ Créer le stream vidéo ou réutiliser l'existant (peut déjà avoir l'audio)
+            const existing = useAppStore.getState().remoteScreenShares[participant.identity];
+            const stream = existing ?? new MediaStream();
+            stream.addTrack(track.mediaStreamTrack);
             setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            // Audio système du partage — clé distincte pour ne pas écraser le micro
-            const stream = new MediaStream([track.mediaStreamTrack]);
-            setRemoteStreams(prev => {
-              const map = new Map(prev);
-              map.set(`${participant.identity}_screenaudio`, stream);
-              return map;
-            });
-            console.log(`[WebRTC] Screen share audio received from ${participant.identity}`);
+            // ✅ Ajouter l'audio AU stream vidéo existant (pas un AudioPlayer séparé)
+            const existing = useAppStore.getState().remoteScreenShares[participant.identity];
+            if (existing) {
+              existing.addTrack(track.mediaStreamTrack);
+              // Forcer le re-render du VideoPlayer en recréant la référence
+              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: existing }));
+            } else {
+              // Audio arrivé avant la vidéo — stocker temporairement quand même
+              const stream = new MediaStream([track.mediaStreamTrack]);
+              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
+            }
+            console.log(`[WebRTC] Screen share audio merged into video stream for ${participant.identity}`);
 
           } else if (track.kind === Track.Kind.Audio) {
             // Micro normal
@@ -419,11 +426,12 @@ export default function WebRTCManager() {
             if (useAppStore.getState().activeStreamFocus === participant.identity) useAppStore.getState().setActiveStreamFocus(null);
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            setRemoteStreams(prev => {
-              const map = new Map(prev);
-              map.delete(`${participant.identity}_screenaudio`);
-              return map;
-            });
+            // ✅ Retirer la track audio du stream vidéo combiné
+            const existing = useAppStore.getState().remoteScreenShares[participant.identity];
+            if (existing) {
+              existing.removeTrack(track.mediaStreamTrack);
+              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: existing }));
+            }
 
           } else if (track.kind === Track.Kind.Audio) {
             setRemoteStreams(prev => { const map = new Map(prev); map.delete(participant.identity); return map; });

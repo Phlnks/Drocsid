@@ -47,6 +47,8 @@ export default function VoicePanel() {
 
   // Détection Electron une seule fois
   const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const supportsDisplayMedia = !!navigator.mediaDevices?.getDisplayMedia;
 
   const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
@@ -273,6 +275,8 @@ export default function VoicePanel() {
         }
       };
 
+      const hasSystemAudio = stream.getAudioTracks().length > 0;
+
       playScreenShareStartSound();
       setScreenShareQuality(quality);
       setShowQualityMenu(false);
@@ -280,6 +284,8 @@ export default function VoicePanel() {
 
       useAppStore.getState().setLocalScreenShareStream(stream);
       useAppStore.getState().setIsScreenSharing(true);
+      // ✅ Stocker si le son système est actif
+      (useAppStore.getState() as any).screenShareHasAudio = hasSystemAudio;
 
     } catch (err: any) {
       // L'utilisateur a annulé ou refusé → pas d'erreur visible
@@ -304,7 +310,7 @@ export default function VoicePanel() {
   };
 
   const toggleScreenShare = () => {
-    if (window.innerWidth < 768) return;
+  if (isMobile || (!isElectron && !supportsDisplayMedia)) return;
     if (isScreenSharing) {
       userStoppedRef.current = true;
       setIsStreamPaused(false);
@@ -439,6 +445,11 @@ export default function VoicePanel() {
           {!isElectron && (
             <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
               🖥️ Écran entier uniquement — l'audio système sera proposé dans la boîte de dialogue du navigateur.
+              {/firefox/i.test(navigator.userAgent) && (
+                <span className="block mt-1 text-yellow-500/80">
+                  ⚠️ Firefox : préférez partager un écran entier pour éviter les coupures.
+                </span>
+              )}
             </div>
           )}
           {isElectron && (
