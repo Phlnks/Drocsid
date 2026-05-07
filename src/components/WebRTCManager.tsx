@@ -70,6 +70,45 @@ export default function WebRTCManager() {
   const publishedScreenTrackRef = useRef<LocalVideoTrack | null>(null);
   const publishedScreenAudioTrackRef = useRef<LocalAudioTrack | null>(null);
 
+  const noiseGateCtxRef = useRef<AudioContext | null>(null);
+
+  const applyNoiseGate = (stream: MediaStream, sensitivity: number): MediaStream => {
+    if (noiseGateCtxRef.current) {
+      noiseGateCtxRef.current.close();
+      noiseGateCtxRef.current = null;
+    }
+    // sensitivity 0 = très sensible (seuil bas), 100 = moins sensible (seuil haut)
+    const gateLevel = sensitivity / 100 * 0.05; // amplitude 0.0 → 0.05
+
+    const ctx = new AudioContext();
+    noiseGateCtxRef.current = ctx;
+
+    const source = ctx.createMediaStreamSource(stream);
+    const destination = ctx.createMediaStreamDestination();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    const dataArray = new Float32Array(analyser.fftSize);
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 1;
+
+    // Vérifie le volume toutes les 50ms et applique le gate
+    const interval = setInterval(() => {
+      analyser.getFloatTimeDomainData(dataArray);
+      const rms = Math.sqrt(dataArray.reduce((s, v) => s + v * v, 0) / dataArray.length);
+      gainNode.gain.setTargetAtTime(rms < gateLevel ? 0 : 1, ctx.currentTime, 0.01);
+    }, 50);
+
+    // Stocker l'interval pour le cleanup
+    (noiseGateCtxRef.current as any)._interval = interval;
+
+    source.connect(analyser);
+    analyser.connect(gainNode);
+    gainNode.connect(destination);
+
+    return destination.stream;
+  };
+
   const prevVoiceParticipantsRef = useRef<any[]>([]);
   const prevVoiceChannelRef = useRef<string | null>(null);
   const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
@@ -357,12 +396,19 @@ export default function WebRTCManager() {
       // Si le navigateur ou la carte graphique ne supporte pas H.264, LiveKit bascule sur VP8
       publishDefaults: {
         videoCodec: 'h264',
-        // Encodage screen share global (complété par videoEncoding dans publishTrack)
         screenShareEncoding: {
-          maxBitrate: 3_000_000,  // 3 Mbps — suffisant pour 1080p screen share
+          maxBitrate: 3_000_000,
           maxFramerate: 30,
           priority: 'high'
-        }
+        },
+        // ✅ AJOUTER — protection contre les pertes de paquets réseau
+        audioPreset: {
+          maxBitrate: 32_000,     // 32 kbps — suffisant pour voix claire
+          priority: 'high',
+        },
+        red: true,               // Redundant Encoding — copie chaque paquet dans le suivant
+        dtx: true,               // Discontinuous Transmission — silence = 0 bande passante
+        stopMicTrackOnMute: true // Libère la ressource micro quand muté
       }
     });
     roomRef.current = room;
@@ -462,12 +508,31 @@ export default function WebRTCManager() {
         });
 
         try {
-          await room.localParticipant.setMicrophoneEnabled(!isVoiceMuted && !isDeafened, {
-            echoCancellation: voiceSettings.echoCancellation,
-            noiseSuppression: voiceSettings.noiseSuppression,
-            autoGainControl: voiceSettings.autoGainControl,
-            deviceId: voiceSettings.selectedMicrophoneId || undefined
+          // Capturer le micro brut
+          const rawMicStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: voiceSettings.echoCancellation,
+              noiseSuppression: voiceSettings.noiseSuppression,
+              autoGainControl: voiceSettings.autoGainControl,
+              deviceId: voiceSettings.selectedMicrophoneId || undefined
+            }
           });
+
+          // ✅ Appliquer le noise gate si sensibilité > 0
+          const micStream = voiceSettings.micSensitivity > 0
+            ? applyNoiseGate(rawMicStream, voiceSettings.micSensitivity)
+            : rawMicStream;
+
+          if (!isVoiceMuted && !isDeafened) {
+            const audioTrack = micStream.getAudioTracks()[0];
+            if (audioTrack) {
+              await room.localParticipant.publishTrack(audioTrack, {
+                source: Track.Source.Microphone,
+                red: true,
+                dtx: true,
+              });
+            }
+          }
         } catch (e) { console.error("Could not capture microphone:", e); }
 
       } catch (err) { console.error("Error connecting to LiveKit:", err); }
@@ -489,6 +554,13 @@ export default function WebRTCManager() {
       const currentState = useAppStore.getState();
       const isCompletelyDisconnecting = !currentState.connectedVoiceChannelId;
       const isLoggedOut = !useAuthStore.getState().user;
+
+      // ✅ Nettoyer le noise gate
+      if (noiseGateCtxRef.current) {
+        clearInterval((noiseGateCtxRef.current as any)._interval);
+        noiseGateCtxRef.current.close();
+        noiseGateCtxRef.current = null;
+      }
 
       if (roomRef.current) { roomRef.current.disconnect(); roomRef.current = null; }
 
