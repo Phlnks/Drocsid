@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/appStore';
 import { X, Search } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { useTranslation } from 'react-i18next';
+import socket from '../../lib/socket';
 
 interface Props {
   isOpen: boolean;
@@ -78,59 +79,83 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
   const handleAddFriends = async () => {
     if (selectedUserIds.size === 0 || !currentUser) return;
     setIsLoading(true);
-    
+
     try {
-      const newParticipantsList = Array.from(new Set([...(currentParticipants || []), ...Array.from(selectedUserIds)])).sort();
-      
-      // 1. Check if a DM with these EXACT participants already exists
-      const { data: existingDms } = await supabase.from('dms')
-        .select('*')
-        .contains('participants', newParticipantsList);
-      
-      // Filter for exact match in participants length and content
-      const exactMatch = existingDms?.find(dm => 
-        dm.participants.length === newParticipantsList.length && 
-        dm.participants.every((p: string) => newParticipantsList.includes(p))
-      );
+      const newParticipantsList = Array.from(
+        new Set([...(currentParticipants || []), ...Array.from(selectedUserIds)])
+      ).sort();
 
-      if (exactMatch) {
-        setSelectedDmId(exactMatch.id);
-        onClose();
-        return;
-      }
-
-      // 2. If it was already a group (>2 participants), we might just want to update it 
-      // but Discord logic often creates new group if you add friends to a 1on1.
-      // If it's already a group DM (id from props), let's see if the user wants to update THIS group or create new one.
-      // Usually, if you add friends to a GROUP, it adds them to the existing group.
-      // If you add friends to a 1-on-1, it creates a NEW group.
-      
       const isCurrentlyGroup = currentParticipants.length > 2;
 
       if (isCurrentlyGroup) {
-        // Update existing group
+        // ✅ Groupe existant → juste mettre à jour les participants
         const { error } = await supabase.from('dms')
-          .update({
-            participants: newParticipantsList,
-            updated_at: new Date().toISOString()
-          })
+          .update({ participants: newParticipantsList, updated_at: new Date().toISOString() })
           .eq('id', dmId);
-        
         if (error) throw error;
+
+        // ✅ Mettre à jour aussi l'appel actif si présent
+        const { data: existingCall } = await supabase.from('calls')
+          .select('id')
+          .eq('id', dmId)
+          .maybeSingle();
+        if (existingCall) {
+          await supabase.from('calls')
+            .update({ participants: newParticipantsList })
+            .eq('id', dmId);
+          // ✅ Notifier les nouveaux participants via socket
+          socket.emit('start-call', {
+            callId: dmId,
+            dmId: dmId,
+            callerId: currentUser.id,
+            participants: newParticipantsList
+          });
+        }
         onClose();
       } else {
-        // Create new group DM
+        // ✅ DM 1-on-1 → créer un nouveau groupe
+        // D'abord vérifier s'il existe déjà exactement ce groupe
+        const { data: allDms } = await supabase.from('dms')
+          .select('*')
+          .contains('participants', [currentUser.id]);
+
+        const exactMatch = allDms?.find(dm =>
+          dm.participants.length === newParticipantsList.length &&
+          newParticipantsList.every((p: string) => dm.participants.includes(p))
+        );
+
+        if (exactMatch) {
+          setSelectedDmId(exactMatch.id);
+          onClose();
+          return;
+        }
+
         const { data: newDm, error } = await supabase.from('dms')
-          .insert({
-            participants: newParticipantsList,
-            type: 'group'
-          })
+          .insert({ participants: newParticipantsList, type: 'group' })
           .select()
           .single();
-        
         if (error) throw error;
+
         if (newDm) {
           setSelectedDmId(newDm.id);
+          // ✅ Démarrer un appel dans le NOUVEAU groupe si un appel était actif dans l'ancien
+          const { data: oldCall } = await supabase.from('calls')
+            .select('*').eq('id', dmId).maybeSingle();
+          if (oldCall) {
+            await supabase.from('calls').insert({
+              id: newDm.id,
+              dm_id: newDm.id,
+              caller_id: currentUser.id,
+              participants: newParticipantsList,
+              status: 'ringing'
+            });
+            socket.emit('start-call', {
+              callId: newDm.id,
+              dmId: newDm.id,
+              callerId: currentUser.id,
+              participants: newParticipantsList
+            });
+          }
         }
         onClose();
       }

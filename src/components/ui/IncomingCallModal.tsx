@@ -34,7 +34,7 @@ export default function IncomingCallModal() {
         setIncomingCall(call);
         
         if (call.caller_id) {
-          const { data: callerData } = await supabase.from('profiles').select('*').eq('id', call.caller_id).maybeSingle();
+          const { data: callerData } = await supabase.from('profiles').select('id, username, display_name, avatar_url, status').eq('id', call.caller_id).maybeSingle();
           if (callerData) setCaller(callerData);
         }
 
@@ -57,7 +57,7 @@ export default function IncomingCallModal() {
         participants: data.participants
       });
 
-      const { data: callerData } = await supabase.from('profiles').select('*').eq('id', data.callerId).maybeSingle();
+      const { data: callerData } = await supabase.from('profiles').select('id, username, display_name, avatar_url, status').eq('id', data.callerId).maybeSingle();
       if (callerData) setCaller(callerData);
       
       playRingtone();
@@ -81,7 +81,7 @@ export default function IncomingCallModal() {
     socket.on('call-declined', handleCallDeclined);
     socket.on('call-accepted', handleCallAccepted);
 
-    const channel = supabase.channel('incoming_calls')
+    const channel = supabase.channel(`incoming_calls_${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'calls' }, (payload) => {
         const call = payload.new as any || payload.old as any;
         if (call && call.participants && call.participants.includes(user.id)) {

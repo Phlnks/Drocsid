@@ -112,17 +112,30 @@ export default function VoicePanel() {
   }, [connectedVoiceChannelId, isCall]);
 
   // ─── Sonnerie ──────────────────────────────────────────────────────────────
+  // Après — isCaller stocké en ref pour éviter la race condition
+  const isCallerRef = useRef(false);
+
   useEffect(() => {
-    if (!connectedVoiceChannelId || !isCall || !currentUser) { stopRingtone(); return; }
-    let isCaller = false;
+    if (!connectedVoiceChannelId || !isCall || !currentUser) {
+      stopRingtone();
+      isCallerRef.current = false;
+      return;
+    }
     const checkCaller = async () => {
-      const { data: call } = await supabase.from('calls').select('caller_id').eq('id', connectedVoiceChannelId).maybeSingle();
-      if (call && call.caller_id === currentUser.id) { isCaller = true; if (voiceParticipants.length === 1) playRingtone(); }
+      const { data: call } = await supabase.from('calls')
+        .select('caller_id')
+        .eq('id', connectedVoiceChannelId)
+        .maybeSingle();
+      // ✅ Vérifier que l'appel est toujours actif avant de sonner
+      if (!call) { isCallerRef.current = false; return; }
+      isCallerRef.current = call.caller_id === currentUser.id;
+      if (isCallerRef.current && voiceParticipants.length === 1) playRingtone();
+      else stopRingtone();
     };
     checkCaller();
-    if (voiceParticipants.length === 1 && isCaller) playRingtone();
-    else if (voiceParticipants.length > 1) stopRingtone();
-    return () => { stopRingtone(); };
+    if (voiceParticipants.length > 1) stopRingtone();
+    // ✅ cleanup immédiat — ne pas laisser la sonnerie si on quitte
+    return () => { stopRingtone(); isCallerRef.current = false; };
   }, [connectedVoiceChannelId, isCall, currentUser, voiceParticipants.length]);
 
   // ─── Wake Lock ─────────────────────────────────────────────────────────────
