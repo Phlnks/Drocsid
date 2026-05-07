@@ -109,7 +109,7 @@ export const playRingtone = () => {
   const ring = () => {
     // Professional melodic ringtone (Skype/Teams style) - Faster and more present version
     const now = 0;
-    const speed = 0.65; // Slightly faster
+    const speed = 0.60; // Slightly faster
     const vol = 0.25; // Increased volume
     
     // Main melody (triangle wave for more presence than sine)
@@ -131,7 +131,7 @@ export const playRingtone = () => {
   };
   
   ring();
-  ringtoneInterval = setInterval(ring, 3000); // 3 second professional loop (faster)
+  ringtoneInterval = setInterval(ring, 4000); // 3 second professional loop (faster)
 };
 
 export const stopRingtone = () => {

@@ -114,7 +114,7 @@ export default function DMSidebar() {
 
     fetchDMs();
 
-    const channelName = `dm-changes-${user.id}-${Math.random().toString(36).substring(7)}`;
+    const channelName = `dm-changes-${user.id}`;
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms' }, () => fetchDMs())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dm_messages' }, (payload) => {
@@ -146,12 +146,12 @@ export default function DMSidebar() {
     
     // Fetch all users for the search list (in a real app, this would be paginated or server-side searched)
     const fetchUsers = async () => {
-      const { data } = await supabase.from('profiles').select('*').neq('id', user.id);
+      const { data } = await supabase.from('profiles').select('id, username, display_name, avatar_url, status').neq('id', user.id);
       if (data) setUsers(data);
     };
     fetchUsers();
 
-    const channelName = `user-changes-${user.id}-${Math.random().toString(36).substring(7)}`;
+    const channelName = `user-changes-${user.id}`;
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
         fetchUsers();
@@ -290,11 +290,6 @@ export default function DMSidebar() {
             {dmName}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {isUnread && (
-              <div className="flex-shrink-0 bg-red-500 text-white text-[10px] font-bold px-1 min-w-[1.125rem] h-4 leading-none rounded-full flex items-center justify-center">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </div>
-            )}
             <button
               onClick={(e) => togglePinDm(e, dm.id)}
               className={clsx(
