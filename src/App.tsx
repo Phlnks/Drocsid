@@ -23,6 +23,38 @@ function MainAppContent() {
   const { isCurrentInstanceValid } = useInstanceStore();
   const isInstanceValid = isCurrentInstanceValid();
 
+      // ── DEBUG PWA - À SUPPRIMER APRÈS ──────────────────────────────────
+      useEffect(() => {
+        const el = document.getElementById('pwa-debug');
+        if (!el) return;
+        const log = (msg: string) => { el.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`; };
+        
+        log('Permission: ' + Notification.permission);
+        log('VAPID: ' + (import.meta.env.VITE_VAPID_PUBLIC_KEY ? '✅' : '❌ MANQUANTE'));
+
+        if (!user?.id) {
+          log('User ID: ❌ PAS DE USER');
+          return;
+        }
+
+        log('User ID: ' + user.id.slice(0, 8) + '...');
+
+        // Forcer subscribeToPush et afficher le résultat
+        import('./lib/usePushNotifications').then(({ subscribeToPush }) => {
+          log('Appel subscribeToPush...');
+          subscribeToPush(user.id)
+            .then(() => log('✅ subscribeToPush terminé'))
+            .catch(err => log('❌ ERREUR: ' + err.message));
+        }).catch(err => log('❌ Import échoué: ' + err.message));
+
+        navigator.serviceWorker.ready.then(sw => {
+          sw.pushManager.getSubscription().then(sub => {
+            log('Sub existante: ' + (sub ? '✅ ' + sub.endpoint.slice(0, 40) : '❌ AUCUNE'));
+          });
+        });
+      }, [user?.id]);
+      // ───────────────────────────────────────────────────────────────────
+
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
@@ -72,6 +104,17 @@ function MainAppContent() {
     <>
       <ThemeManager />
       {user ? <Layout /> : <Auth />}
+
+      {/* DEBUG PWA - À SUPPRIMER APRÈS */}
+      <div id="pwa-debug" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: '#000000ee', color: '#00ff00', fontSize: '11px',
+        padding: '8px', zIndex: 99999, maxHeight: '180px', overflowY: 'auto',
+        fontFamily: 'monospace'
+      }}>
+        <div>=== PWA DEBUG ===</div>
+      </div>
+
     </>
   );
 }
