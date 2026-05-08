@@ -39,10 +39,7 @@ export async function subscribeToPush(userId: string): Promise<void> {
   });
 
   const text = await res.text();
-  console.log('[Push] Status:', res.status, 'Réponse:', text);
-  // Afficher aussi dans le debug
-  const el = document.getElementById('pwa-debug');
-  if (el) el.innerHTML += `<div>Push API: ${res.status} - ${text.slice(0, 100)}</div>`;
+  console.log('[Push] Status:', res.status, 'Réponse:', text);  
 }
 
 export async function unsubscribeFromPush(userId: string): Promise<void> {
