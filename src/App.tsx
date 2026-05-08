@@ -265,10 +265,16 @@ export default function App() {
       
       // Initial identify
       if (socket.connected) {
-        handleConnect();
+        handleConnect();        
       } else {
         socket.connect();
       }
+
+      // ── Web Push : s'abonner aux notifications ──────────────────────
+      import('./lib/usePushNotifications').then(({ subscribeToPush }) => {
+        subscribeToPush(user.id);
+      });
+      // ───────────────────────────────────────────────────────────────
 
       const handleOnlineUsers = (userIds: string[]) => {
         setOnlineUserIds(userIds);

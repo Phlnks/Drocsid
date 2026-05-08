@@ -7,8 +7,18 @@ import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { AccessToken } from "livekit-server-sdk";
+import webpush from 'web-push';
 
 dotenv.config();
+
+// Configuration VAPID pour les Web Push Notifications
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:admin@drocsid.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +27,43 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// Envoyer une push notification à un utilisateur
+async function sendPushToUser(userId: string, payload: {
+  title: string;
+  body: string;
+  url: string;
+  icon?: string;
+}) {
+  if (!process.env.VAPID_PUBLIC_KEY) return; // Push non configuré
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .select('subscription')
+      .eq('user_id', userId);
+
+    if (error || !data?.length) return;
+
+    const payloadStr = JSON.stringify(payload);
+
+    for (const row of data) {
+      try {
+        await webpush.sendNotification(row.subscription, payloadStr);
+      } catch (err: any) {
+        // Si la souscription est expirée (410 Gone), la supprimer
+        if (err.statusCode === 410) {
+          await supabaseAdmin
+            .from('push_subscriptions')
+            .delete()
+            .eq('user_id', userId);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('sendPushToUser error:', err);
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -62,6 +109,31 @@ async function startServer() {
       console.error('Error generating LiveKit token:', err);
       res.status(500).json({ error: 'Failed to generate token' });
     }
+  });
+
+    // ── Web Push : sauvegarder la souscription d'un utilisateur ──────────
+  app.post('/api/push/subscribe', express.json(), async (req, res) => {
+    const { subscription, userId } = req.body;
+    if (!subscription || !userId) {
+      return res.status(400).json({ error: 'subscription and userId are required' });
+    }
+    try {
+      await supabaseAdmin
+        .from('push_subscriptions')
+        .upsert({ user_id: userId, subscription }, { onConflict: 'user_id' });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Error saving push subscription:', err);
+      res.status(500).json({ error: 'Failed to save subscription' });
+    }
+  });
+
+  // ── Web Push : supprimer la souscription (déconnexion) ────────────────
+  app.delete('/api/push/unsubscribe', express.json(), async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    await supabaseAdmin.from('push_subscriptions').delete().eq('user_id', userId);
+    res.json({ ok: true });
   });
 
   // Track online users: userId -> Set of socketIds
@@ -185,9 +257,22 @@ async function startServer() {
       io.to(message.channel_id).emit("message", message);
     });
 
-    socket.on("new-dm-message", (message) => {
-      // message: { id, dm_id, author_id, content, created_at, ... }
+    socket.on("new-dm-message", async (message) => {
       io.to(message.dm_id).emit("dm-message", message);
+
+      // Envoyer une push notification au destinataire s'il est hors ligne
+      // message.recipient_id doit être envoyé depuis le client
+      if (message.recipient_id && message.recipient_id !== message.author_id) {
+        const isOnline = onlineUsers.has(message.recipient_id);
+        if (!isOnline) {
+          await sendPushToUser(message.recipient_id, {
+            title: `${message.author_name || 'Message privé'}`,
+            body: message.content?.slice(0, 100) || '📎 Fichier',
+            url: `https://drocsid-fz9g.onrender.com/dm/${message.dm_id}`,
+            icon: '/logo-192.png',
+          });
+        }
+      }
     });
 
     socket.on("update-message", (message) => {

@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectRegister: 'auto',
         includeAssets: ['favicon.png', 'logo-192.png', 'logo-512.png', 'logo-maskable.png'],
@@ -28,34 +31,16 @@ export default defineConfig(({ mode }) => {
           icons: [
             { src: '/logo-192.png', sizes: '192x192', type: 'image/png' },
             { src: '/logo-512.png', sizes: '512x512', type: 'image/png' },
-            {
-              src: '/logo-maskable.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable'
-            }
+            { src: '/logo-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ]
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
           navigateFallback: '/index.html',
-          // Ne jamais intercepter les routes API et Socket.IO
           navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/, /^\/livekit/],
-          runtimeCaching: [
-            {
-              urlPattern: /\.(png|jpg|jpeg|svg|gif|woff2?)$/,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'static-assets',
-                expiration: {
-                  maxEntries: 60,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 jours
-                }
-              }
-            }
-          ]
         }
-      })
+     })
     ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
