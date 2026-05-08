@@ -325,16 +325,45 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+    } else {
     console.log("Starting in PRODUCTION mode...");
     const distPath = path.join(process.cwd(), "dist");
     console.log(`Serving static files from: ${distPath}`);
-    
+
+    // ── Headers PWA ──────────────────────────────────────────────────────
+    app.use((req, res, next) => {
+      const url = req.path;
+
+      if (url === '/sw.js' || url.endsWith('/sw.js')) {
+        // Service Worker : jamais mis en cache, sinon les mises à jour ne passent pas
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+
+      } else if (url.endsWith('.webmanifest') || url.endsWith('manifest.json')) {
+        // Manifest : Content-Type obligatoire pour que Chrome/Safari le reconnaisse
+        res.setHeader('Content-Type', 'application/manifest+json');
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+
+      } else if (url.startsWith('/assets/')) {
+        // Assets Vite (noms hachés) : cache navigateur 1 an
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+      }
+
+      next();
+    });
+    // ────────────────────────────────────────────────────────────────────
+
     app.use(express.static(distPath));
-    
+
     app.get("*", (req, res) => {
-      // Pour les routes API, on ne renvoie pas l'index.html
-      if (req.path.startsWith("/api")) {
+      if (
+        req.path.startsWith("/api") ||
+        req.path.startsWith("/socket.io") ||
+        req.path.startsWith("/livekit")
+      ) {
         return res.status(404).json({ error: "API route not found" });
       }
       res.sendFile(path.join(distPath, "index.html"));
