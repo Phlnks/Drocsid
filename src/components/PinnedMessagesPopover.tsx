@@ -36,7 +36,11 @@ export default function PinnedMessagesPopover({ channelId, isDM = false, onClose
     fetchPins();
 
     // Subscribe to changes
-    const channel = supabase.channel(`pins_${channelId}`)
+    const channelName = `pins_${channelId}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 

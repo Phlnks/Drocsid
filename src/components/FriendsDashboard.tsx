@@ -95,7 +95,11 @@ export default function FriendsDashboard() {
 
     fetchData();
 
-    const channel = supabase.channel('friends_dashboard')
+    const channelName = 'friends_dashboard_' + (currentUser?.id || 'anon');
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, () => {
         fetchData();

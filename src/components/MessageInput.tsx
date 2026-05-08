@@ -225,7 +225,11 @@ useEffect(() => {
       };
       fetchEmojis();
 
-      const channel = supabase.channel(`server_emojis_${serverId}`)
+      const chanName = `server_emojis_${serverId}`;
+      supabase.getChannels().forEach(c => {
+        if (c.topic === `realtime:${chanName}`) supabase.removeChannel(c);
+      });
+      const channel = supabase.channel(chanName)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${serverId}` }, (payload) => {
           if (payload.new && payload.new.custom_emojis) {
             setServerEmojis(payload.new.custom_emojis);

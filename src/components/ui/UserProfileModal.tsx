@@ -34,7 +34,11 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
 
     fetchRelationship();
 
-    const channel = supabase.channel(`profile_rel_${user.id}`)
+    const chanName = `profile_rel_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${chanName}`) supabase.removeChannel(c);
+    });
+    const channel = supabase.channel(chanName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'relationships' }, (payload) => {
         const rel = payload.new as any || payload.old as any;
         if (rel && rel.participants && rel.participants.includes(currentUser.id)) {

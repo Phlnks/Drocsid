@@ -406,7 +406,10 @@ export default function App() {
 	fetchRelevantProfiles()
 
     // Global profile subscription for all users
-    const channelName = `global_profiles_listener_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const channelName = `global_profiles_listener_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
     const channel = supabase.channel(channelName)
       .on('postgres_changes', { 
         event: '*', 

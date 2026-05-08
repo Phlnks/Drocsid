@@ -123,7 +123,10 @@ export default function ChannelList() {
 
     fetchData();
 
-    const channelName = `server_${selectedServerId}_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const channelName = `server_${selectedServerId}_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
     const channel = supabase.channel(channelName)
       // Only do a full re-fetch on destructive or structural changes
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'channels', filter: `server_id=eq.${selectedServerId}` }, () => fetchData())

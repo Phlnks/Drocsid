@@ -67,11 +67,19 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
 
     fetchUsers();
 
-    const membersSub = supabase.channel('members_changes')
+    const membersChan = 'members_changes_' + (selectedServerId || 'all');
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${membersChan}`) supabase.removeChannel(c);
+    });
+    const membersSub = supabase.channel(membersChan)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: selectedServerId ? `server_id=eq.${selectedServerId}` : undefined }, () => fetchUsers())
       .subscribe();
 
-    const rolesSub = supabase.channel('roles_changes')
+    const rolesChan = 'roles_changes_' + (selectedServerId || 'all');
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${rolesChan}`) supabase.removeChannel(c);
+    });
+    const rolesSub = supabase.channel(rolesChan)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'roles', filter: selectedServerId ? `server_id=eq.${selectedServerId}` : undefined }, () => fetchUsers())
       .subscribe();
 
@@ -114,7 +122,11 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
 
     fetchData();
 
-    const notifSub = supabase.channel(`notifs_${currentUser.id}`)
+    const notifChan = `notifs_${currentUser.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${notifChan}`) supabase.removeChannel(c);
+    });
+    const notifSub = supabase.channel(notifChan)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dms' }, (payload) => {
         const dm = payload.new as any || payload.old as any;

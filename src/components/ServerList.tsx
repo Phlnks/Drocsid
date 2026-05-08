@@ -34,7 +34,10 @@ export default function ServerList() {
     fetchServers();
     
     // Subscribe to servers changes for icon/name updates
-    const serversChannelName = `servers_changes_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const serversChannelName = `servers_changes_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${serversChannelName}`) supabase.removeChannel(c);
+    });
     const serversChannel = supabase.channel(serversChannelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'servers' }, () => {
         fetchServers();
@@ -42,7 +45,10 @@ export default function ServerList() {
       .subscribe();
 
     // Subscribe to server_members changes
-    const membersChannelName = `server_members_changes_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const membersChannelName = `server_members_changes_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${membersChannelName}`) supabase.removeChannel(c);
+    });
     const membersChannel = supabase.channel(membersChannelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: `user_id=eq.${user.id}` }, () => {
         fetchServers();

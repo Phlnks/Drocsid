@@ -159,7 +159,11 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
 
     fetchData();
 
-    const channel = supabase.channel(`server_settings_${server.id}`)
+    const channelName = `server_settings_${server.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
+    const channel = supabase.channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'roles', filter: `server_id=eq.${server.id}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'invites', filter: `server_id=eq.${server.id}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `server_id=eq.${server.id}` }, () => fetchData())

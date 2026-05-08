@@ -452,7 +452,10 @@ export default function DMChatArea() {
       }
     };
 
-    const channelName = `dm_chat_${selectedDmId}_${user.id}_${Math.random().toString(36).substring(7)}`;
+    const channelName = `dm_chat_${selectedDmId}_${user.id}`;
+    supabase.getChannels().forEach(c => {
+      if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
+    });
     const dmSub = supabase.channel(channelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dms', filter: `id=eq.${selectedDmId}` }, () => {
         fetchInitialData();
