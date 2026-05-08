@@ -456,8 +456,8 @@ export default function WebRTCManager() {
               // Audio arrivé avant la vidéo — stocker temporairement
               const stream = new MediaStream([track.mediaStreamTrack]);
               setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
+            
             }
-          }
             console.log(`[WebRTC] Screen share audio merged into video stream for ${participant.identity}`);
 
           } else if (track.kind === Track.Kind.Audio) {
