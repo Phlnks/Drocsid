@@ -95,7 +95,7 @@ export default function FriendsDashboard() {
 
     fetchData();
 
-    const channelName = 'friends_dashboard_' + (currentUser?.id || 'anon');
+    const channelName = 'friends_dashboard_' + (user?.id || 'anon');
     supabase.getChannels().forEach(c => {
       if (c.topic === `realtime:${channelName}`) supabase.removeChannel(c);
     });
