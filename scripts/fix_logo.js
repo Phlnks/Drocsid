@@ -5,9 +5,8 @@ async function main() {
   try {
     let sourcePath = 'public/favicon.png';
     const priorities = [
-      'src/assets/logo.png',
-      'logo.png',
       'public/logo.png',
+      'logo.png',
       'public/favicon.png'
     ];
 

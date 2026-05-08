@@ -29,7 +29,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "src/assets/logo-bg.png"
+      "public/logo-bg.png"
     ],
     "nsis": {
       "oneClick": false,
@@ -41,7 +41,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "src/assets/logo-bg.png",
+      "icon": "public/logo-bg.png",
       "executableName": "Drocsid"
     }
   },

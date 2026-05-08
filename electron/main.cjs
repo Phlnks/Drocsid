@@ -17,8 +17,8 @@ let isQuitting = false;
 function createWindow() {
   // Use logo.png or favicon.png
   const possibleIcons = [
-    path.join(__dirname, '../src/assets/logo.png'),
-    path.join(__dirname, '../src/assets/logo-bg.png'),
+    path.join(__dirname, '../public/logo.png'),
+    path.join(__dirname, '../public/logo-bg.png'),
     path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
@@ -87,19 +87,19 @@ function createWindow() {
 
 function createTray() {
   const possibleIcons = [
-    path.join(__dirname, '../src/assets/logo.png'),
-    path.join(__dirname, '../src/assets/logo-bg.png'),
+    path.join(__dirname, '../public/logo.png'),
+    path.join(__dirname, '../public/logo-bg.png'),
     path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
     path.join(__dirname, '../favicon.png'),
     path.join(__dirname, '../public/favicon.ico'),
     path.join(__dirname, 'icon.png'),
-    path.join(process.resourcesPath, 'src/assets/logo-bg.png'),
+    path.join(process.resourcesPath, 'public/logo-bg.png'),
     path.join(process.resourcesPath, 'logo-opaque.png'),
     path.join(process.resourcesPath, 'logo.png'),
     path.join(process.resourcesPath, 'favicon.png'),
-    path.join(process.resourcesPath, 'app/src/assets/logo-bg.png'),
+    path.join(process.resourcesPath, 'app/public/logo-bg.png'),
     path.join(process.resourcesPath, 'app/logo-opaque.png'),
     path.join(process.resourcesPath, 'app/logo.png'),
     path.join(process.resourcesPath, 'app/favicon.png')
@@ -176,7 +176,7 @@ ipcMain.on('set-badge', (event, count) => {
 
 // Notifications
 ipcMain.on('show-notification', (event, { title, body }) => {
-  new Notification({ title, body, icon: path.join(__dirname, '../logo.png') }).show();
+  new Notification({ title, body, icon: path.join(__dirname, '../public/logo.png') }).show();
 });
 
 ipcMain.on('set-launch-at-startup', (event, enabled) => {
