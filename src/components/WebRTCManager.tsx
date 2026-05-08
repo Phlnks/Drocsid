@@ -438,24 +438,26 @@ export default function WebRTCManager() {
         room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
           
           if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
-            // ✅ Créer le stream vidéo ou réutiliser l'existant (peut déjà avoir l'audio)
+            // ✅ Toujours créer un nouveau MediaStream pour forcer le re-render du VideoPlayer
+            // Récupérer les éventuelles audio tracks déjà présentes dans l'ancien stream
             const existing = useAppStore.getState().remoteScreenShares[participant.identity];
-            const stream = existing ?? new MediaStream();
-            stream.addTrack(track.mediaStreamTrack);
+            const audioTracks = existing ? existing.getAudioTracks() : [];
+            const stream = new MediaStream([track.mediaStreamTrack, ...audioTracks]);
             setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            // ✅ Ajouter l'audio AU stream vidéo existant (pas un AudioPlayer séparé)
             const existing = useAppStore.getState().remoteScreenShares[participant.identity];
             if (existing) {
-              existing.addTrack(track.mediaStreamTrack);
-              // Forcer le re-render du VideoPlayer en recréant la référence
-              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: existing }));
+              // ✅ Nouveau MediaStream avec vidéo + audio pour forcer le re-render
+              const videoTracks = existing.getVideoTracks();
+              const stream = new MediaStream([...videoTracks, track.mediaStreamTrack]);
+              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
             } else {
-              // Audio arrivé avant la vidéo — stocker temporairement quand même
+              // Audio arrivé avant la vidéo — stocker temporairement
               const stream = new MediaStream([track.mediaStreamTrack]);
               setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
             }
+          }
             console.log(`[WebRTC] Screen share audio merged into video stream for ${participant.identity}`);
 
           } else if (track.kind === Track.Kind.Audio) {

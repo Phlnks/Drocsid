@@ -12,33 +12,46 @@ export default function VideoPlayer({ stream, muted = false }: { stream: MediaSt
   const [hasAudio, setHasAudio] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      
-      const checkAudio = () => {
-        setHasAudio(stream.getAudioTracks().length > 0);
-        // Re-assign srcObject to force video element to pick up new tracks
-        if (videoRef.current && videoRef.current.srcObject !== stream) {
-          videoRef.current.srcObject = stream;
-        } else if (videoRef.current) {
-          // Force update by re-assigning
-          videoRef.current.srcObject = stream;
-        }
-      };
-      
-      checkAudio();
-      stream.onaddtrack = checkAudio;
-      stream.onremovetrack = checkAudio;
+    if (!videoRef.current || !stream) return;
 
-      const playVideo = () => {
-        videoRef.current?.play().catch(e => {
-          if (e.name !== 'AbortError') {
-            console.warn("Video play failed, might need user interaction:", e);
-          }
-        });
+    videoRef.current.srcObject = stream;
+
+    const checkAudio = () => {
+      setHasAudio(stream.getAudioTracks().length > 0);
+    };
+
+    checkAudio();
+    stream.onaddtrack = checkAudio;
+    stream.onremovetrack = checkAudio;
+
+    const tryPlay = () => {
+      if (!videoRef.current) return;
+      videoRef.current.play().catch(e => {
+        if (e.name !== 'AbortError') console.warn("Video play failed:", e);
+      });
+    };
+
+    // ✅ Si la video track est déjà active, on joue immédiatement
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack && videoTrack.readyState === 'live') {
+      tryPlay();
+    } else if (videoTrack) {
+      // Track pas encore prête → attendre qu'elle s'active
+      videoTrack.addEventListener('unmute', tryPlay, { once: true });
+      // Fallback : réessayer après 300ms au cas où l'event ne se déclenche pas
+      const fallback = setTimeout(tryPlay, 300);
+      return () => {
+        videoTrack.removeEventListener('unmute', tryPlay);
+        clearTimeout(fallback);
+        stream.onaddtrack = null;
+        stream.onremovetrack = null;
       };
-      playVideo();
     }
+
+    return () => {
+      stream.onaddtrack = null;
+      stream.onremovetrack = null;
+    };
   }, [stream, muted]);
 
   useEffect(() => {
