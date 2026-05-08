@@ -1,38 +1,45 @@
 export async function subscribeToPush(userId: string): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('Push notifications non supportées sur ce navigateur');
+    console.warn('[Push] Non supporté');
     return;
   }
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
-    console.warn('Permission notifications refusée');
+    console.warn('[Push] Permission refusée:', permission);
     return;
   }
 
   const sw = await navigator.serviceWorker.ready;
-
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
   if (!vapidKey) {
-    console.error('VITE_VAPID_PUBLIC_KEY manquant');
+    console.error('[Push] VITE_VAPID_PUBLIC_KEY manquante');
     return;
   }
 
-  // Convertir la clé VAPID base64 en Uint8Array
-  const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+  // Vérifier si une souscription existe déjà
+  let subscription = await sw.pushManager.getSubscription();
 
-  const subscription = await sw.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey,
-  });
+  if (!subscription) {
+    console.log('[Push] Création nouvelle souscription...');
+    subscription = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+  } else {
+    console.log('[Push] Souscription existante trouvée, envoi au serveur...');
+  }
 
-  await fetch('/api/push/subscribe', {
+  // Toujours envoyer au serveur (même si souscription existante)
+  const res = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription, userId }),
+    body: JSON.stringify({ subscription: subscription.toJSON(), userId }),
   });
 
-  console.log('[Push] Souscription enregistrée');
+  const data = await res.json();
+  console.log('[Push] Réponse serveur:', data);
 }
 
 export async function unsubscribeFromPush(userId: string): Promise<void> {

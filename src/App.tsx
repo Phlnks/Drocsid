@@ -23,25 +23,6 @@ function MainAppContent() {
   const { isCurrentInstanceValid } = useInstanceStore();
   const isInstanceValid = isCurrentInstanceValid();
 
-    // ── DEBUG PWA - À SUPPRIMER APRÈS ──────────────────────────────────
-      useEffect(() => {
-        const el = document.getElementById('pwa-debug');
-        if (!el) return;
-        const log = (msg: string) => { el.innerHTML += `<div>${msg}</div>`; };
-        log('Permission: ' + Notification.permission);
-        log('SW: ' + ('serviceWorker' in navigator));
-        log('Push: ' + ('PushManager' in window));
-        log('VAPID: ' + (import.meta.env.VITE_VAPID_PUBLIC_KEY ? import.meta.env.VITE_VAPID_PUBLIC_KEY.slice(0, 20) + '...' : 'MANQUANTE ❌'));
-        navigator.serviceWorker.ready.then(sw => {
-          log('SW URL: ' + sw.active?.scriptURL);
-          sw.pushManager.getSubscription().then(sub => {
-            log('Sub: ' + (sub ? sub.endpoint.slice(0, 60) + '...' : 'AUCUNE ❌'));
-          });
-        });
-      }, []);
-      // ───────────────────────────────────────────────────────────────────
-
-
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
@@ -91,17 +72,6 @@ function MainAppContent() {
     <>
       <ThemeManager />
       {user ? <Layout /> : <Auth />}
-
-      {/* DEBUG PWA - À SUPPRIMER APRÈS */}
-      <div id="pwa-debug" style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: '#000000ee', color: '#00ff00', fontSize: '11px',
-        padding: '8px', zIndex: 99999, maxHeight: '180px', overflowY: 'auto',
-        fontFamily: 'monospace'
-      }}>
-        <div>=== PWA DEBUG ===</div>
-      </div>
-
     </>
   );
 }
