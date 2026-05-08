@@ -70,7 +70,9 @@ export default function Layout() {
                   <RightSidebar forceTab="notifications" />
                 </div>
              ) : mobileTab === 'messages' ? (
-                <DMSidebar />
+                <DMSidebar />             
+             ) : mobileTab === 'channels' ? (
+                 <ChannelList />
              ) : (
                 <ChannelList />
              )}

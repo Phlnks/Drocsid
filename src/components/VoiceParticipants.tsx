@@ -72,7 +72,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   if (participants.length === 0) return null;
 
   return (
-    <div className="bg-zinc-900 border-b border-zinc-700 p-4 shrink-0 flex flex-wrap gap-4">
+    <div className="bg-zinc-900 border-b border-zinc-700 p-3 shrink-0 flex flex-wrap gap-3 max-h-28 overflow-y-auto md:max-h-none md:overflow-visible">
       {participants.map(p => {
         const isSpeaking = speakingUsers[p.id];
         const isSharingScreen = !!remoteScreenShares[p.id];
@@ -88,7 +88,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
             onClick={() => setSelectedUser(userProfile || p)}
             onContextMenu={(e) => handleContextMenu(e, { ...p, name: displayName, avatarUrl: displayAvatar })}
           >
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden transition-all duration-200 bg-indigo-500 ${
+            <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden transition-all duration-200 bg-indigo-500 ${
               isSpeaking ? 'ring-4 speaking-ring' : 'ring-2 ring-transparent'
             }`}>
               {displayAvatar ? (

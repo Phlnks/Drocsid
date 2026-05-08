@@ -73,7 +73,7 @@ interface AppState {
   activeStreamFocus: string | null;
   isRightSidebarOpen: boolean;
   isMobileNavOpen: boolean;
-  mobileTab: 'messages' | 'servers' | 'notifications' | 'profile';
+  mobileTab: 'messages' | 'servers' | 'channels' | 'notifications' | 'profile';
   theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom';
   customTheme: {
     primaryColor: string;
