@@ -34,6 +34,10 @@ export default defineConfig(({ mode }) => {
             { src: '/logo-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ]
         },
+        injectManifest: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // ← ajoute ce bloc
+          globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+        },
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
