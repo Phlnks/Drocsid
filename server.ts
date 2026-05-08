@@ -114,6 +114,9 @@ async function startServer() {
     // ── Web Push : sauvegarder la souscription d'un utilisateur ──────────
   app.post('/api/push/subscribe', express.json(), async (req, res) => {
     const { subscription, userId } = req.body;
+    console.log('[Push Subscribe] userId:', userId);
+    console.log('[Push Subscribe] subscription:',JSON.stringify(subscription).slice(0, 100));
+
     if (!subscription || !userId) {
       return res.status(400).json({ error: 'subscription and userId are required' });
     }
@@ -121,9 +124,10 @@ async function startServer() {
       await supabaseAdmin
         .from('push_subscriptions')
         .upsert({ user_id: userId, subscription }, { onConflict: 'user_id' });
+         console.log('[Push Subscribe] Supabase result:', JSON.stringify(result));
       res.json({ ok: true });
     } catch (err) {
-      console.error('Error saving push subscription:', err);
+      console.error('[Push Subscribe] Error:', err);
       res.status(500).json({ error: 'Failed to save subscription' });
     }
   });
