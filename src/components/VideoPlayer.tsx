@@ -51,6 +51,9 @@ export default function VideoPlayer({ stream, muted = false }: { stream: MediaSt
     return () => {
       stream.onaddtrack = null;
       stream.onremovetrack = null;
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     };
   }, [stream, muted]);
 

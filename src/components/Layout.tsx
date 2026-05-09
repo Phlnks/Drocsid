@@ -25,13 +25,19 @@ export default function Layout() {
   useEffect(() => {
     socket.emit('request-voice-states');
     
+    const handleConnect = () => {
+      socket.emit('request-voice-states');
+    };
+
     const handleVoiceParticipantsUpdate = (data: { channelId: string, participants: any[] }) => {
       setVoiceParticipants(data.channelId, data.participants);
     };
 
+    socket.on('connect', handleConnect);
     socket.on('voice-participants-update', handleVoiceParticipantsUpdate);
 
     return () => {
+      socket.off('connect', handleConnect);
       socket.off('voice-participants-update', handleVoiceParticipantsUpdate);
     };
   }, [setVoiceParticipants]);

@@ -19,6 +19,11 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
         if (e.name !== 'AbortError') console.error("Audio play error:", e);
       });
     }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.srcObject = null;
+      }
+    };
   }, [stream]);
 
   useEffect(() => {
@@ -71,9 +76,13 @@ export default function WebRTCManager() {
   const publishedScreenAudioTrackRef = useRef<LocalAudioTrack | null>(null);
 
   const noiseGateCtxRef = useRef<AudioContext | null>(null);
+  const rawMicStreamRef = useRef<MediaStream | null>(null);
 
   const applyNoiseGate = (stream: MediaStream, sensitivity: number): MediaStream => {
     if (noiseGateCtxRef.current) {
+      if ((noiseGateCtxRef.current as any)._interval) {
+        clearInterval((noiseGateCtxRef.current as any)._interval);
+      }
       noiseGateCtxRef.current.close();
       noiseGateCtxRef.current = null;
     }
@@ -408,7 +417,8 @@ export default function WebRTCManager() {
         },
         red: true,               // Redundant Encoding — copie chaque paquet dans le suivant
         dtx: true,               // Discontinuous Transmission — silence = 0 bande passante
-        stopMicTrackOnMute: true // Libère la ressource micro quand muté
+        // ON désactive stopMicTrackOnMute pour ne pas perdre le noise gate personnalisé lors du unmute
+        stopMicTrackOnMute: false 
       }
     });
     roomRef.current = room;
@@ -492,22 +502,79 @@ export default function WebRTCManager() {
           setSpeakingUsers(speakingMap);
         });
 
+        // 🔄 Re-publier le micro silencieusement lors d'une reconnexion LiveKit
+        room.on(RoomEvent.Reconnected, async () => {
+          console.log('[WebRTC] Reconnected, re-applying microphone track if needed...');
+          try {
+            if (rawMicStreamRef.current) {
+              rawMicStreamRef.current.getTracks().forEach(t => t.stop());
+            }
+
+            const currentSettings = useAppStore.getState().voiceSettings;
+            const currentIsMuted = useAppStore.getState().isVoiceMuted;
+            const currentIsDeafened = useAppStore.getState().isDeafened;
+            
+            rawMicStreamRef.current = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: currentSettings.echoCancellation,
+                noiseSuppression: currentSettings.noiseSuppression,
+                autoGainControl: currentSettings.autoGainControl,
+                deviceId: currentSettings.selectedMicrophoneId || undefined
+              }
+            });
+
+            const existingPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+            if (existingPub && existingPub.track) {
+              await room.localParticipant.unpublishTrack(existingPub.track as LocalAudioTrack);
+            }
+
+            const micStream = currentSettings.micSensitivity > 0
+              ? applyNoiseGate(rawMicStreamRef.current, currentSettings.micSensitivity)
+              : rawMicStreamRef.current;
+
+              const audioTrack = micStream.getAudioTracks()[0];
+              if (audioTrack) {
+                const localAudioTrack = new LocalAudioTrack(audioTrack);
+                if (currentIsMuted || currentIsDeafened) {
+                    await localAudioTrack.mute();
+                }
+                await room.localParticipant.publishTrack(localAudioTrack, {
+                  source: Track.Source.Microphone,
+                  red: true,
+                  dtx: true,
+                });
+                console.log('[WebRTC] Microphone track successfully republished after reconnect.');
+              }
+            } catch (err) {
+              console.error("[WebRTC] Reconnected mic publish error:", err);
+            }
+        });
+
         await room.connect(livekitUrl, token);
         console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);
 
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
         socket.emit('join-channel', connectedVoiceChannelId);
-        socket.emit('join-voice-channel', {
-          channelId: connectedVoiceChannelId,
-          user: {
-            id: currentUser.id,
-            name: profile?.username || profile?.display_name || 'Utilisateur',
-            avatarUrl: profile?.avatar_url,
-            isMuted: isVoiceMuted,
-            isStreaming: isScreenSharing,
-            joinedAt: new Date().toISOString()
-          }
-        });
+        
+        const emitJoinVoiceChannel = () => {
+          socket.emit('join-voice-channel', {
+            channelId: connectedVoiceChannelId,
+            user: {
+              id: currentUser.id,
+              name: profile?.username || profile?.display_name || 'Utilisateur',
+              avatarUrl: profile?.avatar_url,
+              isMuted: useAppStore.getState().isVoiceMuted,
+              isStreaming: useAppStore.getState().isScreenSharing,
+              joinedAt: new Date().toISOString()
+            }
+          });
+        };
+
+        emitJoinVoiceChannel();
+        
+        // 🔄 Si le serveur Node.js redémarre ou que le socket se reconnecte, on se réannonce
+        socket.on('connect', emitJoinVoiceChannel);
+        (room as any)._onSocketConnect = emitJoinVoiceChannel; // on stocke pour nettoyer
 
         try {
           // Capturer le micro brut
@@ -519,21 +586,24 @@ export default function WebRTCManager() {
               deviceId: voiceSettings.selectedMicrophoneId || undefined
             }
           });
+          rawMicStreamRef.current = rawMicStream;
 
           // ✅ Appliquer le noise gate si sensibilité > 0
           const micStream = voiceSettings.micSensitivity > 0
             ? applyNoiseGate(rawMicStream, voiceSettings.micSensitivity)
             : rawMicStream;
 
-          if (!isVoiceMuted && !isDeafened) {
-            const audioTrack = micStream.getAudioTracks()[0];
-            if (audioTrack) {
-              await room.localParticipant.publishTrack(audioTrack, {
-                source: Track.Source.Microphone,
-                red: true,
-                dtx: true,
-              });
+          const audioTrack = micStream.getAudioTracks()[0];
+          if (audioTrack) {
+            const localAudioTrack = new LocalAudioTrack(audioTrack);
+            if (isVoiceMuted || isDeafened) {
+              await localAudioTrack.mute();
             }
+            await room.localParticipant.publishTrack(localAudioTrack, {
+              source: Track.Source.Microphone,
+              red: true,
+              dtx: true,
+            });
           }
         } catch (e) { console.error("Could not capture microphone:", e); }
 
@@ -557,14 +627,24 @@ export default function WebRTCManager() {
       const isCompletelyDisconnecting = !currentState.connectedVoiceChannelId;
       const isLoggedOut = !useAuthStore.getState().user;
 
-      // ✅ Nettoyer le noise gate
+      // ✅ Nettoyer le noise gate et le micro
+      if (rawMicStreamRef.current) {
+        rawMicStreamRef.current.getTracks().forEach(t => t.stop());
+        rawMicStreamRef.current = null;
+      }
       if (noiseGateCtxRef.current) {
         clearInterval((noiseGateCtxRef.current as any)._interval);
         noiseGateCtxRef.current.close();
         noiseGateCtxRef.current = null;
       }
 
-      if (roomRef.current) { roomRef.current.disconnect(); roomRef.current = null; }
+      if (roomRef.current) { 
+        if ((roomRef.current as any)._onSocketConnect) {
+          socket.off('connect', (roomRef.current as any)._onSocketConnect);
+        }
+        roomRef.current.disconnect(); 
+        roomRef.current = null; 
+      }
 
       if (isCompletelyDisconnecting || isLoggedOut) {
         if (localScreenShareStream) {

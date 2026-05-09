@@ -19,6 +19,7 @@ self.addEventListener('push', (event) => {
       icon: data.icon || '/logo-192.png',
       badge: '/logo-192.png',
       tag: 'drocsid-dm',
+      // @ts-ignore - renotify is supported by most browsers but maybe missing in type definitions
       renotify: true,
       data: { url: data.url },
     })

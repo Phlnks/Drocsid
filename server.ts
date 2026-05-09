@@ -170,6 +170,14 @@ async function startServer() {
       const onlineList = Array.from(onlineUsers.keys());
       io.emit("online-users", onlineList);
       console.log(`User ${userId} identified. Total online: ${onlineList.length}`);
+
+      // Envoi de l'état actuel des salons vocaux pour éviter les ghost rooms
+      voiceRooms.forEach((participantsMap, channelId) => {
+        socket.emit("voice-participants-update", {
+          channelId,
+          participants: Array.from(participantsMap.values())
+        });
+      });
     });
 
     const cleanupVoiceRoom = async (channelId: string) => {
