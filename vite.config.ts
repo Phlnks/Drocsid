@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
         filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectRegister: 'auto',
-        includeAssets: ['favicon.png', 'logo-192.png', 'logo-512.png', 'logo-maskable.png'],
+        includeAssets: ['favicon.png', 'logo-192.png', 'logo-512.png', 'logo-maskable.png', 'ringtone.mp3'],
         manifest: {
           name: 'Drocsid',
           short_name: 'Drocsid',
@@ -36,11 +36,11 @@ export default defineConfig(({ mode }) => {
         },
         injectManifest: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // ← ajoute ce bloc
-          globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+          globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,mp3}'],
         },
         workbox: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+          globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2,mp3}'],
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/, /^\/livekit/],
         }
