@@ -267,22 +267,29 @@ async function startServer() {
     });
 
 socket.on('new-dm-message', async (message) => {
-  // Broadcast le message à tous les participants du DM
-  io.to(message.dmid).emit('dm-message', message);
+  console.log('[DM] Reçu:', JSON.stringify(message).slice(0, 200));
 
-  // ── PUSH NOTIFICATION ─────────────────────────────────────────────
+  // Broadcast aux participants
+  io.to(message.dm_id).emit('dm-message', message);
+
+  // ── PUSH NOTIFICATION ────────────────────────────────────────────
   try {
-    // Récupérer les participants du DM depuis Supabase
     const { data: dm } = await supabaseAdmin
       .from('dms')
       .select('participants')
-      .eq('id', message.dmid)
+      .eq('id', message.dm_id)          // ← snake_case : dm_id
       .single();
 
-    if (!dm?.participants) return;
+    if (!dm?.participants) {
+      console.log('[Push] Pas de participants trouvés pour dm_id:', message.dm_id);
+      return;
+    }
 
-    // Envoyer la push à tous les participants sauf l'auteur
-    const recipients = dm.participants.filter((id: string) => id !== message.authorid);
+    const recipients = dm.participants.filter(
+      (id: string) => id !== message.author_id  // ← snake_case : author_id
+    );
+
+    console.log('[Push] Recipients:', recipients);
 
     for (const recipientId of recipients) {
       const { data: subData } = await supabaseAdmin
@@ -291,9 +298,12 @@ socket.on('new-dm-message', async (message) => {
         .eq('user_id', recipientId)
         .maybeSingle();
 
-      if (!subData?.subscription) continue;
+      if (!subData?.subscription) {
+        console.log('[Push] Pas de souscription pour:', recipientId);
+        continue;
+      }
 
-      const authorName = message.authorname || 'Quelqu\'un';
+      const authorName = message.author_name || 'Quelqu\'un';
       const body = message.content
         ? message.content.slice(0, 100)
         : '📎 Fichier joint';
@@ -301,17 +311,17 @@ socket.on('new-dm-message', async (message) => {
       await webpush.sendNotification(
         subData.subscription,
         JSON.stringify({
-          title: `Message de ${authorName}`,
+          title: `💬 ${authorName}`,
           body,
           icon: '/logo-192.png',
-          url: `/?dm=${message.dmid}`,
+          url: `/?dm=${message.dm_id}`,
         })
       );
 
-      console.log(`[Push] Notification envoyée à ${recipientId}`);
+      console.log('[Push] ✅ Notification envoyée à:', recipientId);
     }
   } catch (err) {
-    console.error('[Push] Erreur envoi notification:', err);
+    console.error('[Push] Erreur:', err);
   }
 });
 
