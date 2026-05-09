@@ -266,23 +266,54 @@ async function startServer() {
       io.to(message.channel_id).emit("message", message);
     });
 
-    socket.on("new-dm-message", async (message) => {
-      io.to(message.dm_id).emit("dm-message", message);
+socket.on('new-dm-message', async (message) => {
+  // Broadcast le message à tous les participants du DM
+  io.to(message.dmid).emit('dm-message', message);
 
-      // Envoyer une push notification au destinataire s'il est hors ligne
-      // message.recipient_id doit être envoyé depuis le client
-      if (message.recipient_id && message.recipient_id !== message.author_id) {
-        const isOnline = onlineUsers.has(message.recipient_id);
-        if (!isOnline) {
-          await sendPushToUser(message.recipient_id, {
-            title: `${message.author_name || 'Message privé'}`,
-            body: message.content?.slice(0, 100) || '📎 Fichier',
-            url: `https://drocsid-fz9g.onrender.com/dm/${message.dm_id}`,
-            icon: '/logo-192.png',
-          });
-        }
-      }
-    });
+  // ── PUSH NOTIFICATION ─────────────────────────────────────────────
+  try {
+    // Récupérer les participants du DM depuis Supabase
+    const { data: dm } = await supabaseAdmin
+      .from('dms')
+      .select('participants')
+      .eq('id', message.dmid)
+      .single();
+
+    if (!dm?.participants) return;
+
+    // Envoyer la push à tous les participants sauf l'auteur
+    const recipients = dm.participants.filter((id: string) => id !== message.authorid);
+
+    for (const recipientId of recipients) {
+      const { data: subData } = await supabaseAdmin
+        .from('push_subscriptions')
+        .select('subscription')
+        .eq('user_id', recipientId)
+        .maybeSingle();
+
+      if (!subData?.subscription) continue;
+
+      const authorName = message.authorname || 'Quelqu\'un';
+      const body = message.content
+        ? message.content.slice(0, 100)
+        : '📎 Fichier joint';
+
+      await webpush.sendNotification(
+        subData.subscription,
+        JSON.stringify({
+          title: `Message de ${authorName}`,
+          body,
+          icon: '/logo-192.png',
+          url: `/?dm=${message.dmid}`,
+        })
+      );
+
+      console.log(`[Push] Notification envoyée à ${recipientId}`);
+    }
+  } catch (err) {
+    console.error('[Push] Erreur envoi notification:', err);
+  }
+});
 
     socket.on("update-message", (message) => {
       const target = message.channel_id || message.dm_id;
