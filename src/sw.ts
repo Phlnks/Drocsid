@@ -8,17 +8,18 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // ── Réception d'une push notification ────────────────────────────────────
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  const data = event.data.json();
+  let data: any = { title: 'Drocsid', body: 'Nouveau message' };
+  try {
+    if (event.data) data = event.data.json();
+  } catch (e) {}
 
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
+    self.registration.showNotification(data.title || 'Drocsid', {
+      body: data.body || '...',
       icon: data.icon || '/logo-192.png',
       badge: '/logo-192.png',
-      tag: 'drocsid-dm',          // Regroupe les notifs du même type
-      renotify: true,             // Vibre même si tag identique
+      tag: 'drocsid-dm',
+      renotify: true,
       data: { url: data.url },
     })
   );
