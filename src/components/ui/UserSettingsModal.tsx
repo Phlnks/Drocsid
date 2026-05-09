@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Mic, Settings, LogOut, Camera, Play, Square, Bell, Keyboard, Globe } from 'lucide-react';
+import { X, Mic, Settings, LogOut, Camera, Play, Square, Bell, Keyboard, Globe, Info } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAppStore } from '../../store/appStore';
 import { useAuthStore } from '../../store/authStore';
 import PromptModal from './PromptModal';
 import { processImageForSupabase } from '../../lib/imageUtils';
 import { useTranslation } from 'react-i18next';
+
+// Vous pouvez modifier cette ligne manuellement pour changer la version de l'application
+const APP_VERSION = "1.0.1";
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -14,7 +17,7 @@ interface UserSettingsModalProps {
 
 export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const { t, i18n } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'voice' | 'account' | 'appearance' | 'notifications' | 'keybinds' | 'language' | 'application'>('account');
+  const [activeTab, setActiveTab] = useState<'voice' | 'account' | 'appearance' | 'notifications' | 'keybinds' | 'language' | 'application' | 'about'>('account');
   const { 
     voiceSettings, setVoiceSettings, 
     theme, setTheme, 
@@ -318,10 +321,18 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
           <button
             onClick={() => setActiveTab('keybinds')}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md md:mb-4 transition-colors whitespace-nowrap ${activeTab === 'keybinds' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md ${activeTab !== 'about' && 'md:mb-4'} transition-colors whitespace-nowrap ${activeTab === 'keybinds' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Keyboard className="w-4 h-4" />
             <span className="font-medium">{t('settings.keybinds')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('about')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md md:mb-4 transition-colors whitespace-nowrap ${activeTab === 'about' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Info className="w-4 h-4" />
+            <span className="font-medium">{t('settings.about', 'À propos')}</span>
           </button>
 
           <div className="md:mt-auto md:pt-4 md:border-t border-zinc-700/50 flex items-center">
@@ -1139,6 +1150,22 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
                     </div>
                   </div>
 
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'about' && (
+              <div className="max-w-xl">
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-6 uppercase tracking-wider">{t('settings.about', 'À propos')}</h2>
+                <div className="space-y-6">
+                  <div className="bg-zinc-900 rounded-lg p-6 flex flex-col items-center border border-zinc-700/50">
+                    <img src="/logo-192.png" alt="Drocsid Logo" className="w-24 h-24 object-contain mb-4" />
+                    <h3 className="text-2xl font-bold text-white mb-1">Drocsid</h3>
+                    <p className="text-zinc-400 mb-4">{t('settings.version', 'Version')} {APP_VERSION}</p>
+                    <div className="text-sm text-zinc-500 text-center max-w-sm">
+                      {t('settings.aboutDescription', 'Une plateforme de communication fluide, sécurisée et hautement personnalisable.')}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
