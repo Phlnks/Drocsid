@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Mic, Settings, LogOut, Camera, Play, Square, Bell, Keyboard, Globe, Info } from 'lucide-react';
+import { X, Mic, LogOut, Camera, Play, Square, Bell, Keyboard, Globe, Info, User, Palette, Monitor } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAppStore } from '../../store/appStore';
 import { useAuthStore } from '../../store/authStore';
@@ -275,10 +275,22 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
             onClick={() => setActiveTab('account')}
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'account' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
-            <Settings className="w-4 h-4" />
+            <User className="w-4 h-4" />
             <span className="font-medium">{t('settings.account')}</span>
           </button>
           
+          <button
+            onClick={() => setActiveTab('appearance')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'appearance' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+          >
+            <Palette className="w-4 h-4" />
+            <span className="font-medium">{t('settings.appearance')}</span>
+          </button>
+
+          <div className="hidden md:block text-xs font-bold text-zinc-400 uppercase tracking-wider mt-4 mb-2 px-2">
+            {t('settings.appSettings', 'Paramètres de l\'application')}
+          </div>
+
           <button
             onClick={() => setActiveTab('voice')}
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'voice' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
@@ -288,18 +300,18 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
           </button>
 
           <button
-            onClick={() => setActiveTab('appearance')}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'appearance' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+            onClick={() => setActiveTab('notifications')}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'notifications' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
-            <Settings className="w-4 h-4" />
-            <span className="font-medium">{t('settings.appearance')}</span>
+            <Bell className="w-4 h-4" />
+            <span className="font-medium">{t('settings.notifications')}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('application')}
             className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'application' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
-            <Play className="w-4 h-4 rotate-90" />
+            <Monitor className="w-4 h-4" />
             <span className="font-medium">{t('settings.application')}</span>
           </button>
 
@@ -312,16 +324,8 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
           </button>
 
           <button
-            onClick={() => setActiveTab('notifications')}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'notifications' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
-          >
-            <Bell className="w-4 h-4" />
-            <span className="font-medium">{t('settings.notifications')}</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('keybinds')}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md ${activeTab !== 'about' && 'md:mb-4'} transition-colors whitespace-nowrap ${activeTab === 'keybinds' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'keybinds' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Keyboard className="w-4 h-4" />
             <span className="font-medium">{t('settings.keybinds')}</span>
@@ -329,13 +333,13 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
 
           <button
             onClick={() => setActiveTab('about')}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md md:mb-4 transition-colors whitespace-nowrap ${activeTab === 'about' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${activeTab === 'about' ? 'bg-zinc-700/50 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}
           >
             <Info className="w-4 h-4" />
             <span className="font-medium">{t('settings.about', 'À propos')}</span>
           </button>
 
-          <div className="md:mt-auto md:pt-4 md:border-t border-zinc-700/50 flex items-center">
+          <div className="md:mt-auto md:pt-4 md:border-t border-zinc-700/50 space-y-2">
             <button
               onClick={handleSignOut}
               className="flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md text-red-400 hover:bg-red-500/10 transition-colors whitespace-nowrap w-full"
@@ -343,6 +347,9 @@ export default function UserSettingsModal({ isOpen, onClose }: UserSettingsModal
               <LogOut className="w-4 h-4" />
               <span className="font-medium">{t('settings.logout')}</span>
             </button>
+            <div className="hidden md:block px-3 py-2 text-[10px] text-zinc-500 font-mono uppercase tracking-widest">
+              Drocsid v{APP_VERSION}
+            </div>
           </div>
         </div>
 
