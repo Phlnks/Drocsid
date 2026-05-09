@@ -66,16 +66,32 @@ async function sendPushToUser(userId: string, payload: {
 }
 
 async function startServer() {
-  const app = express();
-  const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    },
-    pingInterval: 60000, // 60 seconds
-    pingTimeout: 120000  // 120 seconds
-  });
+	const CORS_ORIGINS = [
+	  'https://drocsid-fz9g.onrender.com',
+	  ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000', 'http://localhost:5173'] : [])
+	];
+
+	const app = express();
+	const httpServer = createServer(app);
+	const io = new Server(httpServer, {
+	  cors: {
+		origin: CORS_ORIGINS,
+		methods: ["GET", "POST"]
+	  },
+	  pingInterval: 60000,
+	  pingTimeout: 120000
+	});
+
+	app.use((req, res, next) => {
+	  const origin = req.headers.origin || '';
+	  if (CORS_ORIGINS.includes(origin)) {
+		res.setHeader('Access-Control-Allow-Origin', origin);
+	  }
+	  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+	  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+	  if (req.method === 'OPTIONS') return res.sendStatus(204);
+	  next();
+	});
 
   const PORT = Number(process.env.PORT) || 3000;
 
@@ -461,12 +477,62 @@ socket.on('new-dm-message', async (message) => {
   // Vite middleware for development
   const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
   
+  // ── Security Headers ── 
+	app.use((req, res, next) => {
+	  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+	  res.setHeader('X-Frame-Options', 'DENY');
+	  res.setHeader('X-Content-Type-Options', 'nosniff');
+	  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+	  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
+	  res.setHeader('Content-Security-Policy',
+	  "default-src 'self'; " +
+	  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; " +
+	  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; " +
+	  "font-src 'self' https://fonts.gstatic.com; " +
+	  "img-src 'self' data: blob: https:; " +
+	  "media-src 'self' blob:; " +
+	  "connect-src 'self' wss: https:; " +
+	  "frame-ancestors 'none';"
+	);
+	  next();
+	});
+
+	// ── Host Header Injection ──
+	const ALLOWED_HOSTS = [
+	  'drocsid-fz9g.onrender.com',
+	  'drocsid.com',
+	  'www.drocsid.com',
+	  'localhost:3000',
+	  /\.onrender\.com$/
+	];
+
+	app.use((req, res, next) => {
+	  const host = req.headers.host || '';
+	  const isAllowed = ALLOWED_HOSTS.some(h =>
+		typeof h === 'string' ? host === h : (h as RegExp).test(host)
+	  );
+	  if (!isAllowed) return res.status(400).json({ error: 'Invalid host' });
+	  next();
+	});
+  
+  
   if (!isProduction) {
     console.log("Starting in DEVELOPMENT mode with Vite middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
-    });
+    });   
+
+	app.use((req, res, next) => {
+	  const host = req.headers.host || '';
+	  const isAllowed = ALLOWED_HOSTS.some(h =>
+		typeof h === 'string' ? host === h : h.test(host)
+	  );
+	  if (!isAllowed) return res.status(400).json({ error: 'Invalid host' });
+	  next();
+	});
+
+
     app.use(vite.middlewares);
     } else {
     console.log("Starting in PRODUCTION mode...");

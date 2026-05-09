@@ -101,43 +101,23 @@ export const playMessageSound = () => {
   playTone(1046, 'sine', 0.2, 0.15, 0.1); // C6
 };
 
-let ringtoneInterval: any = null;
+let ringtoneAudio: HTMLAudioElement | null = null;
 
 export const playRingtone = () => {
-  if (ringtoneInterval) return;
+  if (!ringtoneAudio) {
+    ringtoneAudio = new Audio('/ringtone.mp3');
+    ringtoneAudio.loop = true;
+  }
   
-  const ring = () => {
-    // Professional melodic ringtone (Skype/Teams style) - Faster and more present version
-    const now = 0;
-    const speed = 0.60; // Slightly faster
-    const vol = 0.25; // Increased volume
-    
-    // Main melody (triangle wave for more presence than sine)
-    // Rising sequence
-    playTone(392.00, 'triangle', 0.2 * speed, vol, now);       // G4
-    playTone(523.25, 'triangle', 0.2 * speed, vol, now + 0.2 * speed); // C5
-    playTone(659.25, 'triangle', 0.2 * speed, vol, now + 0.4 * speed);  // E5
-    playTone(783.99, 'triangle', 0.4 * speed, vol, now + 0.6 * speed); // G5
-    
-    // Response sequence
-    playTone(880.00, 'triangle', 0.2 * speed, vol - 0.05, now + 1.1 * speed); // A5
-    playTone(783.99, 'triangle', 0.2 * speed, vol - 0.05, now + 1.3 * speed); // G5
-    playTone(659.25, 'triangle', 0.2 * speed, vol - 0.05, now + 1.5 * speed);  // E5
-    playTone(523.25, 'triangle', 0.4 * speed, vol - 0.05, now + 1.7 * speed);  // C5
-    
-    // Low harmonic support
-    playTone(261.63, 'square', 0.8, 0.05, now + 0.4 * speed);  // C4
-    playTone(349.23, 'square', 0.8, 0.05, now + 1.3 * speed); // F4
-  };
-  
-  ring();
-  ringtoneInterval = setInterval(ring, 4000); // 3 second professional loop (faster)
+  ringtoneAudio.play().catch(e => {
+    console.error("Erreur de lecture de la sonnerie mp3:", e);
+  });
 };
 
 export const stopRingtone = () => {
-  if (ringtoneInterval) {
-    clearInterval(ringtoneInterval);
-    ringtoneInterval = null;
+  if (ringtoneAudio) {
+    ringtoneAudio.pause();
+    ringtoneAudio.currentTime = 0;
   }
 };
 

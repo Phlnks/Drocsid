@@ -31,6 +31,11 @@ const backendUrl = getInitialSocketUrl();
 const socket = io(backendUrl, {
   autoConnect: true,
   transports: ['websocket'], // FORCE WebSockets
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
 });
 
 socket.on('connect', () => {
