@@ -14,7 +14,6 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   const { 
     selectedChannelId, 
     connectedVoiceChannelId, 
-    speakingUsers, 
     remoteScreenShares, 
     viewingScreenShares, 
     setViewingScreenShares,
@@ -74,7 +73,6 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   return (
     <div className="bg-zinc-900 border-b border-zinc-700 p-3 shrink-0 flex flex-wrap gap-3 max-h-28 overflow-y-auto md:max-h-none md:overflow-visible">
       {participants.map(p => {
-        const isSpeaking = speakingUsers[p.id];
         const isSharingScreen = !!remoteScreenShares[p.id];
         const isViewing = viewingScreenShares.has(p.id);
         const userProfile = globalProfiles[p.id];
@@ -88,16 +86,14 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
             onClick={() => setSelectedUser(userProfile || p)}
             onContextMenu={(e) => handleContextMenu(e, { ...p, name: displayName, avatarUrl: displayAvatar })}
           >
-            <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden transition-all duration-200 bg-indigo-500 ${
-              isSpeaking ? 'ring-4 speaking-ring' : 'ring-2 ring-transparent'
-            }`}>
+            <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden transition-all duration-200 bg-indigo-500 participant-large avatar-user-${p.id} ring-2 ring-transparent`}>
               {displayAvatar ? (
                 <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
               ) : (
                 displayName?.charAt(0).toUpperCase() || 'U'
               )}
             </div>
-            <span className="text-xs font-medium text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-full">
+            <span className={`text-xs font-medium bg-zinc-800 px-2 py-0.5 rounded-full text-user-${p.id} text-zinc-300`}>
               {displayName}
             </span>
             <div className="absolute -top-2 -right-2 flex gap-1">

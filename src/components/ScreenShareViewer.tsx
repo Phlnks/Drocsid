@@ -32,6 +32,7 @@ export default function ScreenShareViewer() {
         setPoppedOutStreams(prev => new Set(prev).add(uid));
 
         pipWindow.addEventListener('pagehide', () => {
+          video.srcObject = null;
           setPoppedOutStreams(prev => {
             const next = new Set(prev);
             next.delete(uid);

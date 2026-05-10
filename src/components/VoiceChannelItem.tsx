@@ -41,7 +41,7 @@ export default function VoiceChannelItem({
 }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
-  const { speakingUsers, remoteScreenShares, localScreenShareStream, viewingScreenShares, setViewingScreenShares, selectedServerId, voiceParticipants: allVoiceParticipants, globalProfiles } = useAppStore();
+  const { remoteScreenShares, localScreenShareStream, viewingScreenShares, setViewingScreenShares, selectedServerId, voiceParticipants: allVoiceParticipants, globalProfiles } = useAppStore();
   const participants = allVoiceParticipants[channel.id] || [];
   const [isDragOver, setIsDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, userId: string, username: string } | null>(null);
@@ -163,7 +163,6 @@ export default function VoiceChannelItem({
       {participants.length > 0 && (
         <div className="flex flex-col gap-[2px] mt-1 mb-2 ml-6">
           {participants.map(p => {
-            const isSpeaking = speakingUsers[p.id];
             const isCurrentUser = currentUser && p.id === currentUser.id;
             const isSharingScreen = isCurrentUser ? !!localScreenShareStream : !!remoteScreenShares[p.id];
             const isViewing = viewingScreenShares.has(p.id);
@@ -186,16 +185,14 @@ export default function VoiceChannelItem({
                   hasMoveMembers && "cursor-grab active:cursor-grabbing"
                 )}
               >
-                <div className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 ${
-                  isSpeaking ? 'ring-2 speaking-ring' : 'ring-2 ring-transparent'
-                }`}>
+                <div className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 participant-small avatar-user-${p.id} ring-2 ring-transparent`}>
                   {displayAvatar ? (
                     <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-[12px] md:text-[10px] font-bold text-white">{displayName?.charAt(0).toUpperCase() || 'U'}</span>
                   )}
                 </div>
-                <span className={`text-base md:text-sm truncate transition-colors ${isSpeaking ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300'}`}>
+                <span className={`text-base md:text-sm truncate transition-colors text-user-${p.id} text-zinc-400 group-hover:text-zinc-300`}>
                   {displayName}
                 </span>
                 

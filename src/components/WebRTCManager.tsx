@@ -55,7 +55,6 @@ export default function WebRTCManager() {
     isDeafened,
     setIsDeafened,
     voiceSettings,
-    setSpeakingUsers,
     setConnectedVoiceChannelId,
     isScreenSharing,
     setIsScreenSharing,
@@ -78,42 +77,89 @@ export default function WebRTCManager() {
   const noiseGateCtxRef = useRef<AudioContext | null>(null);
   const rawMicStreamRef = useRef<MediaStream | null>(null);
 
-  const applyNoiseGate = (stream: MediaStream, sensitivity: number): MediaStream => {
+  const applyNoiseGate = async (stream: MediaStream, sensitivity: number): Promise<MediaStream> => {
     if (noiseGateCtxRef.current) {
       if ((noiseGateCtxRef.current as any)._interval) {
         clearInterval((noiseGateCtxRef.current as any)._interval);
       }
-      noiseGateCtxRef.current.close();
+      noiseGateCtxRef.current.close().catch(() => {});
       noiseGateCtxRef.current = null;
     }
     // sensitivity 0 = très sensible (seuil bas), 100 = moins sensible (seuil haut)
-    const gateLevel = sensitivity / 100 * 0.05; // amplitude 0.0 → 0.05
+    const gateLevel = (sensitivity / 100) * 0.05; 
 
     const ctx = new AudioContext();
     noiseGateCtxRef.current = ctx;
 
     const source = ctx.createMediaStreamSource(stream);
     const destination = ctx.createMediaStreamDestination();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    const dataArray = new Float32Array(analyser.fftSize);
 
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = 1;
+    const noiseGateWorkletCode = `
+class NoiseGateProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.gateLevel = 0.0;
+    this.isOpen = false;
+    this.attack = 0.01;
+    this.release = 0.05;
+    this.gain = 1.0;
+    
+    this.port.onmessage = (e) => {
+      if (e.data.gateLevel !== undefined) {
+        this.gateLevel = e.data.gateLevel;
+      }
+    };
+  }
 
-    // Vérifie le volume toutes les 50ms et applique le gate
-    const interval = setInterval(() => {
-      analyser.getFloatTimeDomainData(dataArray);
-      const rms = Math.sqrt(dataArray.reduce((s, v) => s + v * v, 0) / dataArray.length);
-      gainNode.gain.setTargetAtTime(rms < gateLevel ? 0 : 1, ctx.currentTime, 0.01);
-    }, 50);
+  process(inputs, outputs) {
+    const input = inputs[0];
+    const output = outputs[0];
 
-    // Stocker l'interval pour le cleanup
-    (noiseGateCtxRef.current as any)._interval = interval;
+    if (!input || !input.length || !input[0]) return true;
 
-    source.connect(analyser);
-    analyser.connect(gainNode);
-    gainNode.connect(destination);
+    let sumSquares = 0;
+    const channelData = input[0];
+    for (let i = 0; i < channelData.length; i++) {
+        sumSquares += channelData[i] * channelData[i];
+    }
+    const rms = Math.sqrt(sumSquares / channelData.length);
+
+    if (rms > this.gateLevel) {
+      this.isOpen = true;
+    } else {
+      this.isOpen = false;
+    }
+
+    const targetGain = this.isOpen ? 1.0 : 0.0;
+    
+    this.gain += (targetGain - this.gain) * (this.isOpen ? this.attack : this.release);
+
+    for (let channel = 0; channel < input.length; channel++) {
+      const inputChannel = input[channel];
+      const outputChannel = output[channel];
+      if (!outputChannel) continue;
+      for (let i = 0; i < inputChannel.length; i++) {
+        outputChannel[i] = inputChannel[i] * this.gain;
+      }
+    }
+
+    return true;
+  }
+}
+
+registerProcessor('noise-gate-processor', NoiseGateProcessor);
+    `;
+
+    const blob = new Blob([noiseGateWorkletCode], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    await ctx.audioWorklet.addModule(url);
+    URL.revokeObjectURL(url);
+
+    const noiseGateNode = new AudioWorkletNode(ctx, 'noise-gate-processor');
+    noiseGateNode.port.postMessage({ gateLevel });
+
+    source.connect(noiseGateNode);
+    noiseGateNode.connect(destination);
 
     return destination.stream;
   };
@@ -497,9 +543,32 @@ export default function WebRTCManager() {
         });
 
         room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-          const speakingMap: Record<string, boolean> = {};
-          speakers.forEach(speaker => { speakingMap[speaker.identity] = true; });
-          setSpeakingUsers(speakingMap);
+          // Reset classes for everyone
+          document.querySelectorAll('[class*="avatar-user-"]').forEach(el => {
+            el.classList.remove('speaking-ring');
+            el.classList.add('ring-transparent');
+          });
+          document.querySelectorAll('[class*="text-user-"]').forEach(el => {
+            el.classList.remove('text-zinc-100');
+            if (el.classList.contains('text-base')) { // the small one in right sidebar uses text-base
+               el.classList.add('text-zinc-400');
+            } else { // Large one is text-xs in VoiceParticipants, we used text-zinc-300 by default there
+               el.classList.add('text-zinc-300');
+            }
+          });
+
+          // Add speaking classes
+          speakers.forEach(speaker => {
+            document.querySelectorAll(`.avatar-user-${speaker.identity}`).forEach(el => {
+              el.classList.remove('ring-transparent');
+              el.classList.add('speaking-ring');
+            });
+            document.querySelectorAll(`.text-user-${speaker.identity}`).forEach(el => {
+              // we don't know the exact base class here, but adding text-zinc-100 is enough to override if it's placed after or with !important. Actually Tailwind utilities replace each other if added together?
+              el.classList.remove('text-zinc-400', 'text-zinc-300');
+              el.classList.add('text-zinc-100');
+            });
+          });
         });
 
         // 🔄 Re-publier le micro silencieusement lors d'une reconnexion LiveKit
@@ -529,7 +598,7 @@ export default function WebRTCManager() {
             }
 
             const micStream = currentSettings.micSensitivity > 0
-              ? applyNoiseGate(rawMicStreamRef.current, currentSettings.micSensitivity)
+              ? await applyNoiseGate(rawMicStreamRef.current, currentSettings.micSensitivity)
               : rawMicStreamRef.current;
 
               const audioTrack = micStream.getAudioTracks()[0];
@@ -590,7 +659,7 @@ export default function WebRTCManager() {
 
           // ✅ Appliquer le noise gate si sensibilité > 0
           const micStream = voiceSettings.micSensitivity > 0
-            ? applyNoiseGate(rawMicStream, voiceSettings.micSensitivity)
+            ? await applyNoiseGate(rawMicStream, voiceSettings.micSensitivity)
             : rawMicStream;
 
           const audioTrack = micStream.getAudioTracks()[0];
@@ -658,7 +727,6 @@ export default function WebRTCManager() {
       setRemoteScreenShares({});
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
-      setSpeakingUsers({});
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
     };
   }, [connectedVoiceChannelId, currentUser]);

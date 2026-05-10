@@ -53,6 +53,7 @@ export default function VideoPlayer({ stream, muted = false }: { stream: MediaSt
       stream.onremovetrack = null;
       if (videoRef.current) {
         videoRef.current.srcObject = null;
+        videoRef.current.load();
       }
     };
   }, [stream, muted]);

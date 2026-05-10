@@ -64,7 +64,6 @@ interface AppState {
   mutedServers: string[];
   mutedDms: string[];
   keybinds: Keybinds;
-  speakingUsers: Record<string, boolean>;
   isScreenSharing: boolean;
   screenShareQuality: ScreenShareQuality | null;
   localScreenShareStream: MediaStream | null;
@@ -152,7 +151,6 @@ export const useAppStore = create<AppState>((set) => ({
   notificationSettings: safeParse('drocsid-notification-settings', { desktop: true, sounds: true, everyone: true, preference: 'all' }),
   mutedServers: safeParse('drocsid-muted-servers', []),
   mutedDms: safeParse('drocsid-muted-dms', []),
-  speakingUsers: {},
   isScreenSharing: false,
   screenShareQuality: null,
   localScreenShareStream: null,
@@ -242,9 +240,6 @@ export const useAppStore = create<AppState>((set) => ({
     
     return { keybinds: newKeybinds };
   }),
-  setSpeakingUsers: (users) => set((state) => ({ 
-    speakingUsers: typeof users === 'function' ? users(state.speakingUsers) : users 
-  })),
   setIsScreenSharing: (isSharing) => set({ isScreenSharing: isSharing }),
   setScreenShareQuality: (quality) => set({ screenShareQuality: quality }),
   setLocalScreenShareStream: (stream) => set((state) => {

@@ -8,6 +8,8 @@ import socket from '../lib/socket';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 
+import { getAudioUrl } from '../lib/audioCache';
+
 interface SoundboardPickerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -45,6 +47,11 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
         const { data: server } = await supabase.from('servers').select('soundboard_sounds').eq('id', serverId).maybeSingle();
         if (server && server.soundboard_sounds) {
           setSounds(server.soundboard_sounds);
+          
+          // Preload sounds in background
+          server.soundboard_sounds.forEach((sound: any) => {
+            getAudioUrl(sound.url).catch(() => {});
+          });
         }
 
         // Check permissions
@@ -121,7 +128,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     previewSound(sound.url);
   };
 
-  const previewSound = (url: string) => {
+  const previewSound = async (url: string) => {
     console.log("Soundboard: previewSound called for", url);
     if (isSoundboardMuted) {
       console.log("Soundboard: Sound is muted locally, not playing preview");
@@ -133,8 +140,11 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
       currentAudio.pause();
       currentAudio.currentTime = 0;
     }
+    
+    // Utiliser le cache blob si possible, ou fallback url
+    const blobUrl = await getAudioUrl(url).catch(() => url);
 
-    const audio = new Audio(url);
+    const audio = new Audio(blobUrl);
     audio.volume = soundboardVolume;
     
     const playPromise = audio.play();

@@ -14,6 +14,7 @@ import ThemeManager from './components/ThemeManager';
 import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from './lib/sounds';
 import { Routes, Route } from 'react-router-dom';
 import DownloadPage from './pages/DownloadPage';
+import { getAudioUrl } from './lib/audioCache';
 
 import { useTranslation } from 'react-i18next';
 
@@ -116,11 +117,13 @@ export default function App() {
 
       if (isSameChannel && !isDeafened && isNotMe && !isSoundboardMuted) {
         console.log("Soundboard: Playing broadcast sound:", data.soundUrl);
-        const audio = new Audio(data.soundUrl);
-        audio.volume = soundboardVolume;
-        audio.play()
-          .then(() => console.log("Soundboard: Playback success"))
-          .catch(err => console.error("Soundboard: Playback failed", err));
+        getAudioUrl(data.soundUrl).then(urlToPlay => {
+          const audio = new Audio(urlToPlay);
+          audio.volume = soundboardVolume;
+          audio.play()
+            .then(() => console.log("Soundboard: Playback success"))
+            .catch(err => console.error("Soundboard: Playback failed", err));
+        }).catch(err => console.error("Soundboard: Cache failed", err));
       }
     };
 

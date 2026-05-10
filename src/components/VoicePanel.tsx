@@ -61,6 +61,11 @@ export default function VoicePanel() {
     } else if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
+    return () => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+    };
   }, [localScreenShareStream]);
 
   // ─── Infos channel ─────────────────────────────────────────────────────────
