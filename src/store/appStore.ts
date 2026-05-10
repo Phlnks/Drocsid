@@ -52,6 +52,8 @@ export interface Notification {
 }
 
 interface AppState {
+  isSoundsLoading: boolean;
+  setSoundsLoading: (loading: boolean) => void;
   serverSounds: any[];
   canUseSoundboard: boolean;
   setServerSounds: (sounds: any[]) => void;
@@ -121,7 +123,6 @@ interface AppState {
   toggleMuteServer: (serverId: string) => void;
   toggleMuteDm: (dmId: string) => void;
   setKeybinds: (keybinds: Partial<Keybinds>) => void;
-  setSpeakingUsers: (users: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) => void;
   setIsScreenSharing: (isSharing: boolean) => void;
   setScreenShareQuality: (quality: ScreenShareQuality | null) => void;
   setLocalScreenShareStream: (stream: MediaStream | null) => void;

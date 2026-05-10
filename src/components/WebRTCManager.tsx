@@ -76,15 +76,116 @@ export default function WebRTCManager() {
 
   const noiseGateCtxRef = useRef<AudioContext | null>(null);
   const rawMicStreamRef = useRef<MediaStream | null>(null);
+  const localAnalyserRef = useRef<AnalyserNode | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+
+  const startLocalSpeakingAnalysis = () => {
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    if (!localAnalyserRef.current || !currentUser?.id) return;
+
+    const analyser = localAnalyserRef.current;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    
+    const checkVolume = () => {
+      if (!localAnalyserRef.current) return;
+      
+      const isMuted = useAppStore.getState().isVoiceMuted || useAppStore.getState().isDeafened;
+      
+      if (isMuted) {
+        const userId = currentUser.id;
+        document.querySelectorAll(`.avatar-user-${userId}`).forEach(el => {
+          el.classList.remove('speaking-ring');
+          el.classList.add('ring-transparent');
+        });
+        document.querySelectorAll(`.text-user-${userId}`).forEach(el => {
+          el.classList.remove('text-zinc-100');
+          if (el.classList.contains('text-base')) {
+            el.classList.add('text-zinc-400');
+          } else {
+            el.classList.add('text-zinc-300');
+          }
+        });
+        rafIdRef.current = requestAnimationFrame(checkVolume);
+        return;
+      }
+
+      analyser.getByteFrequencyData(dataArray);
+      
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / dataArray.length;
+      
+      // Threshold matching the NoiseGate level roughly
+      const isSpeaking = average > 15; 
+      
+      const userId = currentUser.id;
+      const avatarElements = document.querySelectorAll(`.avatar-user-${userId}`);
+      const textElements = document.querySelectorAll(`.text-user-${userId}`);
+
+      if (isSpeaking) {
+        avatarElements.forEach(el => {
+          el.classList.remove('ring-transparent');
+          el.classList.add('speaking-ring');
+        });
+        textElements.forEach(el => {
+          el.classList.remove('text-zinc-400', 'text-zinc-300');
+          el.classList.add('text-zinc-100');
+        });
+      } else {
+        // We only remove if LiveKit didn't also say we're speaking (to avoid flickering)
+        // But local rAF is much faster, so it's better to just manage it here for local
+        avatarElements.forEach(el => {
+          el.classList.remove('speaking-ring');
+          el.classList.add('ring-transparent');
+        });
+        textElements.forEach(el => {
+          el.classList.remove('text-zinc-100');
+          if (el.classList.contains('text-base')) {
+            el.classList.add('text-zinc-400');
+          } else {
+             el.classList.add('text-zinc-300');
+          }
+        });
+      }
+
+      rafIdRef.current = requestAnimationFrame(checkVolume);
+    };
+
+    rafIdRef.current = requestAnimationFrame(checkVolume);
+  };
+
+  const setupLocalAnalyser = async (stream: MediaStream) => {
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    
+    // Create AudioContext if not exists (needed for Analyser even if no NoiseGate)
+    if (!noiseGateCtxRef.current) {
+      noiseGateCtxRef.current = new AudioContext();
+    }
+    
+    const ctx = noiseGateCtxRef.current;
+    const source = ctx.createMediaStreamSource(stream);
+    
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.4;
+    source.connect(analyser);
+    localAnalyserRef.current = analyser;
+    
+    startLocalSpeakingAnalysis();
+  };
 
   const applyNoiseGate = async (stream: MediaStream, sensitivity: number): Promise<MediaStream> => {
+    // Only close if we are switching sensitivity? Actually, we can reuse the context.
+    // If sensitivity is changed, we might need a new WorkletNode but can stay in same context.
+    
+    // For simplicity and to avoid node buildup, let's keep the close logic but ensure analyser is handled
     if (noiseGateCtxRef.current) {
-      if ((noiseGateCtxRef.current as any)._interval) {
-        clearInterval((noiseGateCtxRef.current as any)._interval);
-      }
       noiseGateCtxRef.current.close().catch(() => {});
       noiseGateCtxRef.current = null;
     }
+    
     // sensitivity 0 = très sensible (seuil bas), 100 = moins sensible (seuil haut)
     const gateLevel = (sensitivity / 100) * 0.05; 
 
@@ -93,6 +194,14 @@ export default function WebRTCManager() {
 
     const source = ctx.createMediaStreamSource(stream);
     const destination = ctx.createMediaStreamDestination();
+
+    // Re-setup analyser here as well since node was closed
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.4;
+    source.connect(analyser);
+    localAnalyserRef.current = analyser;
+    startLocalSpeakingAnalysis();
 
     const noiseGateWorkletCode = `
 class NoiseGateProcessor extends AudioWorkletProcessor {
@@ -385,7 +494,8 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
     }
     if (!silentAudioRef.current) {
       const audio = new Audio();
-      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      // More robust silence base64 (44 bytes standard header + 8 bytes data)
+      audio.src = 'data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YSAAAAAAoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA=';
       audio.loop = true;
       silentAudioRef.current = audio;
     }
@@ -599,7 +709,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
 
             const micStream = currentSettings.micSensitivity > 0
               ? await applyNoiseGate(rawMicStreamRef.current, currentSettings.micSensitivity)
-              : rawMicStreamRef.current;
+              : (await setupLocalAnalyser(rawMicStreamRef.current), rawMicStreamRef.current);
 
               const audioTrack = micStream.getAudioTracks()[0];
               if (audioTrack) {
@@ -660,7 +770,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
           // ✅ Appliquer le noise gate si sensibilité > 0
           const micStream = voiceSettings.micSensitivity > 0
             ? await applyNoiseGate(rawMicStream, voiceSettings.micSensitivity)
-            : rawMicStream;
+            : (await setupLocalAnalyser(rawMicStream), rawMicStream);
 
           const audioTrack = micStream.getAudioTracks()[0];
           if (audioTrack) {
@@ -697,12 +807,14 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
       const isLoggedOut = !useAuthStore.getState().user;
 
       // ✅ Nettoyer le noise gate et le micro
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      localAnalyserRef.current = null;
+
       if (rawMicStreamRef.current) {
         rawMicStreamRef.current.getTracks().forEach(t => t.stop());
         rawMicStreamRef.current = null;
       }
       if (noiseGateCtxRef.current) {
-        clearInterval((noiseGateCtxRef.current as any)._interval);
         noiseGateCtxRef.current.close();
         noiseGateCtxRef.current = null;
       }
