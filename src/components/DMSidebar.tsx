@@ -269,7 +269,7 @@ export default function DMSidebar() {
         onClick={() => setSelectedDmId(dm.id)}
         onContextMenu={(e) => handleContextMenu(e, isGroup ? { id: dm.id, username: dmName } : dm.otherUser, dm.id)}
         className={clsx(
-          "flex items-center gap-3 px-2 py-2 rounded cursor-pointer group mb-0.5 relative",
+          "flex items-center gap-3 px-3 py-3 md:px-2 md:py-2 text-lg md:text-base rounded cursor-pointer group mb-1 md:mb-0.5 relative",
           selectedDmId === dm.id 
             ? "bg-zinc-800 text-zinc-100" 
             : isUnread 
@@ -278,15 +278,20 @@ export default function DMSidebar() {
         )}
       >
         {isGroup ? (
-          <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
-            <User className="w-5 h-5" />
+          <div className="w-10 h-10 md:w-8 md:h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
+            <User className="w-6 h-6 md:w-5 md:h-5" />
           </div>
         ) : (
           <div className="relative">
-            <UserAvatar user={{ username: dm.otherUser?.username, avatarUrl: dm.otherUser?.avatar_url, status: getDisplayStatus(dm.otherUser) }} size="md" />
+            <div className="md:hidden">
+              <UserAvatar user={{ username: dm.otherUser?.username, avatarUrl: dm.otherUser?.avatar_url, status: getDisplayStatus(dm.otherUser) }} size="lg" />
+            </div>
+            <div className="hidden md:block">
+              <UserAvatar user={{ username: dm.otherUser?.username, avatarUrl: dm.otherUser?.avatar_url, status: getDisplayStatus(dm.otherUser) }} size="md" />
+            </div>
             {mutedDms.includes(dm.id) && (
               <div className="absolute -bottom-0.5 -right-0.5 bg-zinc-900 rounded-full border border-zinc-800 p-0.5 shadow-lg">
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                <div className="w-1.5 h-1.5 md:w-1.5 md:h-1.5 bg-red-500 rounded-full" />
               </div>
             )}
           </div>
@@ -342,16 +347,16 @@ export default function DMSidebar() {
               <button
                 onClick={() => setSelectedDmId(null)}
                 className={clsx(
-                  "w-full flex items-center justify-between px-3 py-2.5 rounded-md transition-colors",
+                  "w-full flex items-center justify-between px-3 py-3 md:py-2.5 text-lg md:text-base rounded-md transition-colors",
                   selectedDmId === null ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <User className="w-5 h-5" />
+                  <User className="w-6 h-6 md:w-5 md:h-5" />
                   <span className="font-medium">{t('friends.title')}</span>
                 </div>
                 {pendingCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  <span className="bg-red-500 text-white text-[12px] md:text-[10px] font-bold px-2 py-0.5 md:px-1.5 md:py-0.5 rounded-full">
                     {pendingCount}
                   </span>
                 )}
@@ -360,12 +365,12 @@ export default function DMSidebar() {
               <button
                 onClick={() => user && handleStartDM(user.id)}
                 className={clsx(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
+                  "w-full flex items-center gap-3 px-3 py-3 md:py-2.5 text-lg md:text-base rounded-md transition-colors",
                   dms.find(dm => dm.id === selectedDmId)?.otherUser?.is_saved_messages ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
                 )}
               >
-                <div className="w-5 h-5 flex items-center justify-center">
-                  <Save className="w-4 h-4" />
+                <div className="w-6 h-6 md:w-5 md:h-5 flex items-center justify-center">
+                  <Save className="w-5 h-5 md:w-4 md:h-4" />
                 </div>
                 <span className="font-medium">{t('friends.savedMessages')}</span>
               </button>

@@ -54,6 +54,8 @@ export default function ChatArea() {
   const initialLoadRef = useRef(true);
 
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [mobileActionMessageId, setMobileActionMessageId] = useState<string | null>(null);
+  const touchTimerRef = useRef<any>(null);
   const [editContent, setEditContent] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState<string | null>(null);
@@ -801,7 +803,23 @@ export default function ChatArea() {
                         <div 
                           key={msg.id} 
                           id={`message-${msg.id}`}
-                          className={`relative group flex flex-col hover:bg-zinc-700/30 px-2 pr-2 md:pr-24 py-0.5 -mx-2 rounded transition-colors duration-200 ${showHeader && !showDaySeparator && idx !== 0 ? 'mt-3' : ''} ${highlightedMessageId === msg.id ? 'bg-indigo-500/20 ring-1 ring-indigo-500/50' : ''}`}
+                          className={`relative group flex flex-col md:hover:bg-zinc-700/30 px-2 pr-2 md:pr-24 py-0.5 -mx-2 rounded transition-colors duration-200 ${showHeader && !showDaySeparator && idx !== 0 ? 'mt-3' : ''} ${highlightedMessageId === msg.id || mobileActionMessageId === msg.id ? 'bg-zinc-700/50 md:bg-transparent md:hover:bg-zinc-700/30' : ''} ${highlightedMessageId === msg.id ? 'bg-indigo-500/20 ring-1 ring-indigo-500/50' : ''}`}
+                          onTouchStart={() => {
+                            touchTimerRef.current = setTimeout(() => {
+                              setMobileActionMessageId(msg.id);
+                            }, 500);
+                          }}
+                          onTouchEnd={() => {
+                            if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+                          }}
+                          onTouchMove={() => {
+                            if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+                          }}
+                          onClick={() => {
+                            if (mobileActionMessageId && mobileActionMessageId !== msg.id) {
+                              setMobileActionMessageId(null);
+                            }
+                          }}
                         >
               {repliedMsg && (
                 <div 
@@ -824,7 +842,7 @@ export default function ChatArea() {
                     <UserAvatar user={userData} size="lg" showStatus={false} />
                   </div>
                 ) : (
-                  <div className="w-10 flex-shrink-0 text-xs text-zinc-500 opacity-0 group-hover:opacity-100 text-center pt-1 flex items-center justify-center gap-1">
+                  <div className={clsx("w-10 flex-shrink-0 text-xs text-zinc-500 text-center pt-1 flex items-center justify-center gap-1", mobileActionMessageId === msg.id ? "opacity-100 md:opacity-0 md:group-hover:opacity-100" : "opacity-0 md:group-hover:opacity-100")}>
                     {format(new Date(msg.created_at), appSettings.timeFormat)}
                   </div>
                 )}
@@ -965,7 +983,9 @@ export default function ChatArea() {
                   <div 
                     className={clsx(
                       "absolute right-4 -top-3 transition-opacity bg-zinc-800 border border-zinc-700 rounded-md shadow-sm flex items-center overflow-visible z-10",
-                      (showEmojiPicker === msg.id || showFullEmojiPicker === msg.id) ? "opacity-100 ring-2 ring-indigo-500/30" : "opacity-100 md:opacity-0 group-hover:opacity-100"
+                      (showEmojiPicker === msg.id || showFullEmojiPicker === msg.id) ? "opacity-100 ring-2 ring-indigo-500/30" : 
+                      mobileActionMessageId === msg.id ? "opacity-100 ring-1 ring-zinc-600 shadow-md md:opacity-0 md:group-hover:opacity-100" :
+                      "opacity-0 md:group-hover:opacity-100"
                     )}
                   >
                     <div className="relative" ref={(showEmojiPicker === msg.id || showFullEmojiPicker === msg.id) ? emojiPickerRef : null}>

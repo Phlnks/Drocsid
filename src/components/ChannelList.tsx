@@ -574,7 +574,7 @@ export default function ChannelList() {
         onDrop={(e) => handleChannelDrop(e, channel)}
         onClick={() => handleChannelClick(channel)}
         className={clsx(
-          "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer mb-[2px] group transition-all",
+          "flex items-center gap-2 md:gap-2 px-3 py-3 md:px-2 md:py-1.5 text-lg md:text-base rounded-md cursor-pointer mb-[2px] group transition-all",
           selectedChannelId === channel.id 
             ? "bg-zinc-700/50 text-zinc-100" 
             : isUnread 
@@ -584,9 +584,9 @@ export default function ChannelList() {
           hasManageChannels && "active:cursor-grabbing"
         )}
       >
-        <Hash className={clsx("w-4 h-4", isUnread ? "text-zinc-200" : "text-zinc-400")} />
+        <Hash className={clsx("w-5 h-5 md:w-4 md:h-4", isUnread ? "text-zinc-200" : "text-zinc-400")} />
         <span className="truncate flex-1">{channel.name}</span>
-        {isUnread && <div className="w-2 h-2 rounded-full bg-white ml-auto mr-1 shadow-[0_0_5px_rgba(255,255,255,0.5)]"></div>}
+        {isUnread && <div className="w-2 h-2 md:w-1.5 md:h-1.5 rounded-full bg-white ml-auto mr-1 shadow-[0_0_5px_rgba(255,255,255,0.5)]"></div>}
         {hasManageChannels && (
           <button 
             onClick={(e) => { 
@@ -594,9 +594,9 @@ export default function ChannelList() {
               setChannelToRename(channel);
               setIsRenameModalOpen(true);
             }}
-            className="p-1 hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-2 md:p-1 hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <Settings className="w-4 h-4 md:w-3.5 md:h-3.5" />
           </button>
         )}
       </div>
@@ -607,11 +607,11 @@ export default function ChannelList() {
     <>
       <div className="flex-1 md:w-60 bg-zinc-900 flex-shrink-0 flex flex-col relative">
         <div 
-          className="h-12 border-b border-zinc-800 flex items-center justify-between px-4 font-semibold text-zinc-100 shadow-sm transition-colors cursor-pointer hover:bg-zinc-800/50"
+          className="h-14 md:h-12 border-b border-zinc-800 flex items-center justify-between px-4 text-xl md:text-base font-semibold text-zinc-100 shadow-sm transition-colors cursor-pointer hover:bg-zinc-800/50"
           onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
         >
           <span className="truncate">{server?.name || t('common.loading')}</span>
-          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${isServerMenuOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-6 h-6 md:w-4 md:h-4 text-zinc-400 transition-transform ${isServerMenuOpen ? 'rotate-180' : ''}`} />
         </div>
 
         <AnimatePresence>
@@ -688,7 +688,7 @@ export default function ChannelList() {
               <div key={category.id} className="mb-4">
                 <div 
                   className={clsx(
-                    "flex items-center justify-between text-zinc-400 hover:text-zinc-100 cursor-pointer px-1 mb-1 group transition-colors",
+                    "flex items-center justify-between text-zinc-400 hover:text-zinc-100 cursor-pointer px-2 md:px-1 mb-2 md:mb-1 group transition-colors",
                     dragOverChannelId === `category-${category.id}` && "bg-zinc-800/50 rounded"
                   )}
                   onClick={() => toggleCategory(category.id)}
@@ -696,13 +696,13 @@ export default function ChannelList() {
                   onDragLeave={handleChannelDragLeave}
                   onDrop={(e) => handleCategoryDrop(e, category.id)}
                 >
-                  <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider">
-                    {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  <div className="flex items-center gap-1.5 md:gap-1 text-sm md:text-xs font-semibold uppercase tracking-wider">
+                    {isCollapsed ? <ChevronRight className="w-4 h-4 md:w-3 md:h-3" /> : <ChevronDown className="w-4 h-4 md:w-3 md:h-3" />}
                     <span>{category.name}</span>
                   </div>
                   {hasManageChannels && (
                     <Plus 
-                      className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" 
+                      className="w-5 h-5 md:w-4 md:h-4 opacity-0 group-hover:opacity-100 transition-opacity" 
                       onClick={(e) => { e.stopPropagation(); openCreateChannelModal(category.id); }} 
                     />
                   )}
@@ -719,9 +719,9 @@ export default function ChannelList() {
 
           {/* If no categories exist, show a generic header for creating channels */}
           {categories.length === 0 && hasManageChannels && (
-            <div className="flex items-center justify-between text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-1 px-2 mt-4">
+            <div className="flex items-center justify-between text-zinc-400 text-sm md:text-xs font-semibold uppercase tracking-wider mb-2 md:mb-1 px-3 md:px-2 mt-4">
               <span>{t('channelList.channels')}</span>
-              <Plus className="w-4 h-4 cursor-pointer hover:text-zinc-100" onClick={() => openCreateChannelModal(null)} />
+              <Plus className="w-5 h-5 md:w-4 md:h-4 cursor-pointer hover:text-zinc-100" onClick={() => openCreateChannelModal(null)} />
             </div>
           )}
         </div>

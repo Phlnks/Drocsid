@@ -140,21 +140,21 @@ export default function VoiceChannelItem({
       <div
         onClick={onClick}
         className={clsx(
-          "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer group transition-colors",
+          "flex items-center gap-2 md:gap-2 px-3 py-3 md:px-2 md:py-1.5 text-lg md:text-base rounded-md cursor-pointer group transition-colors",
           isSelected 
             ? "bg-zinc-700/50 text-zinc-100" 
             : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300",
           isDragOver && hasMoveMembers && "ring-2 ring-indigo-500 bg-zinc-800/80"
         )}
       >
-        {isAfk ? <Moon className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+        {isAfk ? <Moon className="w-5 h-5 md:w-4 md:h-4" /> : <Volume2 className="w-5 h-5 md:w-4 md:h-4" />}
         <span className="truncate flex-1">{displayName}</span>
         {hasManageChannels && onRename && (
           <button 
             onClick={(e) => { e.stopPropagation(); onRename(channel); }}
-            className="p-1 hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-2 md:p-1 hover:bg-zinc-700 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <Settings className="w-4 h-4 md:w-3.5 md:h-3.5" />
           </button>
         )}
       </div>
@@ -182,20 +182,20 @@ export default function VoiceChannelItem({
                 onDragStart={(e) => handleDragStart(e, p.id)}
                 onContextMenu={(e) => handleContextMenu(e, p)}
                 className={clsx(
-                  "flex items-center gap-2 px-2 py-1 rounded hover:bg-zinc-800/50 cursor-pointer group relative",
+                  "flex items-center gap-3 md:gap-2 px-3 py-2 md:px-2 md:py-1 rounded hover:bg-zinc-800/50 cursor-pointer group relative",
                   hasMoveMembers && "cursor-grab active:cursor-grabbing"
                 )}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 ${
+                <div className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 ${
                   isSpeaking ? 'ring-2 speaking-ring' : 'ring-2 ring-transparent'
                 }`}>
                   {displayAvatar ? (
                     <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[10px] font-bold text-white">{displayName?.charAt(0).toUpperCase() || 'U'}</span>
+                    <span className="text-[12px] md:text-[10px] font-bold text-white">{displayName?.charAt(0).toUpperCase() || 'U'}</span>
                   )}
                 </div>
-                <span className={`text-sm truncate transition-colors ${isSpeaking ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300'}`}>
+                <span className={`text-base md:text-sm truncate transition-colors ${isSpeaking ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-300'}`}>
                   {displayName}
                 </span>
                 

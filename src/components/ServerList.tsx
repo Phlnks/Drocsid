@@ -224,7 +224,7 @@ export default function ServerList() {
 
   return (
     <>
-      <div className="w-[72px] bg-zinc-950 flex flex-col items-center py-3 gap-2 flex-shrink-0 z-20">
+      <div className="w-[88px] md:w-[72px] bg-zinc-950 flex flex-col items-center py-4 md:py-3 gap-3 md:gap-2 flex-shrink-0 z-20 overflow-y-auto no-scrollbar">
         <motion.div 
           onClick={() => setSelectedServerId(null)}
           className={clsx(
@@ -234,21 +234,21 @@ export default function ServerList() {
           whileTap={{ scale: 0.95 }}
         >
           <div className={clsx(
-            "absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200",
-            selectedServerId === null ? "h-10" : "h-2 opacity-0 group-hover:opacity-100 group-hover:h-5"
+            "absolute left-0 bg-white transition-all duration-200",
+            selectedServerId === null ? "h-12 md:h-10 w-1.5 md:w-1 rounded-r-full" : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md"
           )} />
           <div className={clsx(
-            "w-12 h-12 flex items-center justify-center transition-all duration-200 overflow-hidden",
+            "w-16 h-16 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 overflow-hidden",
             selectedServerId === null 
-              ? "bg-black rounded-[16px]" 
-              : "bg-zinc-800 rounded-[24px] group-hover:rounded-[16px] group-hover:bg-black"
+              ? "bg-black rounded-[20px] md:rounded-[16px]" 
+              : "bg-zinc-800 rounded-[32px] md:rounded-[24px] group-hover:rounded-[20px] md:group-hover:rounded-[16px] group-hover:bg-black"
           )}>
-            <DrocsidLogo className="w-12 h-12" />
+            <DrocsidLogo className="w-16 h-16 md:w-12 md:h-12" />
           </div>
-          <span className="text-[9px] px-1 bg-indigo-500/10 text-indigo-400 rounded-sm font-bold tracking-tight border border-indigo-500/20 leading-none py-0.5 select-none shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">BETA</span>
+          <span className="text-[10px] md:text-[9px] px-1 md:px-1 bg-indigo-500/10 text-indigo-400 rounded-sm font-bold tracking-tight border border-indigo-500/20 leading-none py-0.5 select-none shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">BETA</span>
         </motion.div>
         
-        <div className="w-8 h-[2px] bg-zinc-800 rounded-full my-1" />
+        <div className="w-10 md:w-8 h-[2px] bg-zinc-800 rounded-full my-1 md:my-1" />
 
         {servers.map((server) => (
           <motion.div 
@@ -263,14 +263,14 @@ export default function ServerList() {
             whileTap={{ scale: 0.95 }}
           >
             <div className={clsx(
-              "absolute left-0 w-1 bg-white rounded-r-full transition-all duration-200",
-              selectedServerId === server.id ? "h-10" : "h-2 opacity-0 group-hover:opacity-100 group-hover:h-5"
+              "absolute left-0 bg-white transition-all duration-200",
+              selectedServerId === server.id ? "h-12 md:h-10 w-1.5 md:w-1 rounded-r-full" : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md"
             )} />
             <div className={clsx(
-              "w-12 h-12 flex items-center justify-center text-lg font-semibold transition-all duration-200 overflow-hidden",
+              "w-16 h-16 md:w-12 md:h-12 flex items-center justify-center text-xl md:text-lg font-semibold transition-all duration-200 overflow-hidden",
               selectedServerId === server.id 
-                ? "bg-indigo-500 text-white rounded-[16px]" 
-                : "bg-zinc-800 text-zinc-100 rounded-[24px] group-hover:rounded-[16px] group-hover:bg-indigo-500 group-hover:text-white"
+                ? "bg-indigo-500 text-white rounded-[20px] md:rounded-[16px]" 
+                : "bg-zinc-800 text-zinc-100 rounded-[32px] md:rounded-[24px] group-hover:rounded-[20px] md:group-hover:rounded-[16px] group-hover:bg-indigo-500 group-hover:text-white"
             )}>
               {server.icon_url ? (
                 <img src={server.icon_url} alt={server.name} className="w-full h-full object-cover" loading="lazy" />
@@ -279,8 +279,8 @@ export default function ServerList() {
               )}
             </div>
             {mutedServers.includes(server.id) && (
-              <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800 z-10" title={t('app.serverList.muted')}>
-                <BellOff className="w-3 h-3 text-red-500" />
+              <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 md:p-1 border border-zinc-800 z-10" title={t('app.serverList.muted')}>
+                <BellOff className="w-4 h-4 md:w-3 md:h-3 text-red-500" />
               </div>
             )}
             {connectedVoiceServerId && servers.find(s => s.id === server.id) && (
@@ -289,7 +289,7 @@ export default function ServerList() {
                 if (!isVoiceInThisServer) return null;
                 return (
                   <div className="absolute -bottom-1 -right-1 bg-zinc-900 rounded-full p-1 border border-zinc-800 z-10 shadow-lg">
-                    <Volume2 className="w-3 h-3 text-emerald-500" />
+                    <Volume2 className="w-4 h-4 md:w-3 md:h-3 text-emerald-500" />
                   </div>
                 );
               })()
@@ -300,11 +300,11 @@ export default function ServerList() {
         <motion.div 
           onClick={() => setIsModalOpen(true)}
           title={t('serverList.addServer')}
-          className="w-12 h-12 bg-zinc-800 rounded-[24px] hover:rounded-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer text-emerald-500 hover:bg-emerald-500 hover:text-white mt-2 group"
+          className="w-16 h-16 md:w-12 md:h-12 bg-zinc-800 rounded-[32px] md:rounded-[24px] hover:rounded-[20px] md:hover:rounded-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer text-emerald-500 hover:bg-emerald-500 hover:text-white mt-1 md:mt-2 group"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          <Plus className="w-6 h-6" />
+          <Plus className="w-8 h-8 md:w-6 md:h-6" />
         </motion.div>
       </div>
 
