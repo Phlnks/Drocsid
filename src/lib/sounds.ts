@@ -147,3 +147,9 @@ export const playMoveSound = () => {
   playTone(600, 'sine', 0.1, 0.15, 0);
   playTone(800, 'sine', 0.1, 0.15, 0.05);
 };
+
+export const playCallJoinedSound = (volume = 0.5) => {
+  const audio = new Audio('/call_joined.mp3');
+  audio.volume = volume;
+  audio.play().catch(console.error);
+};

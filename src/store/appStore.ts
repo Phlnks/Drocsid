@@ -54,6 +54,8 @@ export interface Notification {
 interface AppState {
   isSoundsLoading: boolean;
   setSoundsLoading: (loading: boolean) => void;
+  callJoinedSoundPlayed: boolean;
+  setCallJoinedSoundPlayed: (played: boolean) => void;
   serverSounds: any[];
   canUseSoundboard: boolean;
   setServerSounds: (sounds: any[]) => void;
@@ -145,6 +147,10 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  isSoundsLoading: false,
+  setSoundsLoading: (loading) => set({ isSoundsLoading: loading }),
+  callJoinedSoundPlayed: false,
+  setCallJoinedSoundPlayed: (played) => set({ callJoinedSoundPlayed: played }),
   serverSounds: [],
   canUseSoundboard: false,
   selectedServerId: null,
@@ -195,7 +201,14 @@ export const useAppStore = create<AppState>((set) => ({
   }),
   setSelectedChannelId: (id) => set({ selectedChannelId: id, selectedDmId: null, activeStreamFocus: null, isMobileNavOpen: false }),
   setSelectedDmId: (id) => set({ selectedDmId: id, selectedServerId: null, selectedChannelId: null, activeStreamFocus: null, isMobileNavOpen: false }),
-  setConnectedVoiceChannelId: (id, serverId = null) => set({ connectedVoiceChannelId: id, connectedVoiceServerId: serverId }),
+  setConnectedVoiceChannelId: (id, serverId = null) => {
+    const state = useAppStore.getState();
+    // Reset call joined sound flag when joining or leaving
+    if (id !== state.connectedVoiceChannelId) {
+      set({ callJoinedSoundPlayed: false });
+    }
+    set({ connectedVoiceChannelId: id, connectedVoiceServerId: serverId });
+  },
   setIsVoiceMuted: (muted) => set({ isVoiceMuted: muted }),
   setIsDeafened: (deafened) => set({ isDeafened: deafened }),
   setVoiceSettings: (settings) => set((state) => {

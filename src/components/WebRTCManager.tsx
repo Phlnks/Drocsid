@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { useInstanceStore } from '../store/instanceStore';
-import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
+import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playCallJoinedSound, stopRingtone } from '../lib/sounds';
 import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
 
@@ -731,6 +731,30 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
 
         await room.connect(livekitUrl, token);
         console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);
+
+        // ── DM Call Joined Sound ──
+        const handleCallJoined = () => {
+          const state = useAppStore.getState();
+          // Uniquement pour les appels privés (pas de serverId)
+          if (state.connectedVoiceServerId) return;
+          
+          if (!state.callJoinedSoundPlayed) {
+            state.setCallJoinedSoundPlayed(true);
+            stopRingtone();
+            playCallJoinedSound(state.voiceVolume);
+            console.log('[WebRTC] Private call established, playing sound');
+          }
+        };
+
+        // Si on rejoint un appel où il y a déjà du monde
+        if (room.remoteParticipants.size > 0) {
+          handleCallJoined();
+        }
+
+        // Si quelqu'un nous rejoint
+        room.on(RoomEvent.ParticipantConnected, () => {
+          handleCallJoined();
+        });
 
         const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
         socket.emit('join-channel', connectedVoiceChannelId);
