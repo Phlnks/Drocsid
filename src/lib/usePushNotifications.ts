@@ -19,17 +19,17 @@ export async function subscribeToPush(userId: string): Promise<void> {
   }
 
   // Vérifier si une souscription existe déjà
-  let subscription = await sw.pushManager.getSubscription();
-
-  if (!subscription) {
-    console.log('[Push] Création nouvelle souscription...');
-    subscription = await sw.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
-    });
-  } else {
-    console.log('[Push] Souscription existante trouvée, envoi au serveur...');
+  // Forcer une nouvelle souscription propre à chaque fois
+  const existing = await sw.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
+    console.log('[Push] Ancienne souscription supprimée');
   }
+
+  const subscription = await sw.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidKey),
+  });
 
   // Toujours envoyer au serveur (même si souscription existante)
   const res = await fetch('/api/push/subscribe', {

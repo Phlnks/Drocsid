@@ -332,17 +332,23 @@ socket.on('new-dm-message', async (message) => {
         ? message.content.slice(0, 100)
         : '📎 Fichier joint';
 
-      await webpush.sendNotification(
-        subData.subscription,
-        JSON.stringify({
-          title: `💬 ${authorName}`,
-          body,
-          icon: '/logo-192.png',
-          url: `/?dm=${message.dm_id}`,
-        })
-      );
-
-      console.log('[Push] ✅ Notification envoyée à:', recipientId);
+      try {
+        await webpush.sendNotification(
+          subData.subscription,
+          JSON.stringify({ ... })
+        );
+        console.log('[Push] ✅ Notification envoyée à:', recipientId);
+      } catch (pushErr: any) {
+        console.error('[Push] ❌ Erreur envoi:', pushErr.statusCode, pushErr.message);
+        // Supprimer la souscription expirée
+        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+          await supabaseAdmin
+            .from('push_subscriptions')
+            .delete()
+            .eq('user_id', recipientId);
+          console.log('[Push] Souscription expirée supprimée pour:', recipientId);
+        }
+      }
     }
   } catch (err) {
     console.error('[Push] Erreur:', err);
