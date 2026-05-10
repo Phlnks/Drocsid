@@ -95,6 +95,13 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     };
   }, [onClose]);
 
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
   const handleDM = async () => {
     if (!user) return;
     onClose();
