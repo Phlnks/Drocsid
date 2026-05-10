@@ -15,6 +15,7 @@ import MobileVoiceControl from './MobileVoiceControl';
 import NotificationManager from './NotificationManager';
 import MobileBottomNav from './MobileBottomNav';
 import { useAppStore } from '../store/appStore';
+import ServerDataPreloader from './ServerDataPreloader';
 import socket from '../lib/socket';
 import UserControlPanel from './UserControlPanel';
 import VoicePanel from './VoicePanel';
@@ -44,6 +45,7 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen h-[100dvh] bg-zinc-900 text-zinc-100 overflow-hidden relative overscroll-none">
+      <ServerDataPreloader />
       <WebRTCManager />
       <NotificationManager />
       <IncomingCallModal />

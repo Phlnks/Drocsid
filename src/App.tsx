@@ -440,22 +440,6 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    // Initial session check
-    const checkInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (e) {
-        console.error("Initial session check failed:", e);
-      } finally {
-        setAuthReady(true);
-      }
-    };
-
-    checkInitialSession();
-
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth Event:", event);

@@ -25,76 +25,19 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     soundboardVolume, 
     isSoundboardMuted, 
     setSoundboardVolume, 
-    setIsSoundboardMuted 
+    setIsSoundboardMuted,
+    serverSounds: sounds,
+    canUseSoundboard
   } = useAppStore();
   const [search, setSearch] = useState('');
-  const [sounds, setSounds] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [canUseSoundboard, setCanUseSoundboard] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("Soundboard: SoundboardPicker effector running", { isOpen, serverId, userId: user?.id });
-    if (!isOpen || !serverId) return;
+    if (!isOpen) return;
     setShowVolumeSlider(false); // Reset when reopening
-
-    const fetchSoundsAndPerms = async () => {
-      console.log("Soundboard: Fetching sounds and perms for server:", serverId);
-      setIsLoading(true);
-      try {
-        // Fetch server for sounds
-        const { data: server } = await supabase.from('servers').select('soundboard_sounds').eq('id', serverId).maybeSingle();
-        if (server && server.soundboard_sounds) {
-          setSounds(server.soundboard_sounds);
-          
-          // Preload sounds in background
-          server.soundboard_sounds.forEach((sound: any) => {
-            getAudioUrl(sound.url).catch(() => {});
-          });
-        }
-
-        // Check permissions
-        if (user) {
-          const { data: member } = await supabase.from('server_members').select('roles').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
-          if (member) {
-            // Fetch server owner
-            const { data: serverInfo } = await supabase.from('servers').select('owner_id').eq('id', serverId).maybeSingle();
-            const isOwner = serverInfo?.owner_id === user.id;
-
-            if (isOwner) {
-              setCanUseSoundboard(true);
-            } else {
-              // Fetch all roles for this server to avoid "in" query issues
-              const { data: allRoles } = await supabase.from('roles').select('*').eq('server_id', serverId);
-              
-              if (allRoles) {
-                // Filter roles that the member actually has
-                const memberRoleIds = member.roles || [];
-                const memberRoles = allRoles.filter(r => memberRoleIds.includes(r.id));
-                
-                const hasPerm = memberRoles.some(r => 
-                  r.permissions?.includes('USE_SOUNDBOARD') || 
-                  r.permissions?.includes('ADMINISTRATOR') ||
-                  r.permissions?.includes('MANAGE_SERVER')
-                );
-                setCanUseSoundboard(!!hasPerm);
-              } else {
-                setCanUseSoundboard(false);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Soundboard: Error fetching data:", error);
-      } finally {
-        setIsLoading(false);
-        console.log("Soundboard: Permission check complete", { canUseSoundboard });
-      }
-    };
-
-    fetchSoundsAndPerms();
-  }, [isOpen, serverId, user, canUseSoundboard]);
+  }, [isOpen]);
 
   const playSound = (sound: any) => {
     console.log("Soundboard: playSound called", { 
@@ -141,6 +84,8 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
       currentAudio.currentTime = 0;
     }
     
+    setCurrentAudioUrl(url);
+
     // Utiliser le cache blob si possible, ou fallback url
     const blobUrl = await getAudioUrl(url).catch(() => url);
 
@@ -156,6 +101,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
         .catch(err => {
           console.error("Soundboard: Local preview failed", err);
           setCurrentAudio(null);
+          setCurrentAudioUrl(null);
         });
     }
 
@@ -163,6 +109,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
     audio.onended = () => {
       console.log("Soundboard: Local preview ended");
       setCurrentAudio(null);
+      setCurrentAudioUrl(null);
     };
     audio.onerror = (e) => {
       console.error("Soundboard: Local preview audio error", e);
@@ -246,11 +193,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-        {isLoading ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : !canUseSoundboard ? (
+        {!canUseSoundboard ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <X className="w-8 h-8 text-red-500/50 mb-2" />
             <p className="text-sm text-zinc-400">{t('soundboard.noPermission', 'Tu n\'as pas la permission d\'utiliser le soundboard.')}</p>
@@ -258,7 +201,7 @@ export default function SoundboardPicker({ isOpen, onClose, channelId, serverId 
         ) : filteredSounds.length > 0 ? (
           <div className="grid grid-cols-3 gap-2">
             {filteredSounds.map((sound, index) => {
-              const isPlaying = currentAudio && currentAudio.src === sound.url;
+              const isPlaying = currentAudioUrl === sound.url;
               return (
                 <button
                   key={index}

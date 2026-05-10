@@ -52,6 +52,10 @@ export interface Notification {
 }
 
 interface AppState {
+  serverSounds: any[];
+  canUseSoundboard: boolean;
+  setServerSounds: (sounds: any[]) => void;
+  setCanUseSoundboard: (can: boolean) => void;
   selectedServerId: string | null;
   selectedChannelId: string | null;
   selectedDmId: string | null;
@@ -140,6 +144,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  serverSounds: [],
+  canUseSoundboard: false,
   selectedServerId: null,
   selectedChannelId: null,
   selectedDmId: null,
@@ -180,6 +186,8 @@ export const useAppStore = create<AppState>((set) => ({
   keybinds: safeParse('drocsid-keybinds', { mute: 'CommandOrControl+Shift+M', deafen: 'CommandOrControl+Shift+D' }),
   appSettings: safeParse('drocsid-app-settings', { launchAtStartup: false, dateFormat: 'dd/MM/yyyy', timeFormat: 'HH:mm' }),
   
+  setServerSounds: (sounds) => set({ serverSounds: sounds }),
+  setCanUseSoundboard: (can) => set({ canUseSoundboard: can }),
   setSelectedServerId: (id) => set((state) => {
     if (state.selectedServerId === id && id !== null) return state;
     return { selectedServerId: id, selectedChannelId: null, selectedDmId: null, activeStreamFocus: null, isMobileNavOpen: true };
