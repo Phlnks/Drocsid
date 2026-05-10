@@ -67,7 +67,7 @@ export default function DownloadPage() {
 
             <div className="flex flex-col items-center gap-6">
               <a 
-                href="http://drocsid.ddns.net/Drocsid-Setup-1.0.1.exe" 
+                href="http://drocsid.ddns.net/Drocsid-Setup.exe" 
                 download
                 className="group relative inline-flex items-center gap-3 px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-indigo-500/30 transition-all duration-300 hover:scale-105 active:scale-95"
               >

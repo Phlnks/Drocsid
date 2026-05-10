@@ -37,7 +37,7 @@
       "allowToChangeInstallationDirectory": true,
       "guid": "drocsid-app-unique-guid-2024",
       "shortcutName": "Drocsid",
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "${productName}-Setup.${ext}"
     },
     "win": {
       "target": "nsis",
