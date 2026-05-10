@@ -80,7 +80,7 @@ function MainAppContent() {
 export default function App() {
   const { t } = useTranslation();
   const { user, isAuthReady, setUser, setAuthReady, setCurrentUserProfile } = useAuthStore();
-  const { theme, setTheme, setOnlineUserIds, addNotification } = useAppStore();
+  const { theme, setTheme, setOnlineUserIds, addNotification, connectedVoiceChannelId, isVoiceMuted, isDeafened } = useAppStore();
   const { isCurrentInstanceValid } = useInstanceStore();
 
   const isInstanceValid = isCurrentInstanceValid();
@@ -255,6 +255,17 @@ export default function App() {
       };
     }
   }, []);
+
+  // ─── Tray sync — mute / deafen / déconnexion ──────────────────────────────
+  useEffect(() => {
+    if (!(window as any).electron?.updateTray) return;
+    (window as any).electron.updateTray({
+      inVoice: !!connectedVoiceChannelId,
+      isMuted: isVoiceMuted,
+      isDeafened,
+      isSpeaking: false,
+    });
+  }, [connectedVoiceChannelId, isVoiceMuted, isDeafened]);
 
   useEffect(() => {
     if (user) {

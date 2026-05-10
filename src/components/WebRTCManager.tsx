@@ -91,6 +91,8 @@ export default function WebRTCManager() {
   const rawMicStreamRef = useRef<MediaStream | null>(null);
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number | null>(null);
+  // Ajoute ce ref en haut de WebRTCManager (avec les autres refs)
+  const prevTrayStateRef = useRef({ isSpeaking: false });
 
   const startLocalSpeakingAnalysis = () => {
     if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -118,6 +120,19 @@ export default function WebRTCManager() {
             el.classList.add('text-zinc-300');
           }
         });
+
+        // ← AJOUTER : reset speaking dans le tray quand muted
+        if (prevTrayStateRef.current.isSpeaking) {
+          prevTrayStateRef.current.isSpeaking = false;
+          const s = useAppStore.getState();
+          (window as any).electron?.updateTray?.({
+            inVoice: true,
+            isMuted: s.isVoiceMuted,
+            isDeafened: s.isDeafened,
+            isSpeaking: false,
+          });
+        }
+
         rafIdRef.current = requestAnimationFrame(checkVolume);
         return;
       }
@@ -163,6 +178,16 @@ export default function WebRTCManager() {
         });
       }
 
+      if (isSpeaking !== prevTrayStateRef.current.isSpeaking) {
+        prevTrayStateRef.current.isSpeaking = isSpeaking;
+        const s = useAppStore.getState();
+        (window as any).electron?.updateTray?.({
+          inVoice: true,
+          isMuted: s.isVoiceMuted,
+          isDeafened: s.isDeafened,
+          isSpeaking,
+        });
+      }
       rafIdRef.current = requestAnimationFrame(checkVolume);
     };
 
