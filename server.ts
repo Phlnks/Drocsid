@@ -335,7 +335,12 @@ socket.on('new-dm-message', async (message) => {
       try {
         await webpush.sendNotification(
           subData.subscription,
-          JSON.stringify({ ... })
+          JSON.stringify({
+            title: `💬 ${authorName}`,
+            body,
+            icon: '/logo-192.png',
+            url: `/?dm=${message.dm_id}`,
+          })
         );
         console.log('[Push] ✅ Notification envoyée à:', recipientId);
       } catch (pushErr: any) {
