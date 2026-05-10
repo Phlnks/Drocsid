@@ -497,11 +497,11 @@ socket.on('new-dm-message', async (message) => {
 	  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
 	  res.setHeader('Content-Security-Policy',
 	  "default-src 'self'; " +
-	  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; " +
+	  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blop: https://fonts.googleapis.com; " +
 	  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; " +
 	  "font-src 'self' https://fonts.gstatic.com; " +
 	  "img-src 'self' data: blob: https:; " +
-	  "media-src 'self' blob:; " +
+	  "media-src 'self' blob: data:; " +
 	  "connect-src 'self' wss: https:; " +
 	  "frame-ancestors 'none';"
 	);
