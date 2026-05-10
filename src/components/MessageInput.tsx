@@ -456,7 +456,10 @@ useEffect(() => {
 
       // Explicitly tell socket
       const eventName = isDM ? 'new-dm-message' : 'new-message';
-      socket.emit(eventName, newMessage);
+     const currentProfile = users.find(u => u.id === user.id);
+      const authorName = currentProfile?.display_name || currentProfile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur';
+
+      socket.emit(eventName, { ...newMessage, author_name: authorName });
 
       // --- MENTION & NOTIFICATION LOGIC ---
       try {
