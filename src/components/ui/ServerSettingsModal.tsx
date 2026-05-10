@@ -29,6 +29,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
   }, [initialTab, isOpen]);
   const [serverName, setServerName] = useState(server?.name || '');
   const [iconUrl, setIconUrl] = useState(server?.icon_url || '');
+  const [defaultRoleId, setDefaultRoleId] = useState<string | null>(server?.default_role_id || null);
   const [customEmojis, setCustomEmojis] = useState<{name: string, url: string}[]>(server?.custom_emojis || []);
   const [soundboardSounds, setSoundboardSounds] = useState<{name: string, emoji: string, url: string}[]>(server?.soundboard_sounds || []);
   const [isSaving, setIsSaving] = useState(false);
@@ -83,6 +84,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     if (server) {
       setServerName(server.name);
       setIconUrl(server.icon_url || '');
+      setDefaultRoleId(server.default_role_id || null);
       setCustomEmojis(server.custom_emojis || []);
     }
   }, [server]);
@@ -191,7 +193,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
   const isOwner = server?.owner_id === user?.id;
   let hasKickMembers = isOwner || !!currentUserProfile?.is_super_admin;
   let hasBanMembers = isOwner || !!currentUserProfile?.is_super_admin;
-  let hasManageSoundboard = isOwner || !!currentUserProfile?.is_super_admin;
+  // Default to true for everyone as requested
+  let hasManageSoundboard = true;
 
   if (currentUserMember && Array.isArray(currentUserMember.roles)) {
     if (currentUserMember.roles.includes('owner')) {
@@ -247,7 +250,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     try {
       const { error } = await supabase.from('servers').update({ 
         name: serverName, 
-        icon_url: iconUrl 
+        icon_url: iconUrl,
+        default_role_id: defaultRoleId
       }).eq('id', server.id);
       
       if (error) throw error;
@@ -921,6 +925,25 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                         className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                      {t('serverSettings.defaultRole', 'Rôle par défaut')}
+                    </label>
+                    <p className="text-xs text-zinc-500 mb-3">
+                      {t('serverSettings.defaultRoleDescription', 'Ce rôle sera automatiquement attribué aux nouveaux membres rejoignant le serveur.')}
+                    </p>
+                    <select
+                      value={defaultRoleId || ''}
+                      onChange={(e) => setDefaultRoleId(e.target.value || null)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="">{t('serverSettings.noDefaultRole', 'Aucun (Rôle par défaut)')}</option>
+                      {roles.map(role => (
+                        <option key={role.id} value={role.id}>{role.name}</option>
+                      ))}
+                    </select>
                   </div>
                   
                   <div className="flex items-center gap-4">

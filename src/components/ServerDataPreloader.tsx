@@ -62,29 +62,11 @@ export default function ServerDataPreloader() {
 
             if (!isMounted) return;
 
-            if (serverInfo?.owner_id === user.id) {
-              setCanUseSoundboard(true);
-            } else if (member.roles && member.roles.length > 0) {
-              const { data: roles } = await supabase
-                .from('server_roles')
-                .select('permissions')
-                .in('id', member.roles);
-              
-              if (!isMounted) return;
+            // Default to true for any member as requested (soundboard active for everyone by default)
+            setCanUseSoundboard(true);
 
-              if (roles) {
-                const hasPerm = roles.some(r => 
-                  r.permissions?.includes('USE_SOUNDBOARD') || 
-                  r.permissions?.includes('ADMINISTRATOR') ||
-                  r.permissions?.includes('MANAGE_SERVER')
-                );
-                setCanUseSoundboard(!!hasPerm);
-              } else {
-                setCanUseSoundboard(false);
-              }
-            } else {
-              setCanUseSoundboard(false);
-            }
+            // If we want to keep role-based overrides (but in additive way, it's already true)
+            // If they are owner or have certain perms, they might have "Manage" rights too (handled in components)
           } else {
             setCanUseSoundboard(false);
           }

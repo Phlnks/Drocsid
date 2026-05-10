@@ -306,6 +306,9 @@ export default function App() {
             
             const serverId = invite.server_id;
 
+            // Fetch server details to get default role
+            const { data: serverData } = await supabase.from('servers').select('default_role_id').eq('id', serverId).maybeSingle();
+
             // Check if banned
             const { data: ban } = await supabase.from('server_bans').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
             if (ban) {
@@ -316,10 +319,15 @@ export default function App() {
             const { data: existingMember } = await supabase.from('server_members').select('*').eq('server_id', serverId).eq('user_id', user.id).maybeSingle();
             
             if (!existingMember) {
+              const roles = ['member'];
+              if (serverData?.default_role_id) {
+                roles.push(serverData.default_role_id);
+              }
+
               const { error: insertError } = await supabase.from('server_members').insert({
                 server_id: serverId,
                 user_id: user.id,
-                roles: ['member']
+                roles: roles
               });
               if (insertError) throw insertError;
             }
