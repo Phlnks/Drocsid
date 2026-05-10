@@ -97,6 +97,8 @@ interface AppState {
   isSoundboardMuted: boolean;
   voiceVolume: number;
   isVoiceVolumeMuted: boolean;
+  peerVolumes: Record<string, number>;
+  setPeerVolume: (peerId: string, volume: number) => void;
   serverSettingsModal: {
     isOpen: boolean;
     serverId: string | null;
@@ -185,6 +187,7 @@ export const useAppStore = create<AppState>((set) => ({
   isSoundboardMuted: safeParse('drocsid-soundboard-muted', false),
   voiceVolume: safeParse('drocsid-voice-volume', 1.0),
   isVoiceVolumeMuted: safeParse('drocsid-voice-volume-muted', false),
+  peerVolumes: safeParse('drocsid-peer-volumes', {}),
   serverSettingsModal: {
     isOpen: false,
     serverId: null,
@@ -308,6 +311,11 @@ export const useAppStore = create<AppState>((set) => ({
   setIsVoiceVolumeMuted: (muted) => set(() => {
     localStorage.setItem('drocsid-voice-volume-muted', JSON.stringify(muted));
     return { isVoiceVolumeMuted: muted };
+  }),
+  setPeerVolume: (peerId, volume) => set((state) => {
+    const newVolumes = { ...state.peerVolumes, [peerId]: volume };
+    localStorage.setItem('drocsid-peer-volumes', JSON.stringify(newVolumes));
+    return { peerVolumes: newVolumes };
   }),
   setTheme: (theme) => {
     localStorage.setItem('drocsid-theme', theme);

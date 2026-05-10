@@ -57,6 +57,7 @@ CREATE TABLE public.servers (
   created_at timestamp with time zone DEFAULT now(),
   custom_emojis jsonb DEFAULT '[]'::jsonb,
   soundboard_sounds jsonb DEFAULT '[]'::jsonb,
+  default_role_id uuid REFERENCES public.roles(id) ON DELETE SET NULL,
   CONSTRAINT servers_pkey PRIMARY KEY (id)
 );
 

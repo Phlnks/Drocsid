@@ -8,9 +8,10 @@ import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
 
 
-function AudioPlayer({ stream }: { key?: any, stream: any }) {
+function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted } = useAppStore();
+  const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted, peerVolumes } = useAppStore();
+  const userPeerVolume = peerVolumes[userId] ?? 1.0;
 
   useEffect(() => {
     if (audioRef.current && stream) {
@@ -31,8 +32,11 @@ function AudioPlayer({ stream }: { key?: any, stream: any }) {
   }, [isDeafened, isVoiceVolumeMuted]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = voiceVolume;
-  }, [voiceVolume]);
+    if (audioRef.current) {
+      // Apply both global voice volume AND per-peer volume
+      audioRef.current.volume = voiceVolume * userPeerVolume;
+    }
+  }, [voiceVolume, userPeerVolume]);
 
   useEffect(() => {
     if (audioRef.current && voiceSettings.selectedSpeakerId && (audioRef.current as any).setSinkId) {
@@ -883,7 +887,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
     <>
       {/* Joue tous les flux audio : micros distants + audio système des screen shares */}
       {Array.from(remoteStreams.entries()).map(([uid, stream]) => (
-        <AudioPlayer key={uid} stream={stream} />
+        <AudioPlayer key={uid} userId={uid} stream={stream} />
       ))}
     </>
   );

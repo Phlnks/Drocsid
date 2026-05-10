@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign, MicOff } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign, MicOff, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
@@ -28,7 +28,18 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
-  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm, voiceParticipants } = useAppStore();
+  const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm, voiceParticipants, peerVolumes, setPeerVolume } = useAppStore();
+
+  const [localVolume, setLocalVolume] = useState<number>(peerVolumes[userId] ?? 1.0);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleVolumeChange = (newVal: number) => {
+    setLocalVolume(newVal);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setPeerVolume(userId, newVal);
+    }, 100);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -307,7 +318,11 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const isSelf = userId === user?.id;
   const targetVoiceState = Object.values(voiceParticipants).flat().find(p => p.id === userId);
   const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove || canMute);
-  const menuHeight = showAdminActions ? 320 : 160;
+  let menuHeight = 160;
+  if (onViewProfile) menuHeight += 40;
+  if (showAdminActions) menuHeight += 160;
+  if (targetVoiceState) menuHeight += 60;
+  
   let x = position.x;
   let y = position.y;
 
@@ -388,6 +403,36 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
               </>
             )}
           </button>
+
+          {targetVoiceState && (
+            <>
+              <div className="h-px bg-zinc-800 my-1" />
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    {localVolume === 0 ? (
+                      <VolumeX className="w-4 h-4 text-zinc-500" />
+                    ) : localVolume < 0.5 ? (
+                      <Volume1 className="w-4 h-4 text-zinc-400" />
+                    ) : (
+                      <Volume2 className="w-4 h-4 text-zinc-300" />
+                    )}
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t('modals.userContextMenu.userVolume', 'Volume utilisateur')}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-zinc-500">{Math.round(localVolume * 100)}%</span>
+                </div>
+                <input 
+                  type="range"
+                  min="0"
+                  max="1.5"
+                  step="0.01"
+                  value={localVolume}
+                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+            </>
+          )}
         </>
       )}
 
