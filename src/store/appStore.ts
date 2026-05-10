@@ -313,8 +313,15 @@ export const useAppStore = create<AppState>((set) => ({
     return { isVoiceVolumeMuted: muted };
   }),
   setPeerVolume: (peerId, volume) => set((state) => {
-    const newVolumes = { ...state.peerVolumes, [peerId]: volume };
+    const safeVolume = Math.max(0, Math.min(2.0, volume)); // clamp 0-200%
+    const newVolumes = { ...state.peerVolumes, [peerId]: safeVolume };
     localStorage.setItem('drocsid-peer-volumes', JSON.stringify(newVolumes));
+    
+    // Appliquer immédiatement au GainNode si la chaîne existe
+    import('./lib/audioManager').then(({ setPeerGain }) => {
+      setPeerGain(peerId, safeVolume);
+    });
+    
     return { peerVolumes: newVolumes };
   }),
   setTheme: (theme) => {

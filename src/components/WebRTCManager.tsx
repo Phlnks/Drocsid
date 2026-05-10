@@ -6,6 +6,7 @@ import { useInstanceStore } from '../store/instanceStore';
 import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playCallJoinedSound, stopRingtone } from '../lib/sounds';
 import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
+import { createPeerAudioChain, destroyPeerAudioChain, setPeerGain, destroyAllPeerAudioChains } from '../lib/audioManager';
 
 
 function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
@@ -13,31 +14,39 @@ function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
   const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted, peerVolumes } = useAppStore();
   const userPeerVolume = peerVolumes[userId] ?? 1.0;
 
+  // Créer la chaîne GainNode quand le stream change
   useEffect(() => {
-    if (audioRef.current && stream) {
-      audioRef.current.srcObject = stream;
-      audioRef.current.play().catch(e => {
-        if (e.name !== 'AbortError') console.error("Audio play error:", e);
-      });
-    }
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.srcObject = null;
-      }
-    };
-  }, [stream]);
+    if (!audioRef.current || !stream) return;
 
+    const processedStream = createPeerAudioChain(userId, stream, userPeerVolume);
+    audioRef.current.srcObject = processedStream;
+    audioRef.current.play().catch(e => {
+      if (e.name !== 'AbortError') console.error("Audio play error:", e);
+    });
+
+    return () => {
+      destroyPeerAudioChain(userId);
+      if (audioRef.current) audioRef.current.srcObject = null;
+    };
+  }, [stream, userId]);
+
+  // Volume global → sur l'élément HTML (0.0-1.0, safe)
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = Math.max(0, Math.min(1.0, voiceVolume));
+  }, [voiceVolume]);
+
+  // Volume individuel → sur le GainNode (peut dépasser 1.0)
+  useEffect(() => {
+    setPeerGain(userId, userPeerVolume);
+  }, [userPeerVolume, userId]);
+
+  // Mute (deafen ou mute global)
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = isDeafened || isVoiceVolumeMuted;
   }, [isDeafened, isVoiceVolumeMuted]);
 
-  useEffect(() => {
-    if (audioRef.current) {
-      // Apply both global voice volume AND per-peer volume
-      audioRef.current.volume = voiceVolume * userPeerVolume;
-    }
-  }, [voiceVolume, userPeerVolume]);
-
+  // Sortie audio (sinkId)
   useEffect(() => {
     if (audioRef.current && voiceSettings.selectedSpeakerId && (audioRef.current as any).setSinkId) {
       (audioRef.current as any).setSinkId(voiceSettings.selectedSpeakerId)
@@ -846,6 +855,8 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
         noiseGateCtxRef.current.close();
         noiseGateCtxRef.current = null;
       }
+      // ✅ Nettoyer les GainNodes de tous les peers
+      destroyAllPeerAudioChains();
 
       if (roomRef.current) { 
         if ((roomRef.current as any)._onSocketConnect) {
