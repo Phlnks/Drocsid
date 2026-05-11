@@ -651,10 +651,13 @@
   "download": {
     "title": "Descargar Drocsid",
     "subtitle": "Obtén la mejor experiencia instalando nuestra aplicación nativa.",
+    "downloadButton": "Descargar",
     "windowsBtn": "Descargar para Windows",
     "windowsVersion": "Windows 10/11 - 64 bits",
+    "linuxBtn": "Descargar para Linux",
+    "linuxVersion": "Linux - AppImage (zip)",
     "otherPlatforms": "Otras plataformas",
-    "macLinuxMobile": "Nuestra versión web es totalmente adaptable y funciona perfectamente para macOS, Linux y dispositivos móviles.",
+    "macOSMobile": "Nuestra versión web es totalmente adaptable y funciona perfectamente para macOS y dispositivos móviles.",
     "webVersion": "Acceder por la Web",
     "webVersionDesc": "Mantente conectado en cualquier navegador sin instalación.",
     "features": {

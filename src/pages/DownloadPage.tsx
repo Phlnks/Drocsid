@@ -5,6 +5,22 @@ import { Download, Monitor, Globe, Bell, Zap, Rocket, ChevronRight, Globe2 } fro
 import { useNavigate } from 'react-router-dom';
 import DrocsidLogo from '../components/ui/DrocsidLogo';
 
+export function WindowsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+    </svg>
+  );
+}
+
+export function LinuxIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11.996 0A7.836 7.836 0 005.15 6.551a14.735 14.735 0 00-.734 5.923c-.15 1.547.054 2.859.387 3.904-1.258.468-2.607 1.488-3.033 2.924-.486 1.636.326 2.378.89 2.378.506 0 .807-.367.92-.619.26-.576.136-1.503 1-1.745l.185-.054-.108.163c-.452.684.053 2.146.685 2.83.696.754 1.764 1.25 3.09 1.474a10.635 10.635 0 007.135-.615c1.173-.559 1.954-1.393 2.455-2.07l.135-.184v-.223a2.49 2.49 0 00-.477-1.428l-.135-.184.22-.054c.797-.197 1.23-.746 1.428-1.127.3-.58.375-1.218.15-1.928-.277-.872-1.284-1.848-2.887-2.316l.169-.425c.34-2 .28-5.753-.5-8.232C15.65 1.83 13.914 0 11.996 0zm0 1.292c1.464 0 2.84 1.492 3.493 4.098.67 2.687.584 6.002.324 7.643l-.685 4.316a5.27 5.27 0 01-1.325.263 11 11 0 01-1.803.076 5.617 5.617 0 01-2.91-1.116 5.766 5.766 0 01-1.332-1.722c-.177-1.423.013-5.2.59-7.514.545-2.186 1.806-6.044 3.648-6.044zm-2.19 6.22c-.653 0-1.255.454-1.36 1.05-.11.606.335 1.134.99 1.134.653 0 1.254-.45 1.36-1.05.105-.607-.336-1.135-.99-1.135zm4.335 0c-.655 0-1.256.454-1.36 1.05-.106.606.335 1.134.99 1.134.654 0 1.254-.45 1.358-1.05.107-.607-.334-1.135-.988-1.135z" />
+    </svg>
+  );
+}
+
 export default function DownloadPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -65,18 +81,34 @@ export default function DownloadPage() {
               {t('download.subtitle')}
             </p>
 
-            <div className="flex flex-col items-center gap-6">
-              <a 
-                href="http://drocsid.ddns.net/Drocsid-Setup.exe" 
-                download
-                className="group relative inline-flex items-center gap-3 px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-indigo-500/30 transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                <Download className="w-6 h-6 group-hover:translate-y-1 transition-transform" />
-                {t('download.windowsBtn')}
-              </a>
-              <span className="text-sm font-medium text-zinc-500">
-                {t('download.windowsVersion')}
-              </span>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+              <div className="flex flex-col items-center gap-3">
+                <a 
+                  href="http://drocsid.ddns.net/Drocsid-Setup.exe" 
+                  download
+                  className="group relative inline-flex items-center gap-3 w-[280px] justify-center px-8 py-5 bg-[#0078D4] hover:bg-[#006cbd] text-white rounded-2xl font-bold text-xl shadow-2xl shadow-[#0078D4]/30 transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <WindowsIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                  {t('download.windowsBtn')}
+                </a>
+                <span className="text-sm font-medium text-zinc-500">
+                  {t('download.windowsVersion')}
+                </span>
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                <a 
+                  href="http://drocsid.ddns.net/drocsid-linux.zip" 
+                  download
+                  className="group relative inline-flex items-center gap-3 w-[280px] justify-center px-8 py-5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-zinc-900/50 transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  <LinuxIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                  {t('download.linuxBtn', 'Télécharger pour Linux')}
+                </a>
+                <span className="text-sm font-medium text-zinc-500">
+                  {t('download.linuxVersion', 'Linux - AppImage (zip)')}
+                </span>
+              </div>
             </div>
           </motion.div>
         </section>
@@ -120,7 +152,7 @@ export default function DownloadPage() {
               <div className="flex-1 text-center md:text-left">
                 <h3 className="text-3xl font-bold mb-4">{t('download.otherPlatforms')}</h3>
                 <p className="text-lg text-zinc-400 mb-8 max-w-md">
-                  {t('download.macLinuxMobile')}
+                  {t('download.macOSMobile', 'Notre version navigateur est entièrement adaptative et fonctionne parfaitement pour macOS et mobile.')}
                 </p>
                 <button 
                   onClick={() => navigate('/')}

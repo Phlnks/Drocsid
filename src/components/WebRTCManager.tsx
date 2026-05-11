@@ -317,6 +317,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
 
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [remoteScreenAudioStreams, setRemoteScreenAudioStreams] = useState<Map<string, MediaStream>>(new Map());
 
 
   // ─── Broadcast sounds join/leave/screenshare ───────────────────────────────
@@ -642,28 +643,19 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
         room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
           
           if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
-            // ✅ Toujours créer un nouveau MediaStream pour forcer le re-render du VideoPlayer
-            // Récupérer les éventuelles audio tracks déjà présentes dans l'ancien stream
-            const existing = useAppStore.getState().remoteScreenShares[participant.identity];
-            const audioTracks = existing ? existing.getAudioTracks() : [];
-            const stream = new MediaStream([track.mediaStreamTrack, ...audioTracks]);
+            const stream = new MediaStream([track.mediaStreamTrack]);
             setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            const existing = useAppStore.getState().remoteScreenShares[participant.identity];
-            if (existing) {
-              // ✅ Nouveau MediaStream avec vidéo + audio pour forcer le re-render
-              const videoTracks = existing.getVideoTracks();
-              const stream = new MediaStream([...videoTracks, track.mediaStreamTrack]);
-              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
-            } else {
-              // Audio arrivé avant la vidéo — stocker temporairement
-              const stream = new MediaStream([track.mediaStreamTrack]);
-              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: stream }));
-            
-            }
-            console.log(`[WebRTC] Screen share audio merged into video stream for ${participant.identity}`);
-
+            // ✅ NE PAS fusionner avec le stream vidéo — l'autoplay avec son est bloqué par le navigateur
+            // Jouer l'audio dans un <audio> séparé, exactement comme les micros
+            const audioStream = new MediaStream([track.mediaStreamTrack]);
+            setRemoteScreenAudioStreams(prev => {
+              const map = new Map(prev);
+              map.set(participant.identity, audioStream);
+              return map;
+            });
+            console.log(`[WebRTC] Screen share audio routed to dedicated <audio> for ${participant.identity}`);
           } else if (track.kind === Track.Kind.Audio) {
             // Micro normal
             const stream = new MediaStream([track.mediaStreamTrack]);
@@ -678,13 +670,11 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
             if (useAppStore.getState().activeStreamFocus === participant.identity) useAppStore.getState().setActiveStreamFocus(null);
 
           } else if (track.kind === Track.Kind.Audio && track.source === Track.Source.ScreenShareAudio) {
-            // ✅ Retirer la track audio du stream vidéo combiné
-            const existing = useAppStore.getState().remoteScreenShares[participant.identity];
-            if (existing) {
-              existing.removeTrack(track.mediaStreamTrack);
-              setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: existing }));
-            }
-
+            setRemoteScreenAudioStreams(prev => {
+              const map = new Map(prev);
+              map.delete(participant.identity);
+              return map;
+            });
           } else if (track.kind === Track.Kind.Audio) {
             setRemoteStreams(prev => { const map = new Map(prev); map.delete(participant.identity); return map; });
           }
@@ -901,6 +891,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
 
       setRemoteStreams(new Map());
       setRemoteScreenShares({});
+      setRemoteScreenAudioStreams(new Map());
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
@@ -924,6 +915,9 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
       {/* Joue tous les flux audio : micros distants + audio système des screen shares */}
       {Array.from(remoteStreams.entries()).map(([uid, stream]) => (
         <AudioPlayer key={uid} userId={uid} stream={stream} />
+      ))}
+      {Array.from(remoteScreenAudioStreams.entries()).map(([uid, stream]) => (
+        <AudioPlayer key={`screen-audio-${uid}`} userId={`screen-audio-${uid}`} stream={stream} />
       ))}
     </>
   );

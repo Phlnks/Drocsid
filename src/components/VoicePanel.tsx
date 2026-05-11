@@ -204,9 +204,14 @@ export default function VoicePanel() {
         const isScreen = sourceId.startsWith('screen:');
         try {
           if (!isScreen) throw new Error('Audio loopback only available for full screen');
-          // Écran entier avec audio système
+          // Écran entier avec audio système          
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: { mandatory: { chromeMediaSource: 'desktop' } },
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sourceId   // ← AJOUTER cette ligne
+              }
+            },
             video: {
               mandatory: {
                 chromeMediaSource: 'desktop',
@@ -286,6 +291,18 @@ export default function VoicePanel() {
       setScreenShareQuality(quality);
       setShowQualityMenu(false);
       setShowPicker(false);
+
+      // ─── Listener pour tracks audio ajoutées en retard ─────────────────────────
+      // Sur navigateur, l'audio peut arriver après la vidéo dans getDisplayMedia.
+      // Ce listener déclenche une re-publication si la track audio arrive tardivement.
+      stream.addEventListener('addtrack', async (e: MediaStreamTrackEvent) => {
+        if (e.track.kind !== 'audio') return;
+        // Importer roomRef depuis WebRTCManager n'est pas possible directement ici.
+        // On force un nouveau setLocalScreenShareStream pour re-déclencher le useEffect de publication.
+        // On crée un nouveau MediaStream avec les mêmes tracks pour changer la référence objet.
+        const refreshed = new MediaStream(stream.getTracks());
+        useAppStore.getState().setLocalScreenShareStream(refreshed);
+      });
 
       useAppStore.getState().setLocalScreenShareStream(stream);
       useAppStore.getState().setIsScreenSharing(true);
