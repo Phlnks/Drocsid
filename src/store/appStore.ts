@@ -312,6 +312,11 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem('drocsid-voice-volume-muted', JSON.stringify(muted));
     return { isVoiceVolumeMuted: muted };
   }),
+  setPeerVolume: (peerId, volume) => set((state) => {
+    const newPeerVolumes = { ...state.peerVolumes, [peerId]: volume };
+    localStorage.setItem('drocsid-peer-volumes', JSON.stringify(newPeerVolumes));
+    return { peerVolumes: newPeerVolumes };
+  }),
   setTheme: (theme) => {
     localStorage.setItem('drocsid-theme', theme);
     set({ theme });

@@ -4,6 +4,22 @@ import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { playMessageSound } from '../lib/sounds';
 
+const dmParticipantsCache = new Map<string, { participants: string[], fetchedAt: number }>();
+const CACHE_TTL = 60000; // 1 minute
+
+async function isParticipantWithCache(dmId: string, userId: string): Promise<boolean> {
+  const cached = dmParticipantsCache.get(dmId);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
+    return cached.participants.includes(userId);
+  }
+
+  const { data: dm } = await supabase.from('dms').select('participants').eq('id', dmId).maybeSingle();
+  if (!dm || !dm.participants) return false;
+
+  dmParticipantsCache.set(dmId, { participants: dm.participants, fetchedAt: Date.now() });
+  return dm.participants.includes(userId);
+}
+
 export default function NotificationManager() {
   const { user } = useAuthStore();
   const { selectedChannelId, selectedDmId, notificationSettings, mutedServers, mutedDms } = useAppStore();
@@ -37,8 +53,10 @@ export default function NotificationManager() {
         // Don't notify if user is the author or if DM is muted
         if (message.author_id === user.id || mutedDms.includes(message.dm_id)) return;
 
-        // If mentions only preference is on, DMs are still special but we can apply logic if needed. 
-        // Typically DMs always notify unless muted.
+        // Extra check: Verify participation if we want to be 100% sure (Defense in depth)
+        // Since RLS is the main security, this is a fallback with a TTL cache for performance.
+        const isUserParticipant = await isParticipantWithCache(message.dm_id, user.id);
+        if (!isUserParticipant) return;
 
         // Note: we can't fully rely on document.hasFocus() in an effect, but we check it at the time of the event
         const windowIsFocused = document.hasFocus();

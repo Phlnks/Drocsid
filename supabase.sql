@@ -221,9 +221,6 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO anon, authenticated, serv
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 
 -- Active RLS sur toutes les tables
--- Nous mettrons des accès larges (Allow tout) pour éviter l'erreur 0A000
--- des anciennes policies et permettre au site de fonctionner sans bug.
-
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.servers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
@@ -241,22 +238,45 @@ ALTER TABLE public.server_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.server_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.voice_participants ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Auth_All_profiles" ON public.profiles FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_servers" ON public.servers FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_categories" ON public.categories FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_channels" ON public.channels FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_dms" ON public.dms FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_calls" ON public.calls FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_dm_messages" ON public.dm_messages FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_invites" ON public.invites FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_messages" ON public.messages FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_notifications" ON public.notifications FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_relationships" ON public.relationships FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_roles" ON public.roles FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_server_bans" ON public.server_bans FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_server_logs" ON public.server_logs FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_server_members" ON public.server_members FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
-CREATE POLICY "Auth_All_voice_participants" ON public.voice_participants FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
+-- 1. Profiles: Tout le monde peut voir les profils (pour la recherche/username)
+CREATE POLICY "profiles_read_all" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "profiles_update_self" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- 2. Servers & Members: Accès si membre
+CREATE POLICY "servers_access" ON public.servers FOR ALL TO authenticated USING (true); -- On peut laisser SELECT true pour rejoindre via invite
+CREATE POLICY "server_members_access" ON public.server_members FOR ALL TO authenticated USING (true);
+
+-- 3. DMs & DM Messages: STRICTEMENT RÉSERVÉ AUX PARTICIPANTS
+CREATE POLICY "dms_participant_access" ON public.dms
+  FOR ALL TO authenticated
+  USING (auth.uid() = ANY(participants));
+
+CREATE POLICY "dm_messages_participant_access" ON public.dm_messages
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.dms
+      WHERE dms.id = dm_messages.dm_id
+      AND auth.uid() = ANY(participants)
+    )
+  );
+
+-- 4. Notifications: SEULEMENT LE PROPRIÉTAIRE
+CREATE POLICY "notifications_owner_access" ON public.notifications
+  FOR ALL TO authenticated
+  USING (auth.uid() = user_id);
+
+-- 5. Messages (Channels): On laisse pour l'instant car ça nécessite des checks complexes sur server_members
+CREATE POLICY "Auth_All_messages" ON public.messages FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_channels" ON public.channels FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_categories" ON public.categories FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_invites" ON public.invites FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_roles" ON public.roles FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_server_bans" ON public.server_bans FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_server_logs" ON public.server_logs FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_voice_participants" ON public.voice_participants FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_relationships" ON public.relationships FOR ALL TO authenticated USING (true);
+CREATE POLICY "Auth_All_calls" ON public.calls FOR ALL TO authenticated USING (true);
 
 
 -- ==========================================

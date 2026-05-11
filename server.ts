@@ -265,7 +265,23 @@ async function startServer() {
       });
     });
 
-    socket.on("join-channel", (channelId) => {
+    socket.on("join-channel", async (channelId) => {
+      if (!currentUserId) {
+        console.warn(`[Socket] User ${socket.id} tried to join channel ${channelId} without being identified`);
+        return;
+      }
+
+      // Basic security check for DMs
+      if (channelId.length === 36) { // Possible UUID (DM or Channel)
+         const { data: dm } = await supabaseAdmin.from('dms').select('participants').eq('id', channelId).maybeSingle();
+         if (dm && dm.participants) {
+           if (!dm.participants.includes(currentUserId)) {
+             console.log(`User ${currentUserId} attempted to join unauthorized DM channel ${channelId}`);
+             return;
+           }
+         }
+      }
+
       socket.join(channelId);
       console.log(`User ${socket.id} joined channel ${channelId}`);
     });
@@ -290,75 +306,75 @@ async function startServer() {
       io.to(message.channel_id).emit("message", message);
     });
 
-socket.on('new-dm-message', async (message) => {
-  console.log('[DM] Reçu:', JSON.stringify(message).slice(0, 200));
+    socket.on('new-dm-message', async (message) => {
+      if (!currentUserId) return;
 
-  // Broadcast aux participants
-  io.to(message.dm_id).emit('dm-message', message);
+      console.log('[DM] Reçu:', JSON.stringify(message).slice(0, 200));
 
-  // ── PUSH NOTIFICATION ────────────────────────────────────────────
-  try {
-    const { data: dm } = await supabaseAdmin
-      .from('dms')
-      .select('participants')
-      .eq('id', message.dm_id)          // ← snake_case : dm_id
-      .single();
-
-    if (!dm?.participants) {
-      console.log('[Push] Pas de participants trouvés pour dm_id:', message.dm_id);
-      return;
-    }
-
-    const recipients = dm.participants.filter(
-      (id: string) => id !== message.author_id  // ← snake_case : author_id
-    );
-
-    console.log('[Push] Recipients:', recipients);
-
-    for (const recipientId of recipients) {
-      const { data: subData } = await supabaseAdmin
-        .from('push_subscriptions')
-        .select('subscription')
-        .eq('user_id', recipientId)
+      // ✅ Un seul fetch — réutilisé pour vérification ET push
+      const { data: dm } = await supabaseAdmin
+        .from('dms')
+        .select('participants')
+        .eq('id', message.dm_id)
         .maybeSingle();
 
-      if (!subData?.subscription) {
-        console.log('[Push] Pas de souscription pour:', recipientId);
-        continue;
+      if (!dm?.participants?.includes(currentUserId)) {
+        console.warn(`[Socket] Unauthorized DM message attempt from ${currentUserId} to ${message.dm_id}`);
+        return;
       }
 
-      const authorName = message.author_name || 'Quelqu\'un';
-      const body = message.content
-        ? message.content.slice(0, 100)
-        : '📎 Fichier joint';
+      // Broadcast aux participants (seulement ceux dans la room)
+      io.to(message.dm_id).emit('dm-message', message);
 
+      // ── PUSH NOTIFICATION ─────────────────────────────────────────────────
       try {
-        await webpush.sendNotification(
-          subData.subscription,
-          JSON.stringify({
-            title: `💬 ${authorName}`,
-            body,
-            icon: '/logo-192.png',
-            url: `/?dm=${message.dm_id}`,
-          })
+        const recipients = dm.participants.filter(
+          (id: string) => id !== message.author_id
         );
-        console.log('[Push] ✅ Notification envoyée à:', recipientId);
-      } catch (pushErr: any) {
-        console.error('[Push] ❌ Erreur envoi:', pushErr.statusCode, pushErr.message);
-        // Supprimer la souscription expirée
-        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-          await supabaseAdmin
+
+        console.log('[Push] Recipients:', recipients);
+
+        for (const recipientId of recipients) {
+          const { data: subData } = await supabaseAdmin
             .from('push_subscriptions')
-            .delete()
-            .eq('user_id', recipientId);
-          console.log('[Push] Souscription expirée supprimée pour:', recipientId);
+            .select('subscription')
+            .eq('user_id', recipientId)
+            .maybeSingle();
+
+          if (!subData?.subscription) {
+            console.log('[Push] Pas de souscription pour:', recipientId);
+            continue;
+          }
+
+          const authorName = message.author_name || 'Quelqu\'un';
+          const body = message.content ? message.content.slice(0, 100) : '📎 Fichier joint';
+
+          try {
+            await webpush.sendNotification(
+              subData.subscription,
+              JSON.stringify({
+                title: `💬 ${authorName}`,
+                body,
+                icon: '/logo-192.png',
+                url: `/?dm=${message.dm_id}`,
+              })
+            );
+            console.log('[Push] ✅ Notification envoyée à:', recipientId);
+          } catch (pushErr: any) {
+            console.error('[Push] ❌ Erreur envoi:', pushErr.statusCode, pushErr.message);
+            if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+              await supabaseAdmin
+                .from('push_subscriptions')
+                .delete()
+                .eq('user_id', recipientId);
+              console.log('[Push] Souscription expirée supprimée pour:', recipientId);
+            }
+          }
         }
+      } catch (err) {
+        console.error('[Push] Erreur:', err);
       }
-    }
-  } catch (err) {
-    console.error('[Push] Erreur:', err);
-  }
-});
+    });
 
     socket.on("update-message", (message) => {
       const target = message.channel_id || message.dm_id;
@@ -454,7 +470,7 @@ socket.on('new-dm-message', async (message) => {
       // Broadcast the soundboard sound event to all clients.
       // receiver's VoicePanel will filter by channelId.
       console.log(`Soundboard: Server received sound request from ${data.userId} for channel ${data.channelId}. Broadcasting to all.`);
-      io.emit("soundboard-sound-played", data);
+      io.to(data.channelId).emit("soundboard-sound-played", data); // ← room seulement
     });
 
     socket.on("disconnect", async () => {
