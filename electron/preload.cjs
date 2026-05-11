@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('electron', {
   onToggleDeafen: (callback) => ipcRenderer.on('toggle-deafen-global', callback),
   removeToggleDeafen: (callback) => ipcRenderer.removeListener('toggle-deafen-global', callback),
   updateShortcuts: (shortcuts) => ipcRenderer.send('update-shortcuts', shortcuts),
+  updateTray: (state) => ipcRenderer.send('tray-update', state),
   setLaunchAtStartup: (enabled) => ipcRenderer.send('set-launch-at-startup', enabled)
 });

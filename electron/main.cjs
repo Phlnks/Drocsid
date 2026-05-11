@@ -144,6 +144,53 @@ function createTray() {
   });
 }
 
+// ─── Tray Icons Cache ──────────────────────────────────────────────────────
+function loadTrayIcons() {
+  const bases = [
+    path.join(__dirname, '../public/tray'),
+    path.join(process.resourcesPath, 'app/public/tray'),
+    path.join(process.resourcesPath, 'public/tray'),
+  ];
+  const base = bases.find(p => fs.existsSync(p)) || bases[0];
+
+  const load = (name) => {
+    const p = path.join(base, name);
+    return fs.existsSync(p) ? nativeImage.createFromPath(p) : nativeImage.createEmpty();
+  };
+
+  return {
+    default:   load('tray-default.png'),
+    muted:     load('tray-muted.png'),
+    deafened:  load('tray-deafened.png'),
+    speaking:  load('tray-speaking.png'),
+    silent:    load('tray-silent.png'),
+  };
+}
+
+let trayIcons = null;
+
+// ─── IPC — mise à jour de l'icône tray ────────────────────────────────────
+ipcMain.on('tray-update', (_event, state) => {
+  if (!tray) return;
+  if (!trayIcons) trayIcons = loadTrayIcons();
+
+  const { inVoice, isMuted, isDeafened, isSpeaking } = state;
+
+  if (!inVoice) {
+    tray.setImage(trayIcons.default);
+    tray.setToolTip('Drocsid');
+  } else if (isDeafened) {
+    tray.setImage(trayIcons.deafened);
+    tray.setToolTip('Drocsid — Sourdine active');
+  } else if (isMuted) {
+    tray.setImage(trayIcons.muted);
+    tray.setToolTip('Drocsid — Micro coupé');
+  } else {
+    tray.setImage(isSpeaking ? trayIcons.speaking : trayIcons.silent);
+    tray.setToolTip(isSpeaking ? 'Drocsid — En train de parler' : 'Drocsid — En communication');
+  }
+});
+
 // Global Shortcuts dynamic configuration
 ipcMain.on('update-shortcuts', (event, shortcuts) => {
   globalShortcut.unregisterAll();
