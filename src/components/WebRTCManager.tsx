@@ -17,6 +17,7 @@ function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
   // Créer la chaîne GainNode quand le stream change
   useEffect(() => {
     if (!audioRef.current || !stream) return;
+    console.warn('[AP 5] 🔊 AudioPlayer mount | userId:', userId, '| tracks:', stream.getTracks().length, '| readyState:', stream.getTracks()[0]?.readyState);
 
     const processedStream = createPeerAudioChain(userId, stream, userPeerVolume);
     audioRef.current.srcObject = processedStream;
@@ -25,6 +26,7 @@ function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
     });
 
     return () => {
+      console.warn('[AP 5b] 🔇 AudioPlayer unmount | userId:', userId);  
       destroyPeerAudioChain(userId);
       if (audioRef.current) audioRef.current.srcObject = null;
     };
@@ -622,7 +624,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
         const currentInstance = getCurrentInstance();
         const livekitUrl = currentInstance?.livekitUrl || import.meta.env.VITE_LIVEKIT_URL;
         if (!livekitUrl) { console.warn("VITE_LIVEKIT_URL is not set."); return; }
-
+        console.warn('[LK 0] 🔑 Demande token | channel:', connectedVoiceChannelId, '| user:', currentUser.id);
         const tokenEndpoint = currentInstance?.livekitTokenEndpoint || import.meta.env.VITE_LIVEKIT_TOKEN_ENDPOINT || '/api/livekit/token';
         const res = await fetch(tokenEndpoint, {
           method: 'POST',
@@ -633,6 +635,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
             participantName: (currentUser as any).user_metadata?.username || 'Utilisateur'
           })
         });
+        console.warn('[LK 0b] 📡 Token status:', res.status, res.ok ? '✅' : '❌');
         if (!res.ok) { console.error("Failed to fetch LiveKit token:", await res.text()); return; }
 
         const data = await res.json();
@@ -666,8 +669,10 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
 
           } else if (track.kind === Track.Kind.Audio) {
             // Micro normal
+            console.warn('[LK 3] 📥 Micro reçu | from:', participant.identity, '| readyState:', track.mediaStreamTrack.readyState, '| enabled:', track.mediaStreamTrack.enabled);
             const stream = new MediaStream([track.mediaStreamTrack]);
             setRemoteStreams(prev => { const map = new Map(prev); map.set(participant.identity, stream); return map; });
+            console.warn('[LK 3b] remoteStreams size après set:', remoteStreams.size + 1);
           }
         });
 
@@ -686,8 +691,25 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
             }
 
           } else if (track.kind === Track.Kind.Audio) {
+            console.warn('[LK 4] 📤 Micro retiré | from:', participant.identity);
             setRemoteStreams(prev => { const map = new Map(prev); map.delete(participant.identity); return map; });
           }
+        });
+
+        room.on(RoomEvent.ParticipantConnected, (p) => {
+          console.warn('[LK 6] 👤 Participant rejoint:', p.identity, '| total:', room.remoteParticipants.size);
+        });
+
+        room.on(RoomEvent.ParticipantDisconnected, (p) => {
+          console.warn('[LK 7] 👋 Participant parti:', p.identity);
+        });
+
+        room.on(RoomEvent.ConnectionStateChanged, (state) => {
+          console.warn('[LK 8] 🔌 ConnectionState:', state);
+        });
+
+        room.on(RoomEvent.MediaDevicesError, (e) => {
+          console.error('[LK 9] ❌ MediaDevicesError:', e.message);
         });
 
         room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
@@ -768,7 +790,9 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
         });
 
         await room.connect(livekitUrl, token);
-        console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);
+        console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);        
+        console.warn('[LK 1] ✅ Room connectée | state:', room.state, '| participants distants:', room.remoteParticipants.size);
+        console.warn('[LK 1b] ICE config:', JSON.stringify(room.engine?.pcManager?.publisher?.pc?.getConfiguration()));
 
         // ── DM Call Joined Sound ──
         const handleCallJoined = () => {
@@ -845,6 +869,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
               red: true,
               dtx: true,
             });
+            console.warn('[LK 2] 🎤 Micro publié | muted:', localAudioTrack.isMuted, '| tracks locaux:', room.localParticipant.trackPublications.size);
           }
         } catch (e) { console.error("Could not capture microphone:", e); }
 
