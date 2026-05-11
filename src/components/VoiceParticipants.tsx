@@ -6,9 +6,11 @@ import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
 import UserProfileModal from './ui/UserProfileModal';
 
+
 interface VoiceParticipantsProps {
   channelId?: string;
 }
+
 
 export default function VoiceParticipants({ channelId }: VoiceParticipantsProps) {
   const { 
@@ -20,6 +22,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     activeStreamFocus,
     setActiveStreamFocus,
     setIsMobileNavOpen,
+    setIsRightSidebarOpen, // ✅ AJOUTÉ
     voiceParticipants: allVoiceParticipants,
     globalProfiles
   } = useAppStore();
@@ -28,11 +31,13 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
+
   const toggleViewScreenShare = (e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
     
     if (window.innerWidth < 768) {
       if (activeStreamFocus === uid) {
+        // Fermeture du stream — on ne touche pas au panneau
         setActiveStreamFocus(null);
         setViewingScreenShares(prev => {
           const next = new Set(prev);
@@ -40,6 +45,8 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
           return next;
         });
       } else {
+        // Ouverture du stream — on ferme le panneau latéral d'abord ✅
+        setIsRightSidebarOpen(false);
         setActiveStreamFocus(uid);
         setViewingScreenShares(prev => {
           const next = new Set(prev);
@@ -51,12 +58,19 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     } else {
       setViewingScreenShares(prev => {
         const next = new Set(prev);
-        if (next.has(uid)) next.delete(uid);
-        else next.add(uid);
+        if (next.has(uid)) {
+          // Fermeture — on ne touche pas au panneau
+          next.delete(uid);
+        } else {
+          // Ouverture — on ferme le panneau latéral d'abord ✅
+          setIsRightSidebarOpen(false);
+          next.add(uid);
+        }
         return next;
       });
     }
   };
+
 
   const handleContextMenu = (e: React.MouseEvent, p: any) => {
     e.preventDefault();
@@ -68,7 +82,9 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     });
   };
 
+
   if (participants.length === 0) return null;
+
 
   return (
     <div className="bg-zinc-900 border-b border-zinc-700 p-3 shrink-0 flex flex-wrap gap-3 max-h-28 overflow-y-auto md:max-h-none md:overflow-visible">
@@ -78,6 +94,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
         const userProfile = globalProfiles[p.id];
         const displayName = userProfile?.username || p.name;
         const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
+
 
         return (
           <div 
@@ -119,6 +136,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
         );
       })}
 
+
       {contextMenu && (
         <UserContextMenu
           userId={contextMenu.userId}
@@ -132,6 +150,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
           }}
         />
       )}
+
 
       <UserProfileModal
         isOpen={!!selectedUser}
