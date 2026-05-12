@@ -19,8 +19,13 @@ function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
     if (!audioRef.current || !stream) return;
     console.warn('[AP 5] 🔊 AudioPlayer mount | userId:', userId, '| tracks:', stream.getTracks().length, '| readyState:', stream.getTracks()[0]?.readyState);
 
-    const processedStream = createPeerAudioChain(userId, stream, userPeerVolume);
-    audioRef.current.srcObject = processedStream;
+    //const processedStream = createPeerAudioChain(userId, stream, userPeerVolume);
+    //audioRef.current.srcObject = processedStream;
+    //TEST TMP
+    audioRef.current.srcObject = stream;
+    audioRef.current.volume = Math.max(0, Math.min(1, voiceVolume * userPeerVolume));
+
+
     audioRef.current.play().catch(e => {
       if (e.name !== 'AbortError') console.error("Audio play error:", e);
     });
