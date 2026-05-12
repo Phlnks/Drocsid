@@ -549,7 +549,9 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
       audio.loop = true;
       silentAudioRef.current = audio;
     }
-    silentAudioRef.current.play().catch(() => {});
+    silentAudioRef.current.play()
+      .then(() => console.warn('[SILENT] ✅ audio started'))
+      .catch(e => console.error('[SILENT] ❌ audio blocked', e));
   }, [connectedVoiceChannelId, currentUser, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened, setConnectedVoiceChannelId]);
 
 
@@ -630,6 +632,14 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
     roomRef.current = room;
 
     const connectToLiveKit = async () => {
+
+      // 👇 Fix Chrome — débloquer l'AudioContext au moment de la connexion
+      try {
+        const tmpCtx = new AudioContext();
+        await tmpCtx.resume();
+        await tmpCtx.close();
+      } catch (e) { /* silencieux */ }  
+
       try {
         const currentInstance = getCurrentInstance();
         const livekitUrl = currentInstance?.livekitUrl || import.meta.env.VITE_LIVEKIT_URL;
