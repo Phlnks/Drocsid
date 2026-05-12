@@ -777,9 +777,8 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
               await room.localParticipant.unpublishTrack(existingPub.track as LocalAudioTrack);
             }
 
-            const micStream = currentSettings.micSensitivity > 0
-              ? await applyNoiseGate(rawMicStreamRef.current, currentSettings.micSensitivity)
-              : (await setupLocalAnalyser(rawMicStreamRef.current), rawMicStreamRef.current);
+            await setupLocalAnalyser(rawMicStreamRef.current);
+            const micStream = rawMicStreamRef.current;
 
               const audioTrack = micStream.getAudioTracks()[0];
               console.warn('[LK DEBUG] audioTrack:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
@@ -864,10 +863,8 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
           });
           rawMicStreamRef.current = rawMicStream;
 
-          // ✅ Appliquer le noise gate si sensibilité > 0
-          const micStream = voiceSettings.micSensitivity > 0
-            ? await applyNoiseGate(rawMicStream, voiceSettings.micSensitivity)
-            : (await setupLocalAnalyser(rawMicStream), rawMicStream);
+          await setupLocalAnalyser(rawMicStream);
+          const micStream = rawMicStream;
 
           const audioTrack = micStream.getAudioTracks()[0];
           console.warn('[LK DEBUG] audioTrack apres NoiseGate:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
