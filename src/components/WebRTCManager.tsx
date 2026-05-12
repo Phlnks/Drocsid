@@ -642,16 +642,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
     });
     roomRef.current = room;
 
-    const connectToLiveKit = async () => {
-
-      // 👇 Fix Chrome — débloquer l'AudioContext au moment de la connexion
-      
-      const ctx = noiseGateCtxRef.current;
-      if (ctx.state === 'suspended') {
-        await ctx.resume();
-      }
-      console.warn('[CTX] AudioContext state:', ctx.state);
-      
+    const connectToLiveKit = async () => {     
 
       try {
         const currentInstance = getCurrentInstance();
