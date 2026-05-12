@@ -542,8 +542,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
       try { navigator.mediaSession.setActionHandler('togglemicrophone' as any, () => { setIsVoiceMuted(!isVoiceMuted); if (!isVoiceMuted) playMuteSound(); else playUnmuteSound(); }); } catch (e) {}
       try { navigator.mediaSession.setActionHandler('hangup' as any, () => setConnectedVoiceChannelId(null)); } catch (e) {}
     }
-    if (!silentAudioRef.current) {
-      const audio = new Audio();      
+    if (!silentAudioRef.current) {      
       // Générer un vrai silence via Web Audio API — compatible Chrome/Firefox/Safari
       const silentCtx = new AudioContext();
       const silentBuffer = silentCtx.createBuffer(1, silentCtx.sampleRate, silentCtx.sampleRate);
@@ -644,11 +643,13 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
     const connectToLiveKit = async () => {
 
       // 👇 Fix Chrome — débloquer l'AudioContext au moment de la connexion
-      try {
-        const tmpCtx = new AudioContext();
-        await tmpCtx.resume();
-        await tmpCtx.close();
-      } catch (e) { /* silencieux */ }  
+      
+      const ctx = noiseGateCtxRef.current;
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      console.warn('[CTX] AudioContext state:', ctx.state);
+      
 
       try {
         const currentInstance = getCurrentInstance();
