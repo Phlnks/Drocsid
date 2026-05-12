@@ -869,7 +869,11 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
               red: true,
               dtx: true,
             });
-            console.warn('[LK 2] 🎤 Micro publié | muted:', localAudioTrack.isMuted, '| tracks locaux:', room.localParticipant.trackPublications.size);
+            const _iceRaw = room.engine?.pcManager?.publisher?.pc?.getConfiguration();
+            console.warn('[LK 1b] ICE config:', JSON.stringify({
+              ..._iceRaw,
+              iceServers: (_iceRaw?.iceServers ?? []).map(s => ({ ...s, credential: '***', username: '***' }))
+            }));
           }
         } catch (e) { console.error("Could not capture microphone:", e); }
 
