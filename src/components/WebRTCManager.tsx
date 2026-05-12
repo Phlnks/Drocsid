@@ -6,59 +6,49 @@ import { useInstanceStore } from '../store/instanceStore';
 import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playCallJoinedSound, stopRingtone } from '../lib/sounds';
 import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
-import { createPeerAudioChain, destroyPeerAudioChain, setPeerGain, destroyAllPeerAudioChains } from '../lib/audioManager';
 
 
-function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
+function AudioPlayer({ userId, stream }: { userId: string; stream: any }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted, peerVolumes } = useAppStore();
   const userPeerVolume = peerVolumes[userId] ?? 1.0;
 
-  // Créer la chaîne GainNode quand le stream change
+  // Brancher le stream directement — pas de Web Audio intermédiaire
   useEffect(() => {
     if (!audioRef.current || !stream) return;
-    console.warn('[AP 5] 🔊 AudioPlayer mount | userId:', userId, '| tracks:', stream.getTracks().length, '| readyState:', stream.getTracks()[0]?.readyState);
-
-    //const processedStream = createPeerAudioChain(userId, stream, userPeerVolume);
-    //audioRef.current.srcObject = processedStream;
-    //TEST TMP
+    console.warn('[AP 5] AudioPlayer mount | userId:', userId, '| tracks:', stream.getTracks().length);
     audioRef.current.srcObject = stream;
-    audioRef.current.volume = Math.max(0, Math.min(1, voiceVolume * userPeerVolume));
-
-
     audioRef.current.play().catch(e => {
-      if (e.name !== 'AbortError') console.error("Audio play error:", e);
+      if (e.name !== 'AbortError') console.error('[AP] Audio play error', e);
     });
-    console.warn('[AP 6] audio element state | muted:', audioRef.current.muted, '| volume:', audioRef.current.volume, '| paused:', audioRef.current.paused);
-
     return () => {
-      console.warn('[AP 5b] 🔇 AudioPlayer unmount | userId:', userId);  
-      destroyPeerAudioChain(userId);
+      console.warn('[AP 5b] AudioPlayer unmount | userId:', userId);
       if (audioRef.current) audioRef.current.srcObject = null;
     };
   }, [stream, userId]);
 
-  // Volume global → sur l'élément HTML (0.0-1.0, safe)
+  // Volume global (0.0 - 1.0)
   useEffect(() => {
     if (!audioRef.current) return;
     audioRef.current.volume = Math.max(0, Math.min(1.0, voiceVolume));
   }, [voiceVolume]);
 
-  // Volume individuel → sur le GainNode (peut dépasser 1.0)
+  // Volume individuel — clampé à 1.0, pas de boost Web Audio
   useEffect(() => {
-    setPeerGain(userId, userPeerVolume);
-  }, [userPeerVolume, userId]);
+    if (!audioRef.current) return;
+    audioRef.current.volume = Math.max(0, Math.min(1.0, voiceVolume * userPeerVolume));
+  }, [userPeerVolume, voiceVolume, userId]);
 
-  // Mute (deafen ou mute global)
+  // Mute / deafen
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = isDeafened || isVoiceVolumeMuted;
   }, [isDeafened, isVoiceVolumeMuted]);
 
   // Sortie audio (sinkId)
   useEffect(() => {
-    if (audioRef.current && voiceSettings.selectedSpeakerId && (audioRef.current as any).setSinkId) {
-      (audioRef.current as any).setSinkId(voiceSettings.selectedSpeakerId)
-        .catch((e: any) => console.error("Error setting output device:", e));
+    if (audioRef.current && voiceSettings.selectedSpeakerId) {
+      (audioRef.current as any).setSinkId?.(voiceSettings.selectedSpeakerId)
+        .catch((e: any) => console.error('Error setting output device', e));
     }
   }, [voiceSettings.selectedSpeakerId]);
 
@@ -937,8 +927,6 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
         noiseGateCtxRef.current.close();
         noiseGateCtxRef.current = null;
       }
-      // ✅ Nettoyer les GainNodes de tous les peers
-      destroyAllPeerAudioChains();
 
       if (roomRef.current) { 
         if ((roomRef.current as any)._onSocketConnect) {

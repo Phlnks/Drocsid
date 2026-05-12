@@ -431,7 +431,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
                 <input 
                   type="range"
                   min="0"
-                  max="2.0"
+                  max="1.0"
                   step="0.01"
                   value={localVolume}
                   onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
