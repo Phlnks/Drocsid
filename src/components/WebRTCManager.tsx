@@ -543,9 +543,19 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
       try { navigator.mediaSession.setActionHandler('hangup' as any, () => setConnectedVoiceChannelId(null)); } catch (e) {}
     }
     if (!silentAudioRef.current) {
+      const audio = new Audio();      
+      // Générer un vrai silence via Web Audio API — compatible Chrome/Firefox/Safari
+      const silentCtx = new AudioContext();
+      const silentBuffer = silentCtx.createBuffer(1, silentCtx.sampleRate, silentCtx.sampleRate);
+      const silentDest = silentCtx.createMediaStreamDestination();
+      const silentSource = silentCtx.createBufferSource();
+      silentSource.buffer = silentBuffer;
+      silentSource.loop = true;
+      silentSource.connect(silentDest);
+      silentSource.start();
+
       const audio = new Audio();
-      // More robust silence base64 (44 bytes standard header + 8 bytes data)
-      audio.src = 'data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YSAAAAAAoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA+gD6APoA=';
+      audio.srcObject = silentDest.stream;
       audio.loop = true;
       silentAudioRef.current = audio;
     }
