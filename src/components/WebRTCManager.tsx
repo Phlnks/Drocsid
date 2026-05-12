@@ -772,6 +772,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
               : (await setupLocalAnalyser(rawMicStreamRef.current), rawMicStreamRef.current);
 
               const audioTrack = micStream.getAudioTracks()[0];
+              console.warn('[LK DEBUG] audioTrack:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
               if (audioTrack) {
                 const localAudioTrack = new LocalAudioTrack(audioTrack);
                 if (currentIsMuted || currentIsDeafened) {
@@ -859,6 +860,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
             : (await setupLocalAnalyser(rawMicStream), rawMicStream);
 
           const audioTrack = micStream.getAudioTracks()[0];
+          console.warn('[LK DEBUG] audioTrack apres NoiseGate:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
           if (audioTrack) {
             const localAudioTrack = new LocalAudioTrack(audioTrack);
             if (isVoiceMuted || isDeafened) {
