@@ -89,8 +89,9 @@ export default function WebRTCManager() {
   const rawMicStreamRef = useRef<MediaStream | null>(null);
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number | null>(null);
-  // Ajoute ce ref en haut de WebRTCManager (avec les autres refs)
+
   const prevTrayStateRef = useRef({ isSpeaking: false });
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const startLocalSpeakingAnalysis = () => {
     if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -278,12 +279,25 @@ export default function WebRTCManager() {
 
   // ─── Mute local mic ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (roomRef.current?.localParticipant) {
-      roomRef.current.localParticipant.setMicrophoneEnabled(!(isVoiceMuted || isDeafened));
-    }
-    if (connectedVoiceChannelId && currentUser) {
-      socket.emit('voice-state-update', { channelId: connectedVoiceChannelId, userId: currentUser.id, updates: { isMuted: isVoiceMuted, isDeafened } });
-    }
+    const run = async () => {
+      try {
+        if (roomRef.current?.localParticipant) {
+          await roomRef.current.localParticipant.setMicrophoneEnabled(!(isVoiceMuted || isDeafened));
+        }
+      } catch (e) {
+        console.warn('[LK MIC] setMicrophoneEnabled ignoré pendant reconnexion transitoire', e);
+      }
+
+      if (connectedVoiceChannelId && currentUser) {
+        socket.emit('voice-state-update', {
+          channelId: connectedVoiceChannelId,
+          userId: currentUser.id,
+          updates: { isMuted: isVoiceMuted, isDeafened }
+        });
+      }
+    };
+
+    run();
   }, [isVoiceMuted, isDeafened, connectedVoiceChannelId, currentUser]);
 
 
@@ -686,29 +700,34 @@ export default function WebRTCManager() {
             await setupLocalAnalyser(rawMicStreamRef.current);
             const micStream = rawMicStreamRef.current;
 
-              const audioTrack = micStream.getAudioTracks()[0];
-              console.warn('[LK DEBUG] audioTrack:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
-              if (audioTrack) {
-                const localAudioTrack = new LocalAudioTrack(audioTrack);
-                if (currentIsMuted || currentIsDeafened) {
-                    await localAudioTrack.mute();
-                }
-                await room.localParticipant.publishTrack(localAudioTrack, {
-                  source: Track.Source.Microphone,
-                  red: true,
-                  dtx: true,
-                });
-                console.log('[WebRTC] Microphone track successfully republished after reconnect.');
+            const audioTrack = micStream.getAudioTracks()[0];
+            console.warn('[LK DEBUG] audioTrack:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
+            if (audioTrack) {
+              const localAudioTrack = new LocalAudioTrack(audioTrack);
+              if (currentIsMuted || currentIsDeafened) {
+                await localAudioTrack.mute();
               }
-            } catch (err) {
-              console.error("[WebRTC] Reconnected mic publish error:", err);
+
+              await wait(800);
+
+              await room.localParticipant.publishTrack(localAudioTrack, {
+                source: Track.Source.Microphone,
+                red: true,
+                dtx: true,
+              });
+
+              console.log('[WebRTC] Microphone track successfully republished after reconnect.');
             }
+          } catch (err) {
+            console.error("[WebRTC] Reconnected mic publish error:", err);
+          }
         });
 
         await room.connect(livekitUrl, token);
         console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);        
         console.warn('[LK 1] ✅ Room connectée | state:', room.state, '| participants distants:', room.remoteParticipants.size);
-      
+        
+        await wait(800);      
 
         // ── DM Call Joined Sound ──
         const handleCallJoined = () => {
