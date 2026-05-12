@@ -206,6 +206,9 @@ export default function WebRTCManager() {
     }
     
     const ctx = noiseGateCtxRef.current;
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
     const source = ctx.createMediaStreamSource(stream);
     
     const analyser = ctx.createAnalyser();
@@ -232,6 +235,10 @@ export default function WebRTCManager() {
 
     const ctx = new AudioContext();
     noiseGateCtxRef.current = ctx;
+    // 👇 OBLIGATOIRE — le contexte démarre suspendu sans interaction utilisateur
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
 
     const source = ctx.createMediaStreamSource(stream);
     const destination = ctx.createMediaStreamDestination();
@@ -311,7 +318,9 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
     source.connect(noiseGateNode);
     noiseGateNode.connect(destination);
 
-    return destination.stream;
+    // Retourner le stream ORIGINAL (rawMicStream) pour LiveKit
+    // Le noise gate agit en amont mais LiveKit prend la source brute
+    return stream; // ← stream = le paramètre d'entrée de applyNoiseGate
   };
 
   const prevVoiceParticipantsRef = useRef<any[]>([]);
