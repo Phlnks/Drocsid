@@ -792,7 +792,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
         await room.connect(livekitUrl, token);
         console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);        
         console.warn('[LK 1] ✅ Room connectée | state:', room.state, '| participants distants:', room.remoteParticipants.size);
-        console.warn('[LK 1b] ICE config:', JSON.stringify(iceSafe));
+      
 
         // ── DM Call Joined Sound ──
         const handleCallJoined = () => {
@@ -869,7 +869,7 @@ registerProcessor('noise-gate-processor', NoiseGateProcessor);
               red: true,
               dtx: true,
             });
-            const _iceRaw = room.engine?.pcManager?.publisher?.pc?.getConfiguration();
+            const _iceRaw = (room.engine?.pcManager?.publisher as any)?.pc?.getConfiguration();
             console.warn('[LK 1b] ICE config:', JSON.stringify({
               ..._iceRaw,
               iceServers: (_iceRaw?.iceServers ?? []).map(s => ({ ...s, credential: '***', username: '***' }))
