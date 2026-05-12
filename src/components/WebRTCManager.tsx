@@ -200,23 +200,25 @@ export default function WebRTCManager() {
   const setupLocalAnalyser = async (stream: MediaStream) => {
     if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     
-    // Create AudioContext if not exists (needed for Analyser even if no NoiseGate)
-    if (!noiseGateCtxRef.current) {
+    // Toujours créer un nouveau contexte s'il n'existe pas ou est fermé
+    if (!noiseGateCtxRef.current || noiseGateCtxRef.current.state === 'closed') {
       noiseGateCtxRef.current = new AudioContext();
     }
-    
     const ctx = noiseGateCtxRef.current;
+    
+    // Resume si suspendu
     if (ctx.state === 'suspended') {
       await ctx.resume();
     }
-    const source = ctx.createMediaStreamSource(stream);
     
+    console.warn('[CTX] AudioContext state:', ctx.state);
+    
+    const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
     analyser.smoothingTimeConstant = 0.4;
     source.connect(analyser);
     localAnalyserRef.current = analyser;
-    
     startLocalSpeakingAnalysis();
   };
 
