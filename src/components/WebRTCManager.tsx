@@ -24,6 +24,7 @@ function AudioPlayer({ userId, stream }: { userId: string, stream: any }) {
     audioRef.current.play().catch(e => {
       if (e.name !== 'AbortError') console.error("Audio play error:", e);
     });
+    console.warn('[AP 6] audio element state | muted:', audioRef.current.muted, '| volume:', audioRef.current.volume, '| paused:', audioRef.current.paused);
 
     return () => {
       console.warn('[AP 5b] 🔇 AudioPlayer unmount | userId:', userId);  
