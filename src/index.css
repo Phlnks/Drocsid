@@ -343,3 +343,25 @@ html, body {
 .theme-cyberpunk ::-webkit-scrollbar-thumb { background: rgba(252, 238, 10, 0.2); background-clip: padding-box; }
 .theme-cyberpunk ::-webkit-scrollbar-thumb:hover { background: rgba(252, 238, 10, 0.4); background-clip: padding-box; }
 
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+

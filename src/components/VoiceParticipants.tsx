@@ -71,7 +71,7 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   if (participants.length === 0) return null;
 
   return (
-    <div className="bg-zinc-900 border-b border-zinc-700 p-3 shrink-0 flex flex-wrap gap-3 max-h-28 overflow-y-auto md:max-h-none md:overflow-visible">
+    <div className="bg-zinc-900 border-b border-zinc-700 p-3 shrink-0 flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-y-auto md:overflow-x-visible gap-3 max-h-32 md:max-h-none custom-scrollbar">
       {participants.map(p => {
         const isSharingScreen = !!remoteScreenShares[p.id];
         const isViewing = viewingScreenShares.has(p.id);

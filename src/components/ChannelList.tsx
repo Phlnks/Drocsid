@@ -672,7 +672,7 @@ export default function ChannelList() {
           )}
         </AnimatePresence>
         
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-2">
           {channelsByCategory.uncategorized.length > 0 && (
             <div className="mb-4">
               {channelsByCategory.uncategorized.map(renderChannel)}
