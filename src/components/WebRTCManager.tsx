@@ -752,7 +752,7 @@ export default function WebRTCManager() {
                 await localAudioTrack.mute();
               }
 
-              await wait(300);
+              //await wait(300);
 
               await room.localParticipant.publishTrack(localAudioTrack, {
                 source: Track.Source.Microphone,
@@ -771,7 +771,7 @@ export default function WebRTCManager() {
         console.log('[WebRTC] Connected to LiveKit Room:', connectedVoiceChannelId);        
         console.warn('[LK 1] ✅ Room connectée | state:', room.state, '| participants distants:', room.remoteParticipants.size);
         
-        await wait(300);      
+        //await wait(300);      
 
         // ── DM Call Joined Sound ──
         const handleCallJoined = () => {
