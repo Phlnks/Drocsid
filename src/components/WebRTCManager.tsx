@@ -147,8 +147,11 @@ export default function WebRTCManager() {
       }
       const average = sum / dataArray.length;
       
-      // Threshold matching the NoiseGate level roughly
-      const isSpeaking = average > 15; 
+      // Use micSensitivity from settings (0-100)
+      // We normalize the average to 0-200 to match the visual scale in settings
+      const currentLevel = (average / 255) * 200;
+      const sensitivity = useAppStore.getState().voiceSettings.micSensitivity ?? 25;
+      const isSpeaking = currentLevel > sensitivity; 
       
       const userId = currentUser.id;
       const avatarElements = document.querySelectorAll(`.avatar-user-${userId}`);
