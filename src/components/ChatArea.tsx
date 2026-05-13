@@ -251,6 +251,7 @@ export default function ChatArea() {
     setMessages([]); 
     setReplyingTo(null);
     setShowPins(false);
+    setTypingUsers([]);
 
     const fetchInitialData = async () => {
       // Fetch Channel
@@ -1121,7 +1122,7 @@ export default function ChatArea() {
           )}
         </AnimatePresence>
         {typingUsers.length > 0 && (
-          <div className="absolute -top-6 left-4 px-3 py-1 bg-zinc-700 rounded-t-md border-l border-r border-t border-zinc-600/30 shadow-md text-xs text-zinc-300 flex items-center gap-2 z-10 transition-all opacity-95">
+          <div className="h-6 px-4 flex items-center gap-2 text-xs text-zinc-300 bg-zinc-800 shrink-0">
             <span className="flex gap-1" aria-hidden="true">
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
               <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
