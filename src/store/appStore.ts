@@ -89,6 +89,7 @@ interface AppState {
   };
   onlineUserIds: string[];
   voiceParticipants: Record<string, any[]>;
+  livekitParticipantIdentities: Set<string>; // ✅ Truth from LiveKit
   globalProfiles: Record<string, any>;
   highlightedMessageId: string | null;
   notifications: Notification[];
@@ -180,6 +181,7 @@ export const useAppStore = create<AppState>((set) => ({
   customTheme: safeParse('drocsid-custom-theme', { primaryColor: '#5865F2', intensity: 75, appearance: 'dark' }),
   onlineUserIds: [],
   voiceParticipants: {},
+  livekitParticipantIdentities: new Set(),
   globalProfiles: {},
   highlightedMessageId: null,
   notifications: [],
@@ -210,6 +212,9 @@ export const useAppStore = create<AppState>((set) => ({
     // Reset call joined sound flag when joining or leaving
     if (id !== state.connectedVoiceChannelId) {
       set({ callJoinedSoundPlayed: false });
+    }
+    if (!id) {
+      set({ livekitParticipantIdentities: new Set() });
     }
     set({ connectedVoiceChannelId: id, connectedVoiceServerId: serverId });
   },
@@ -328,14 +333,39 @@ export const useAppStore = create<AppState>((set) => ({
     return { customTheme: newCustomTheme };
   }),
   setOnlineUserIds: (ids: string[]) => set({ onlineUserIds: ids }),
-    setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
-    // ✅ FIX: comparaison légère — JSON.stringify plante sur les Set
+  setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
     const current = state.voiceParticipants[channelId];
-    if (participantsSig(current) === participantsSig(participants)) return state;
+    
+    // ✅ PROTECTION : Si c'est le channel LiveKit actuel, on fusionne avec la "vérité" LiveKit
+    // pour éviter les disparitions si le Socket est instable (Render timeout).
+    let finalParticipants = participants;
+    if (state.connectedVoiceChannelId === channelId) {
+      const socketIds = new Set(participants.map(p => p.id));
+      const missingLiveKitUsers = Array.from(state.livekitParticipantIdentities).filter(id => !socketIds.has(id));
+      
+      if (missingLiveKitUsers.length > 0) {
+        console.warn('[Sync] Socket missed users still in LiveKit, protecting:', missingLiveKitUsers);
+        const restored = missingLiveKitUsers.map(id => {
+          const profile = state.globalProfiles[id];
+          const existing = current?.find(p => p.id === id);
+          return existing || {
+            id,
+            name: profile?.username || profile?.display_name || 'Utilisateur',
+            avatarUrl: profile?.avatar_url,
+            isMuted: false,
+            isStreaming: false,
+            joinedAt: new Date().toISOString()
+          };
+        });
+        finalParticipants = [...participants, ...restored];
+      }
+    }
+
+    if (participantsSig(current) === participantsSig(finalParticipants)) return state;
     return {
       voiceParticipants: {
         ...state.voiceParticipants,
-        [channelId]: participants
+        [channelId]: finalParticipants
       }
     };
   }),
@@ -360,7 +390,14 @@ export const useAppStore = create<AppState>((set) => ({
     const existingIds = new Set(filtered.map(p => p.id));
     const missingIds = identities.filter(id => !existingIds.has(id));
     
-    if (missingIds.length === 0 && filtered.length === current.length) return state;
+    // Update the "Truth" set
+    const nextIdentities = new Set(identities);
+
+    if (missingIds.length === 0 && filtered.length === current.length && 
+        identities.length === state.livekitParticipantIdentities.size &&
+        identities.every(id => state.livekitParticipantIdentities.has(id))) {
+      return state;
+    }
     
     const next = [...filtered];
     missingIds.forEach(id => {
@@ -376,6 +413,7 @@ export const useAppStore = create<AppState>((set) => ({
     });
     
     return {
+      livekitParticipantIdentities: nextIdentities,
       voiceParticipants: {
         ...state.voiceParticipants,
         [channelId]: next
