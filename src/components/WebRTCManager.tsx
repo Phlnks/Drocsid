@@ -777,19 +777,24 @@ export default function WebRTCManager() {
         (room as any)._onSocketConnect = emitJoinVoiceChannel; // on stocke pour nettoyer
 
         try {
-          // Capturer le micro brut
-          const rawMicStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: voiceSettings.echoCancellation,
-              noiseSuppression: voiceSettings.noiseSuppression,
-              autoGainControl: voiceSettings.autoGainControl,
-              deviceId: voiceSettings.selectedMicrophoneId || undefined
-            }
-          });
-          rawMicStreamRef.current = rawMicStream;
-
-          await setupLocalAnalyser(rawMicStream);
-          const micStream = rawMicStream;
+          // Capturer le micro brut, réutiliser si existe (changement de salon)
+          let rawMicStream = rawMicStreamRef.current;
+          if (!rawMicStream || rawMicStream.getTracks().some(t => t.readyState === 'ended')) {
+            rawMicStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: voiceSettings.echoCancellation,
+                noiseSuppression: voiceSettings.noiseSuppression,
+                autoGainControl: voiceSettings.autoGainControl,
+                deviceId: voiceSettings.selectedMicrophoneId || undefined
+              }
+            });
+            rawMicStreamRef.current = rawMicStream;
+            await setupLocalAnalyser(rawMicStream);
+          } else {
+            console.log("Reusing existing microphone stream for seamless channel switch.");
+            // Le Noise Gate est déjà attaché à ce stream, donc pas besoin de refaire l'analyser
+          }
+          const micStream = rawMicStreamRef.current;
 
           const audioTrack = micStream.getAudioTracks()[0];
           console.warn('[LK DEBUG] audioTrack apres NoiseGate:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
@@ -831,17 +836,19 @@ export default function WebRTCManager() {
       const isCompletelyDisconnecting = !currentState.connectedVoiceChannelId;
       const isLoggedOut = !useAuthStore.getState().user;
 
-      // ✅ Nettoyer le noise gate et le micro
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-      localAnalyserRef.current = null;
+      // ✅ Nettoyer le noise gate et le micro seulement si on quitte complètement
+      if (isCompletelyDisconnecting || isLoggedOut) {
+        if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+        localAnalyserRef.current = null;
 
-      if (rawMicStreamRef.current) {
-        rawMicStreamRef.current.getTracks().forEach(t => t.stop());
-        rawMicStreamRef.current = null;
-      }
-      if (noiseGateCtxRef.current) {
-        noiseGateCtxRef.current.close();
-        noiseGateCtxRef.current = null;
+        if (rawMicStreamRef.current) {
+          rawMicStreamRef.current.getTracks().forEach(t => t.stop());
+          rawMicStreamRef.current = null;
+        }
+        if (noiseGateCtxRef.current) {
+          noiseGateCtxRef.current.close();
+          noiseGateCtxRef.current = null;
+        }
       }
 
       if (roomRef.current) { 

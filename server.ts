@@ -218,6 +218,19 @@ async function startServer() {
 
     socket.on("join-voice-channel", (data) => {
       const { channelId, user } = data;
+      
+      // Prevent user from being in multiple channels at once conceptually via the same socket
+      const existingVoice = socketVoiceMap.get(socket.id);
+      if (existingVoice && existingVoice.channelId !== channelId) {
+        const oldChannelId = existingVoice.channelId;
+        voiceRooms.get(oldChannelId)?.delete(existingVoice.userId);
+        io.emit("voice-participants-update", {
+          channelId: oldChannelId,
+          participants: Array.from(voiceRooms.get(oldChannelId)?.values() || [])
+        });
+        cleanupVoiceRoom(oldChannelId);
+      }
+
       if (!voiceRooms.has(channelId)) {
         voiceRooms.set(channelId, new Map());
       }
@@ -233,7 +246,10 @@ async function startServer() {
     socket.on("leave-voice-channel", async (data) => {
       const { channelId, userId } = data;
       voiceRooms.get(channelId)?.delete(userId);
-      socketVoiceMap.delete(socket.id);
+      const existingVoice = socketVoiceMap.get(socket.id);
+      if (existingVoice && existingVoice.channelId === channelId) {
+        socketVoiceMap.delete(socket.id);
+      }
 
       io.emit("voice-participants-update", {
         channelId,
