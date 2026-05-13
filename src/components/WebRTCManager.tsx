@@ -21,9 +21,15 @@ function AudioPlayer({ userId, stream }: { userId: string; stream: any }) {
     audioRef.current.play().catch(e => {
       if (e.name !== 'AbortError') console.error('[AP] Audio play error', e);
     });
+    
     return () => {
       console.warn('[AP 5b] AudioPlayer unmount | userId:', userId);
-      if (audioRef.current) audioRef.current.srcObject = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.srcObject = null;
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
+      }
     };
   }, [stream, userId]);
 
