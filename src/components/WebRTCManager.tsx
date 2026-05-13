@@ -93,6 +93,8 @@ export default function WebRTCManager() {
   const rawMicStreamRef = useRef<MediaStream | null>(null);
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number | null>(null);
+  const smoothedLevelRef = useRef(0);
+  const lastTriggeredRef = useRef(0);
 
   const prevTrayStateRef = useRef({ isSpeaking: false });
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -152,7 +154,21 @@ export default function WebRTCManager() {
       // We normalize the average to 0-200 to match the visual scale in settings
       const currentLevel = (average / 255) * 200;
       const sensitivity = useAppStore.getState().voiceSettings.micSensitivity ?? 25;
-      const isSpeaking = currentLevel > sensitivity; 
+
+      // 1. Exponential Moving Average to smooth out spikes (clicks)
+      // Alpha = 0.2 means it takes about 5-8 frames (~100ms) to fully transition
+      smoothedLevelRef.current = (currentLevel * 0.2) + (smoothedLevelRef.current * 0.8);
+
+      const isCurrentlyTriggered = smoothedLevelRef.current > sensitivity;
+      const now = Date.now();
+
+      if (isCurrentlyTriggered) {
+        lastTriggeredRef.current = now;
+      }
+
+      // 2. Hangover logic: Stay "speaking" for 400ms after the last trigger
+      // This prevents the UI from flickering and avoids cutting off sentence endings.
+      const isSpeaking = isCurrentlyTriggered || (now - lastTriggeredRef.current < 400);
       
       const userId = currentUser.id;
       const avatarElements = document.querySelectorAll(`.avatar-user-${userId}`);
