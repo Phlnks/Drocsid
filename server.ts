@@ -216,8 +216,21 @@ async function startServer() {
       }
     };
 
-    socket.on("join-voice-channel", (data) => {
+    socket.on("join-voice-channel", async (data) => {
       const { channelId, user } = data;
+
+      // Ensure the user is removed from any other voice rooms they might be in
+      for (const [existingChannelId, participantsMap] of voiceRooms.entries()) {
+        if (existingChannelId !== channelId && participantsMap.has(user.id)) {
+          participantsMap.delete(user.id);
+          io.emit("voice-participants-update", {
+            channelId: existingChannelId,
+            participants: Array.from(participantsMap.values())
+          });
+          await cleanupVoiceRoom(existingChannelId);
+        }
+      }
+
       if (!voiceRooms.has(channelId)) {
         voiceRooms.set(channelId, new Map());
       }
@@ -232,15 +245,17 @@ async function startServer() {
 
     socket.on("leave-voice-channel", async (data) => {
       const { channelId, userId } = data;
-      voiceRooms.get(channelId)?.delete(userId);
       socketVoiceMap.delete(socket.id);
 
-      io.emit("voice-participants-update", {
-        channelId,
-        participants: Array.from(voiceRooms.get(channelId)?.values() || [])
-      });
-
-      await cleanupVoiceRoom(channelId);
+      const room = voiceRooms.get(channelId);
+      if (room && room.has(userId)) {
+        room.delete(userId);
+        io.emit("voice-participants-update", {
+          channelId,
+          participants: Array.from(room.values())
+        });
+        await cleanupVoiceRoom(channelId);
+      }
     });
 
     socket.on("voice-state-update", (data) => {
@@ -478,13 +493,17 @@ async function startServer() {
       const voiceInfo = socketVoiceMap.get(socket.id);
       if (voiceInfo) {
         const { channelId, userId } = voiceInfo;
-        voiceRooms.get(channelId)?.delete(userId);
         socketVoiceMap.delete(socket.id);
-        io.emit("voice-participants-update", {
-          channelId,
-          participants: Array.from(voiceRooms.get(channelId)?.values() || [])
-        });
-        await cleanupVoiceRoom(channelId);
+        
+        const room = voiceRooms.get(channelId);
+        if (room && room.has(userId)) {
+          room.delete(userId);
+          io.emit("voice-participants-update", {
+            channelId,
+            participants: Array.from(room.values())
+          });
+          await cleanupVoiceRoom(channelId);
+        }
       }
 
       if (currentUserId && onlineUsers.has(currentUserId)) {
