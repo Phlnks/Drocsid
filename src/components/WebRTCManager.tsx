@@ -573,7 +573,6 @@ export default function WebRTCManager() {
 
         // ── Réception des tracks distantes ──
         room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
-          if (!isMounted) return;
           
           if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
             // ✅ Toujours créer un nouveau MediaStream pour forcer le re-render du VideoPlayer
@@ -608,15 +607,8 @@ export default function WebRTCManager() {
         });
 
         room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
-          if (!isMounted) return;
           if (track.kind === Track.Kind.Video) {
-            setRemoteScreenShares(prev => { 
-              const map = { ...prev }; 
-              const stream = map[participant.identity];
-              if (stream) stream.getTracks().forEach(t => t.stop());
-              delete map[participant.identity]; 
-              return map; 
-            });
+            setRemoteScreenShares(prev => { const map = { ...prev }; delete map[participant.identity]; return map; });
             useAppStore.getState().setViewingScreenShares(prev => { const next = new Set(prev); next.delete(participant.identity); return next; });
             if (useAppStore.getState().activeStreamFocus === participant.identity) useAppStore.getState().setActiveStreamFocus(null);
 
@@ -625,21 +617,12 @@ export default function WebRTCManager() {
             const existing = useAppStore.getState().remoteScreenShares[participant.identity];
             if (existing) {
               existing.removeTrack(track.mediaStreamTrack);
-              track.mediaStreamTrack.stop();
               setRemoteScreenShares(prev => ({ ...prev, [participant.identity]: existing }));
             }
 
           } else if (track.kind === Track.Kind.Audio) {
             console.warn('[LK 4] 📤 Micro retiré | from:', participant.identity);
-            setRemoteStreams(prev => { 
-                const map = new Map(prev); 
-                const stream = map.get(participant.identity);
-                if (stream) {
-                  stream.getTracks().forEach(t => t.stop());
-                }
-                map.delete(participant.identity); 
-                return map; 
-            });
+            setRemoteStreams(prev => { const map = new Map(prev); map.delete(participant.identity); return map; });
           }
         });
 
@@ -877,14 +860,8 @@ export default function WebRTCManager() {
         }
       }
 
-      setRemoteStreams(prev => {
-        prev.forEach(stream => stream.getTracks().forEach(t => t.stop()));
-        return new Map();
-      });
-      setRemoteScreenShares(prev => {
-        Object.values(prev).forEach(stream => stream.getTracks().forEach(t => t.stop()));
-        return {};
-      });
+      setRemoteStreams(new Map());
+      setRemoteScreenShares({});
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
