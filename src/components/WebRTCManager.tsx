@@ -8,30 +8,27 @@ import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
 
 
-function AudioPlayer({ userId, stream }: { userId: string; stream: any }) {
+import { RemoteAudioTrack } from 'livekit-client';
+
+function AudioPlayer({ userId, track }: { userId: string; track: RemoteAudioTrack | null }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted, peerVolumes } = useAppStore();
   const userPeerVolume = peerVolumes[userId] ?? 1.0;
 
-  // Brancher le stream directement — pas de Web Audio intermédiaire
+  // Utilize LiveKit's built-in track attaching (safely handles Web Audio and autoplay policies)
   useEffect(() => {
-    if (!audioRef.current || !stream) return;
-    console.warn('[AP 5] AudioPlayer mount | userId:', userId, '| tracks:', stream.getTracks().length);
-    audioRef.current.srcObject = stream;
-    audioRef.current.play().catch(e => {
-      if (e.name !== 'AbortError') console.error('[AP] Audio play error', e);
-    });
+    if (!audioRef.current || !track) return;
+    
+    console.warn('[AP 5] AudioPlayer mount | userId:', userId);
+    track.attach(audioRef.current);
     
     return () => {
       console.warn('[AP 5b] AudioPlayer unmount | userId:', userId);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.srcObject = null;
-        audioRef.current.removeAttribute('src');
-        audioRef.current.load();
+      if (audioRef.current && track) {
+        track.detach(audioRef.current);
       }
     };
-  }, [stream, userId]);
+  }, [track, userId]);
 
   // Volume global (0.0 - 1.0)
   useEffect(() => {
@@ -229,7 +226,7 @@ export default function WebRTCManager() {
   const voiceParticipantsMap = useAppStore(state => state.voiceParticipants);
   const voiceParticipants = voiceParticipantsMap[connectedVoiceChannelId || ''] || [];
 
-  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [remoteTracks, setRemoteTracks] = useState<Map<string, RemoteAudioTrack>>(new Map());
 
 
   // ─── Broadcast sounds join/leave/screenshare ───────────────────────────────
@@ -606,9 +603,8 @@ export default function WebRTCManager() {
           } else if (track.kind === Track.Kind.Audio) {
             // Micro normal
             console.warn('[LK 3] 📥 Micro reçu | from:', participant.identity, '| readyState:', track.mediaStreamTrack.readyState, '| enabled:', track.mediaStreamTrack.enabled);
-            const stream = new MediaStream([track.mediaStreamTrack]);
-            setRemoteStreams(prev => { const map = new Map(prev); map.set(participant.identity, stream); return map; });
-            console.warn('[LK 3b] remoteStreams size après set:', remoteStreams.size + 1);
+            setRemoteTracks(prev => { const map = new Map(prev); map.set(participant.identity, track as RemoteAudioTrack); return map; });
+            console.warn('[LK 3b] remoteTracks size après set:', remoteTracks.size + 1);
           }
         });
 
@@ -628,7 +624,7 @@ export default function WebRTCManager() {
 
           } else if (track.kind === Track.Kind.Audio) {
             console.warn('[LK 4] 📤 Micro retiré | from:', participant.identity);
-            setRemoteStreams(prev => { const map = new Map(prev); map.delete(participant.identity); return map; });
+            setRemoteTracks(prev => { const map = new Map(prev); map.delete(participant.identity); return map; });
           }
         });
 
@@ -873,7 +869,7 @@ export default function WebRTCManager() {
         }
       }
 
-      setRemoteStreams(new Map());
+      setRemoteTracks(new Map());
       setRemoteScreenShares({});
       setViewingScreenShares(new Set());
       setActiveStreamFocus(null);
@@ -896,8 +892,8 @@ export default function WebRTCManager() {
   return (
     <>
       {/* Joue tous les flux audio : micros distants + audio système des screen shares */}
-      {Array.from(remoteStreams.entries()).map(([uid, stream]) => (
-        <AudioPlayer key={uid} userId={uid} stream={stream} />
+      {Array.from(remoteTracks.entries()).map(([uid, track]) => (
+        <AudioPlayer key={uid} userId={uid} track={track} />
       ))}
     </>
   );

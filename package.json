@@ -16,7 +16,7 @@
     "electron:dev": "concurrently \"tsx server.ts\" \"wait-on tcp:3000 && cross-env ELECTRON_START_URL=http://localhost:3000 electron .\"",
     "electron:build": "vite build && electron-builder --win",
     "electron:build:linux": "electron-builder --linux",
-    "electron:build:mac":   "electron-builder --mac",
+    "electron:build:mac": "electron-builder --mac",
     "cap:sync": "npx cap sync",
     "cap:copy": "npx cap copy",
     "android:open": "npx cap open android",
@@ -54,6 +54,7 @@
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
     "@google/genai": "^1.29.0",
+    "@livekit/components-react": "^2.9.21",
     "@supabase/supabase-js": "^2.103.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/react-syntax-highlighter": "^15.5.13",
@@ -66,7 +67,7 @@
     "i18next": "^26.0.7",
     "i18next-browser-languagedetector": "^8.2.1",
     "jimp": "^1.6.1",
-    "livekit-client": "^2.18.9",
+    "livekit-client": "^2.18.10",
     "livekit-server-sdk": "^2.15.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
@@ -83,14 +84,15 @@
     "tailwind-merge": "^3.5.0",
     "tsx": "^4.21.0",
     "vite": "^6.2.0",
-    "zustand": "^5.0.12",
     "vite-plugin-pwa": "^0.21.x",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
@@ -99,7 +101,6 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "wait-on": "^9.0.5",
-    "@types/web-push": "^3.6.4"
+    "wait-on": "^9.0.5"
   }
 }

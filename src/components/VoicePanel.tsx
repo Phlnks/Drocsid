@@ -133,13 +133,13 @@ export default function VoicePanel() {
     }
     const checkCaller = async () => {
       const { data: call } = await supabase.from('calls')
-        .select('caller_id')
+        .select('caller_id, status')
         .eq('id', connectedVoiceChannelId)
         .maybeSingle();
       // ✅ Vérifier que l'appel est toujours actif avant de sonner
       if (!call) { isCallerRef.current = false; return; }
       isCallerRef.current = call.caller_id === currentUser.id;
-      if (isCallerRef.current && voiceParticipants.length === 1) playRingtone();
+      if (isCallerRef.current && voiceParticipants.length === 1 && call.status === 'ringing') playRingtone();
       else stopRingtone();
     };
     checkCaller();
