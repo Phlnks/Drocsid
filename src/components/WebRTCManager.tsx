@@ -78,7 +78,8 @@ export default function WebRTCManager() {
     setRemoteScreenShares,
     viewingScreenShares,
     setViewingScreenShares,
-    setActiveStreamFocus
+    setActiveStreamFocus,
+    syncVoiceParticipantsWithLiveKit
   } = useAppStore();
 
   const roomRef = useRef<Room | null>(null);
@@ -281,6 +282,44 @@ export default function WebRTCManager() {
     socket.on('force-mute', handleForceMute);
     return () => { socket.off('force-move', handleForceMove); socket.off('force-mute', handleForceMute); };
   }, [setConnectedVoiceChannelId, isVoiceMuted, setIsVoiceMuted]);
+
+
+  // ─── LiveKit <-> UI Sync ───────────────────────────────────────────────────
+  // ✅ Piste : La "Vérité" est dans LiveKit. Si le socket bug, LiveKit sait qui est là.
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !roomRef.current) return;
+
+    const sync = () => {
+      if (!roomRef.current || !connectedVoiceChannelId) return;
+      const room = roomRef.current;
+      const identities = [
+        room.localParticipant.identity,
+        ...Array.from(room.remoteParticipants.values()).map(p => p.identity)
+      ];
+      syncVoiceParticipantsWithLiveKit(connectedVoiceChannelId, identities);
+    };
+
+    const room = roomRef.current;
+    room.on(RoomEvent.ParticipantConnected, sync);
+    room.on(RoomEvent.ParticipantDisconnected, sync);
+    room.on(RoomEvent.Connected, sync);
+    room.on(RoomEvent.Reconnected, sync);
+
+    // Sync initial
+    sync();
+
+    // Sync de sécurité toutes les 15s au cas où un socket.on('voice-participants-update')
+    // viderait par erreur la liste pendant une micro-déconnexion.
+    const interval = setInterval(sync, 15000);
+
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, sync);
+      room.off(RoomEvent.ParticipantDisconnected, sync);
+      room.off(RoomEvent.Connected, sync);
+      room.off(RoomEvent.Reconnected, sync);
+      clearInterval(interval);
+    };
+  }, [connectedVoiceChannelId, syncVoiceParticipantsWithLiveKit]);
 
 
   // ─── Mute local mic ────────────────────────────────────────────────────────

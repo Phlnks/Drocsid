@@ -141,6 +141,7 @@ interface AppState {
   setVoiceParticipants: (channelId: string, participants: any[]) => void;
   setGlobalProfile: (profile: any) => void;
   setGlobalProfiles: (profiles: any[]) => void;
+  syncVoiceParticipantsWithLiveKit: (channelId: string, identities: string[]) => void;
   setHighlightedMessageId: (id: string | null) => void;
   setDraft: (id: string, content: string) => void;
   addNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -347,6 +348,39 @@ export const useAppStore = create<AppState>((set) => ({
       newProfiles[p.id] = p;
     });
     return { globalProfiles: newProfiles };
+  }),
+  syncVoiceParticipantsWithLiveKit: (channelId, identities) => set((state) => {
+    const current = state.voiceParticipants[channelId] || [];
+    const activeIds = new Set(identities);
+    
+    // 1. Filter out participants who are definitely not in LiveKit anymore
+    const filtered = current.filter(p => activeIds.has(p.id));
+    
+    // 2. Identify missing participants
+    const existingIds = new Set(filtered.map(p => p.id));
+    const missingIds = identities.filter(id => !existingIds.has(id));
+    
+    if (missingIds.length === 0 && filtered.length === current.length) return state;
+    
+    const next = [...filtered];
+    missingIds.forEach(id => {
+      const profile = state.globalProfiles[id];
+      next.push({
+        id,
+        name: profile?.username || profile?.display_name || 'Utilisateur',
+        avatarUrl: profile?.avatar_url,
+        isMuted: false, // Default till update
+        isStreaming: false,
+        joinedAt: new Date().toISOString()
+      });
+    });
+    
+    return {
+      voiceParticipants: {
+        ...state.voiceParticipants,
+        [channelId]: next
+      }
+    };
   }),
   setHighlightedMessageId: (id) => set({ highlightedMessageId: id }),
   setDraft: (id, content) => set((state) => {
