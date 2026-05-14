@@ -127,6 +127,66 @@ async function startServer() {
     }
   });
 
+    // ── SuperAdmin Endpoints ──────────────────────────────────────────────
+    app.get('/api/admin/users', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const resList = await supabaseAdmin.auth.admin.listUsers();
+        if (resList.error) throw resList.error;
+        const users: any[] = resList.data.users;
+
+        const { data: profiles, error: profilesError } = await supabaseAdmin.from('profiles').select('*');
+        if (profilesError) throw profilesError;
+
+        const combined = profiles.map(p => {
+          const authUser = users.find(u => u.id === p.id);
+          return {
+            ...p,
+            is_banned: authUser ? !!authUser.banned_until : false,
+          };
+        });
+
+        res.json(combined);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/admin/ban', express.json(), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { userIds, ban } = req.body;
+        if (!Array.isArray(userIds)) return res.status(400).json({ error: 'userIds must be an array' });
+
+        for (const targetId of userIds) {
+          if (ban) {
+            await supabaseAdmin.auth.admin.updateUserById(targetId, { ban_duration: '876000h' });
+          } else {
+            await supabaseAdmin.auth.admin.updateUserById(targetId, { ban_duration: 'none' });
+          }
+        }
+        res.json({ ok: true });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // ── Web Push : sauvegarder la souscription d'un utilisateur ──────────
     app.post('/api/push/subscribe', express.json(), async (req, res) => {
       const { subscription, userId } = req.body;
