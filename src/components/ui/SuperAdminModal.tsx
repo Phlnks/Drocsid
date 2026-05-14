@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban } from 'lucide-react';
+import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2 } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
@@ -120,6 +120,31 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     }
   };
 
+  const handleSingleBan = async (userId: string, ban: boolean) => {
+    if (!confirm(`Are you sure you want to ${ban ? 'ban' : 'unban'} this user?`)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const baseUrl = window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/ban`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userIds: [userId], ban })
+      });
+      
+      if (!res.ok) throw new Error(await res.text());
+      
+      addNotification(`User ${ban ? 'banned' : 'unbanned'} successfully`, "success");
+      loadData();
+    } catch (err: any) {
+      addNotification("Failed to update ban status: " + err.message, "error");
+    }
+  };
+
   const toggleUserSelection = (userId: string) => {
     const next = new Set(selectedUserIds);
     if (next.has(userId)) next.delete(userId);
@@ -165,6 +190,37 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       onClose();
     } catch (err: any) {
       addNotification("Failed to join server: " + err.message, "error");
+    }
+  };
+
+  const copyInvite = async (serverId: string) => {
+    if (!currentUser) return;
+    try {
+      const { data: invites } = await supabase
+        .from('invites')
+        .select('code')
+        .eq('server_id', serverId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let inviteCode = '';
+      if (invites && invites.length > 0) {
+        inviteCode = invites[0].code;
+      } else {
+        inviteCode = Math.random().toString(36).substring(2, 8);
+        await supabase.from('invites').insert({
+          server_id: serverId,
+          creator_id: currentUser.id,
+          code: inviteCode,
+          uses: 0,
+          max_uses: 0
+        });
+      }
+
+      await navigator.clipboard.writeText(inviteCode);
+      addNotification("Invite code copied to clipboard", "success");
+    } catch (err: any) {
+      addNotification("Failed to copy invite code: " + err.message, "error");
     }
   };
 
@@ -272,7 +328,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                     />
                     <div className="flex-1">User Info</div>
                     <div className="w-32 text-center">Status</div>
-                    <div className="w-24 text-right">Create Srv</div>
+                    <div className="w-40 text-right">Actions</div>
                   </div>
                   {filteredUsers.map(u => (
                     <div key={u.id} className={clsx(
@@ -295,8 +351,6 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                           </div>
                           <div className="text-xs text-zinc-500 font-mono flex items-center gap-2 truncate">
                             {u.email && <span className="truncate">{u.email}</span>}
-                            {u.email && <span className="text-zinc-700 shrink-0">•</span>}
-                            <span className="truncate">ID: {u.id}</span>
                           </div>
                         </div>
                       </div>
@@ -313,7 +367,21 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end w-24 shrink-0">
+                      <div className="flex items-center justify-end w-40 shrink-0 gap-3">
+                        <button
+                          onClick={() => handleSingleBan(u.id, !u.is_banned)}
+                          disabled={u.is_super_admin}
+                          title={u.is_banned ? "Unban User" : "Ban User"}
+                          className={clsx(
+                            "p-1.5 rounded transition-colors block", // block forces display
+                            u.is_banned 
+                              ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white" 
+                              : "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white",
+                            u.is_super_admin && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          {u.is_banned ? <Check className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                        </button>
                         <button
                           onClick={() => toggleUserCreationRights(u.id, !!u.can_create_servers)}
                           disabled={u.is_super_admin}
@@ -347,6 +415,13 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                       </div>
                       
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => copyInvite(s.id)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-700/50 text-zinc-300 hover:bg-zinc-600 hover:text-white rounded transition-colors text-sm font-medium"
+                          title="Copy Invite Code"
+                        >
+                          <Link2 className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => joinServer(s.id)}
                           className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded transition-colors text-sm font-medium"
