@@ -273,6 +273,126 @@ async function startServer() {
       }
     });
 
+    app.put('/api/admin/user/:targetId', express.json(), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { username, resetAvatar } = req.body;
+        const updates: any = {};
+        if (username) updates.username = username;
+        if (resetAvatar) updates.avatar_url = null;
+
+        const { error } = await supabaseAdmin.from('profiles').update(updates).eq('id', req.params.targetId);
+        if (error) throw error;
+        res.json({ ok: true });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.put('/api/admin/server/:targetId', express.json(), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { name, owner_id } = req.body;
+        const updates: any = {};
+        if (name) updates.name = name;
+        if (owner_id) updates.owner_id = owner_id;
+
+        const { error } = await supabaseAdmin.from('servers').update(updates).eq('id', req.params.targetId);
+        if (error) throw error;
+        res.json({ ok: true });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/admin/audit', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { data: latestUsers } = await supabaseAdmin.from('profiles').select('*').order('created_at', { ascending: false }).limit(20);
+        const { data: latestServers } = await supabaseAdmin.from('servers').select('*').order('created_at', { ascending: false }).limit(20);
+        
+        const logs = [
+          ...(latestUsers || []).map(u => ({ type: 'user_joined', title: `Nouvel utilisateur : ${u.username}`, date: u.created_at, details: u.id })),
+          ...(latestServers || []).map(s => ({ type: 'server_created', title: `Nouveau serveur : ${s.name}`, date: s.created_at, details: s.id }))
+        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 40);
+        
+        res.json(logs);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/admin/messages/search', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { q } = req.query;
+        if (!q || typeof q !== 'string') return res.json([]);
+
+        // ilike search on content
+        const { data, error } = await supabaseAdmin.from('messages')
+          .select('*, profiles!messages_user_id_fkey(username), channels!inner(name, servers!inner(name))')
+          .ilike('content', `%${q}%`)
+          .order('created_at', { ascending: false })
+          .limit(30);
+
+        if (error) throw error;
+        res.json(data || []);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.delete('/api/admin/messages/:id', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { error } = await supabaseAdmin.from('messages').delete().eq('id', req.params.id);
+        if (error) throw error;
+        res.json({ ok: true });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // ── Web Push : sauvegarder la souscription d'un utilisateur ──────────
     app.post('/api/push/subscribe', express.json(), async (req, res) => {
       const { subscription, userId } = req.body;

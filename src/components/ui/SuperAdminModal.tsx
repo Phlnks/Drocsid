@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell } from 'lucide-react';
+import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell, Edit, MessageSquare, History } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
@@ -16,10 +16,13 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   const { user: currentUser, currentUserProfile, startImpersonation } = useAuthStore();
   const { addNotification, setSelectedServerId } = useAppStore();
   
-  const [activeTab, setActiveTab] = useState<'users' | 'servers' | 'dashboard'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'servers' | 'dashboard' | 'messages' | 'audit'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [servers, setServers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [messageSearch, setMessageSearch] = useState('');
   const [announcement, setAnnouncement] = useState('');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -78,6 +81,13 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         setStats(data);
+      } else if (activeTab === 'audit') {
+        const res = await fetch(`${baseUrl}/api/admin/audit`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        setAuditLogs(data || []);
       }
     } catch (err: any) {
       console.error(err);
@@ -129,6 +139,101 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       startImpersonation(mockUser as any, u);
       addNotification(`Started impersonating ${u.username}`, "success");
       onClose();
+    }
+  };
+
+  const handleUserEdit = async (u: any) => {
+    const newUsername = prompt("New username:", u.username);
+    const resetAvatar = confirm("Do you want to reset their avatar?");
+    
+    if (newUsername === null && !resetAvatar) return; // cancelled
+    if (newUsername?.trim() === '' && !resetAvatar) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${window.location.origin}/api/admin/user/${u.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          username: newUsername !== u.username ? newUsername : undefined, 
+          resetAvatar 
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      addNotification("User profile updated", "success");
+      loadData();
+    } catch (e: any) {
+      addNotification("Failed to edit user: " + e.message, "error");
+    }
+  };
+
+  const handleServerEdit = async (s: any) => {
+    const newName = prompt("New server name:", s.name);
+    const newOwnerId = prompt("New Owner ID (uuid):", s.owner_id);
+    
+    if (!newName && !newOwnerId) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${window.location.origin}/api/admin/server/${s.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          name: newName !== s.name ? newName : undefined, 
+          owner_id: newOwnerId !== s.owner_id ? newOwnerId : undefined 
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      addNotification("Server updated", "success");
+      loadData();
+    } catch (e: any) {
+      addNotification("Failed to edit server: " + e.message, "error");
+    }
+  };
+
+  const handleMessageSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!messageSearch.trim()) return;
+
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${window.location.origin}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setMessages(data || []);
+    } catch (e: any) {
+      addNotification("Message search failed: " + e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!confirm("Are you sure you want to forcibly delete this message?")) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${window.location.origin}/api/admin/messages/${msgId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      addNotification("Message deleted successfully", "success");
+      setMessages(messages.filter(m => m.id !== msgId));
+    } catch (e: any) {
+      addNotification("Failed to delete message: " + e.message, "error");
     }
   };
 
@@ -332,6 +437,28 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             <BarChart2 className="w-4 h-4" />
             <span className="font-medium">Dashboard</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={clsx(
+              "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+              activeTab === 'messages' ? "bg-zinc-700/50 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
+            )}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="font-medium">Modération Globale</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={clsx(
+              "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+              activeTab === 'audit' ? "bg-zinc-700/50 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
+            )}
+          >
+            <History className="w-4 h-4" />
+            <span className="font-medium">Audit Logs</span>
+          </button>
         </div>
 
         {/* Content */}
@@ -344,10 +471,13 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
 
           <div className="p-6 md:p-10 flex-1 overflow-hidden flex flex-col min-w-0">
             <h2 className="text-xl font-bold text-zinc-100 mb-6">
-              {activeTab === 'users' ? 'User Management' : activeTab === 'servers' ? 'Server Management' : 'Dashboard'}
+              {activeTab === 'users' ? 'User Management' : 
+               activeTab === 'servers' ? 'Server Management' : 
+               activeTab === 'dashboard' ? 'Dashboard' :
+               activeTab === 'audit' ? 'Audit Logs' : 'Global Messages Search'}
             </h2>
 
-            {activeTab !== 'dashboard' && (
+            {activeTab !== 'dashboard' && activeTab !== 'audit' && activeTab !== 'messages' && (
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -480,7 +610,19 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end w-48 shrink-0 gap-3">
+                      <div className="flex items-center justify-end w-48 shrink-0 gap-2">
+                        <button
+                          onClick={() => handleUserEdit(u)}
+                          disabled={u.is_super_admin}
+                          title="Edit User Profile"
+                          className={clsx(
+                            "p-1.5 rounded transition-colors block",
+                            "bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white",
+                            u.is_super_admin && "opacity-50 cursor-not-allowed hidden"
+                          )}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleImpersonate(u)}
                           disabled={u.is_super_admin}
@@ -526,6 +668,62 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                     <div className="text-center p-8 text-zinc-500">No users found.</div>
                   )}
                 </div>
+              ) : activeTab === 'messages' ? (
+                <div className="space-y-4">
+                  <form onSubmit={handleMessageSearch} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search messages across all servers (Hit enter)..."
+                      className="flex-1 bg-zinc-900 border border-zinc-700 rounded-md p-2 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500"
+                      value={messageSearch}
+                      onChange={(e) => setMessageSearch(e.target.value)}
+                    />
+                    <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium flex items-center justify-center">
+                      <Search className="w-4 h-4" />
+                    </button>
+                  </form>
+                  <div className="space-y-2 mt-4">
+                    {messages.map(m => (
+                      <div key={m.id} className="bg-zinc-900/50 border border-zinc-700/50 p-4 rounded-lg flex flex-col group gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400 text-xs">
+                            <strong className="text-zinc-200">{m.profiles?.username || 'Unknown'}</strong> 
+                            &nbsp;in {m.channels?.servers?.name} #{m.channels?.name}
+                          </span>
+                          <span className="text-zinc-600 text-xs">{new Date(m.created_at).toLocaleString()}</span>
+                        </div>
+                        <div className="text-sm text-zinc-100">
+                          {m.content}
+                        </div>
+                        <div className="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => handleDeleteMessage(m.id)} className="text-xs flex items-center gap-1 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2 py-1 rounded">
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {messages.length === 0 && !loading && (
+                      <div className="text-center text-zinc-500 py-8">No messages found. Try searching.</div>
+                    )}
+                  </div>
+                </div>
+              ) : activeTab === 'audit' ? (
+                <div className="space-y-2">
+                  {auditLogs.map((log, i) => (
+                    <div key={i} className="bg-zinc-900/50 border border-zinc-700/50 p-4 rounded-lg flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
+                        {log.type === 'user_joined' ? <UsersIcon className="w-5 h-5 text-indigo-400" /> : <Server className="w-5 h-5 text-emerald-400" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-zinc-100 truncate">{log.title}</div>
+                        <div className="text-xs text-zinc-500">{new Date(log.date).toLocaleString()} • ID: {log.details}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {auditLogs.length === 0 && !loading && (
+                    <div className="text-center text-zinc-500 py-8">No events found.</div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-2">
                   {filteredServers.map(s => (
@@ -541,6 +739,13 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                       </div>
                       
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleServerEdit(s)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-700/50 text-zinc-300 hover:bg-zinc-600 hover:text-white rounded transition-colors text-sm font-medium"
+                          title="Edit Server"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => copyInvite(s.id)}
                           className="flex items-center gap-2 px-3 py-1.5 bg-zinc-700/50 text-zinc-300 hover:bg-zinc-600 hover:text-white rounded transition-colors text-sm font-medium"
