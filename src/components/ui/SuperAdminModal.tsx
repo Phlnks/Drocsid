@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2 } from 'lucide-react';
+import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
@@ -13,12 +13,14 @@ interface SuperAdminModalProps {
 
 export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProps) {
   const { t } = useTranslation();
-  const { user: currentUser, currentUserProfile } = useAuthStore();
+  const { user: currentUser, currentUserProfile, startImpersonation } = useAuthStore();
   const { addNotification, setSelectedServerId } = useAppStore();
   
-  const [activeTab, setActiveTab] = useState<'users' | 'servers'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'servers' | 'dashboard'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [servers, setServers] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [announcement, setAnnouncement] = useState('');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -33,18 +35,18 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     setLoading(true);
     setSelectedUserIds(new Set());
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const baseUrl = window.location.origin;
+
       if (activeTab === 'users') {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const baseUrl = window.location.origin;
-          const res = await fetch(`${baseUrl}/api/admin/users`, {
-            headers: { 'Authorization': `Bearer ${session.access_token}` }
-          });
-          if (!res.ok) throw new Error(await res.text());
-          const data = await res.json();
-          setUsers(data || []);
-        }
-      } else {
+        const res = await fetch(`${baseUrl}/api/admin/users`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        setUsers(data || []);
+      } else if (activeTab === 'servers') {
         const { data: serversData, error } = await supabase
           .from('servers')
           .select('*')
@@ -69,12 +71,64 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         } else {
           setServers([]);
         }
+      } else if (activeTab === 'dashboard') {
+        const res = await fetch(`${baseUrl}/api/admin/dashboard`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        setStats(data);
       }
     } catch (err: any) {
       console.error(err);
       addNotification(`Error loading ${activeTab}: ` + err.message, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGlobalAnnounce = async () => {
+    if (!announcement.trim()) return;
+    if (!confirm("Are you sure you want to send this global announcement to ALL servers?")) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const baseUrl = window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/announce`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: announcement })
+      });
+      
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      
+      addNotification(`Global announcement sent to ${data.serversReached} servers!`, "success");
+      setAnnouncement('');
+    } catch (err: any) {
+      addNotification("Failed to send announcement: " + err.message, "error");
+    }
+  };
+
+  const handleImpersonate = (u: any) => {
+    if (confirm(`Are you sure you want to impersonate ${u.username}? You will see the app as them temporarily.`)) {
+      const mockUser = {
+        id: u.id,
+        email: u.email,
+        user_metadata: { username: u.username, avatar_url: u.avatar_url },
+        app_metadata: {},
+        aud: 'authenticated',
+        created_at: u.created_at || new Date().toISOString(),
+        role: 'authenticated',
+        updated_at: u.updated_at || new Date().toISOString()
+      };
+      startImpersonation(mockUser as any, u);
+      addNotification(`Started impersonating ${u.username}`, "success");
+      onClose();
     }
   };
 
@@ -266,6 +320,17 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             <Server className="w-4 h-4" />
             <span className="font-medium">Servers Mgmt</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={clsx(
+              "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+              activeTab === 'dashboard' ? "bg-zinc-700/50 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
+            )}
+          >
+            <BarChart2 className="w-4 h-4" />
+            <span className="font-medium">Dashboard</span>
+          </button>
         </div>
 
         {/* Content */}
@@ -278,44 +343,91 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
 
           <div className="p-6 md:p-10 flex-1 overflow-hidden flex flex-col min-w-0">
             <h2 className="text-xl font-bold text-zinc-100 mb-6">
-              {activeTab === 'users' ? 'User Management' : 'Server Management'}
+              {activeTab === 'users' ? 'User Management' : activeTab === 'servers' ? 'Server Management' : 'Dashboard'}
             </h2>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-700 rounded-md py-2 pl-10 pr-4 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-              {activeTab === 'users' && selectedUserIds.size > 0 && (
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleBulkBan(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors rounded-md text-sm font-medium"
-                  >
-                    <Ban className="w-4 h-4" />
-                    Ban Selected
-                  </button>
-                  <button 
-                    onClick={() => handleBulkBan(false)}
-                    className="flex items-center gap-2 px-3 py-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors rounded-md text-sm font-medium"
-                  >
-                    <Check className="w-4 h-4" />
-                    Unban Selected
-                  </button>
+            {activeTab !== 'dashboard' && (
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-md py-2 pl-10 pr-4 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500"
+                  />
                 </div>
-              )}
-            </div>
+                {activeTab === 'users' && selectedUserIds.size > 0 && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleBulkBan(true)}
+                      className="flex items-center gap-2 px-3 py-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors rounded-md text-sm font-medium"
+                    >
+                      <Ban className="w-4 h-4" />
+                      Ban Selected
+                    </button>
+                    <button 
+                      onClick={() => handleBulkBan(false)}
+                      className="flex items-center gap-2 px-3 py-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors rounded-md text-sm font-medium"
+                    >
+                      <Check className="w-4 h-4" />
+                      Unban Selected
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-w-0">
               {loading ? (
                 <div className="flex justify-center items-center h-40">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+                </div>
+              ) : activeTab === 'dashboard' ? (
+                <div className="space-y-8">
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl flex flex-col gap-2">
+                      <div className="text-zinc-400 text-sm font-medium uppercase tracking-wider">Messages Today</div>
+                      <div className="text-3xl font-bold text-white">{stats?.messagesToday ?? '-'}</div>
+                    </div>
+                    <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl flex flex-col gap-2">
+                      <div className="text-zinc-400 text-sm font-medium uppercase tracking-wider">New Accounts Today</div>
+                      <div className="text-3xl font-bold text-white">{stats?.accountsToday ?? '-'}</div>
+                    </div>
+                    <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl flex flex-col gap-2">
+                      <div className="text-zinc-400 text-sm font-medium uppercase tracking-wider">Total Servers</div>
+                      <div className="text-3xl font-bold text-white">{stats?.totalServers ?? '-'}</div>
+                    </div>
+                  </div>
+
+                  {/* Global Announcement Section */}
+                  <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl flex flex-col gap-4">
+                    <div className="flex items-center gap-3 text-indigo-400 mb-2">
+                      <Bell className="w-5 h-5" />
+                      <h3 className="text-lg font-bold text-zinc-100">Global Announcement</h3>
+                    </div>
+                    <p className="text-sm text-zinc-400">
+                      Send a system message to the default text channel of every server on the platform. Use this for maintenance warnings or platform updates.
+                    </p>
+                    <textarea 
+                      value={announcement}
+                      onChange={e => setAnnouncement(e.target.value)}
+                      placeholder="Type your global announcement here..."
+                      className="w-full bg-zinc-950 border border-zinc-700 rounded-md p-3 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500 min-h-[100px] resize-y"
+                    />
+                    <div className="flex justify-end">
+                      <button 
+                        onClick={handleGlobalAnnounce}
+                        disabled={!announcement.trim()}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded transition-colors flex items-center gap-2"
+                      >
+                        <Bell className="w-4 h-4" />
+                        Send to All Servers
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : activeTab === 'users' ? (
                 <div className="space-y-2">
@@ -328,7 +440,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                     />
                     <div className="flex-1">User Info</div>
                     <div className="w-32 text-center">Status</div>
-                    <div className="w-40 text-right">Actions</div>
+                    <div className="w-48 text-right">Actions</div>
                   </div>
                   {filteredUsers.map(u => (
                     <div key={u.id} className={clsx(
@@ -367,7 +479,19 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end w-40 shrink-0 gap-3">
+                      <div className="flex items-center justify-end w-48 shrink-0 gap-3">
+                        <button
+                          onClick={() => handleImpersonate(u)}
+                          disabled={u.is_super_admin}
+                          title="Impersonate User"
+                          className={clsx(
+                            "p-1.5 rounded transition-colors block", // block forces display
+                            "bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white",
+                            u.is_super_admin && "opacity-50 cursor-not-allowed hidden"
+                          )}
+                        >
+                          <Ghost className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleSingleBan(u.id, !u.is_banned)}
                           disabled={u.is_super_admin}
@@ -376,8 +500,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                             "p-1.5 rounded transition-colors block", // block forces display
                             u.is_banned 
                               ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white" 
-                              : "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white",
-                            u.is_super_admin && "opacity-50 cursor-not-allowed"
+                               : "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white",
+                            u.is_super_admin && "opacity-50 cursor-not-allowed hidden"
                           )}
                         >
                           {u.is_banned ? <Check className="w-4 h-4" /> : <Ban className="w-4 h-4" />}

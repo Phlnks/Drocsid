@@ -187,6 +187,92 @@ async function startServer() {
       }
     });
 
+    app.get('/api/admin/dashboard', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        // Today start date
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const todayIso = today.toISOString();
+
+        // Count messages today
+        const { count: msgCount } = await supabaseAdmin.from('messages')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', todayIso);
+
+        // Count new accounts today
+        const { count: accountsCount } = await supabaseAdmin.from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', todayIso);
+
+        // Active servers count (maybe created today or total)
+        // just total servers
+        const { count: serversCount } = await supabaseAdmin.from('servers')
+          .select('*', { count: 'exact', head: true });
+
+        // Calls (we approximate by finding messages with type = voice call/rtc info or just use servers count)
+        res.json({
+          messagesToday: msgCount || 0,
+          accountsToday: accountsCount || 0,
+          totalServers: serversCount || 0,
+        });
+
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/admin/announce', express.json(), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { message } = req.body;
+        if (!message) return res.status(400).json({ error: 'Message is required' });
+
+        // Find all text channels and pick the first one per server
+        const { data: channels } = await supabaseAdmin.from('channels').select('id, server_id').eq('type', 'TEXT').order('created_at', { ascending: true });
+        if (!channels) return res.json({ ok: false });
+
+        const firstChannelPerServer = new Map<string, string>();
+        for (const ch of channels) {
+          if (!firstChannelPerServer.has(ch.server_id)) {
+            firstChannelPerServer.set(ch.server_id, ch.id);
+          }
+        }
+
+        const systemMessage = `🔔 **SYSTEM ANNOUNCEMENT** 🔔\n\n${message}`;
+
+        // Insert messages
+        const messagesToInsert = Array.from(firstChannelPerServer.values()).map(chId => ({
+          channel_id: chId,
+          user_id: user.id, // from super admin
+          content: systemMessage
+        }));
+
+        const { error: insertError } = await supabaseAdmin.from('messages').insert(messagesToInsert);
+        if (insertError) throw insertError;
+
+        res.json({ ok: true, serversReached: messagesToInsert.length });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // ── Web Push : sauvegarder la souscription d'un utilisateur ──────────
     app.post('/api/push/subscribe', express.json(), async (req, res) => {
       const { subscription, userId } = req.body;

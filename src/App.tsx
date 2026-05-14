@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 
 function MainAppContent() {
   const { t } = useTranslation();
-  const { user, isAuthReady } = useAuthStore();
+  const { user, isAuthReady, isImpersonating, currentUserProfile, stopImpersonation } = useAuthStore();
   const { isCurrentInstanceValid } = useInstanceStore();
   const isInstanceValid = isCurrentInstanceValid();
 
@@ -72,6 +72,17 @@ function MainAppContent() {
   return (
     <>
       <ThemeManager />
+      {isImpersonating && (
+        <div className="bg-amber-500 text-amber-950 px-4 py-2 text-sm font-semibold flex items-center justify-center gap-4 z-50 relative shadow-md shrink-0">
+          <span>You are currently impersonating {currentUserProfile?.username || 'a user'}.</span>
+          <button 
+            onClick={() => stopImpersonation()}
+            className="px-3 py-1 bg-amber-950 text-amber-500 hover:text-amber-400 rounded hover:bg-amber-900 transition-colors"
+          >
+            Stop Impersonating
+          </button>
+        </div>
+      )}
       {user ? <Layout /> : <Auth />} 
     </>
   );
