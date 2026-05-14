@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Hash, Plus, Settings, ChevronDown, ChevronRight, LogOut, Database } from 'lucide-react';
+import { Hash, Plus, Settings, ChevronDown, ChevronRight, LogOut, Database, UserPlus } from 'lucide-react';
 import clsx from 'clsx';
 import socket from '../lib/socket';
 import CreateChannelModal from './ui/CreateChannelModal';
@@ -257,6 +257,7 @@ export default function ChannelList() {
   let hasMoveMembers = isOwner || !!currentUserProfile?.is_super_admin;
   let hasKickMembers = isOwner || !!currentUserProfile?.is_super_admin;
   let hasBanMembers = isOwner || !!currentUserProfile?.is_super_admin;
+  let hasCreateInvite = isOwner || !!currentUserProfile?.is_super_admin;
 
   if (currentUserMember && Array.isArray(currentUserMember.roles)) {
     if (currentUserMember.roles.includes('owner')) {
@@ -265,6 +266,7 @@ export default function ChannelList() {
       hasMoveMembers = true;
       hasKickMembers = true;
       hasBanMembers = true;
+      hasCreateInvite = true;
     } else {
       const userRoles = serverRoles.filter(r => currentUserMember.roles.includes(r.id));
       for (const role of userRoles) {
@@ -274,6 +276,7 @@ export default function ChannelList() {
           hasMoveMembers = true;
           hasKickMembers = true;
           hasBanMembers = true;
+          hasCreateInvite = true;
           break;
         }
         if (role.permissions?.includes('MANAGE_CHANNELS')) hasManageChannels = true;
@@ -281,9 +284,47 @@ export default function ChannelList() {
         if (role.permissions?.includes('MOVE_MEMBERS')) hasMoveMembers = true;
         if (role.permissions?.includes('KICK_MEMBERS')) hasKickMembers = true;
         if (role.permissions?.includes('BAN_MEMBERS')) hasBanMembers = true;
+        if (role.permissions?.includes('CREATE_INVITE')) hasCreateInvite = true;
       }
     }
   }
+
+  const handleInvite = async () => {
+    if (!selectedServerId || !user) return;
+    try {
+      // Find last invite
+      const { data: invites } = await supabase
+        .from('invites')
+        .select('code')
+        .eq('server_id', selectedServerId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let inviteCode = '';
+      if (invites && invites.length > 0) {
+        inviteCode = invites[0].code;
+      } else {
+        // Create new invite
+        inviteCode = Math.random().toString(36).substring(2, 8);
+        await supabase.from('invites').insert({
+          server_id: selectedServerId,
+          creator_id: user.id,
+          code: inviteCode,
+          uses: 0,
+          max_uses: 0
+        });
+        logAction('invite_create', t('serverSettings.inviteCreatedLog', { code: inviteCode }));
+      }
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(inviteCode);
+      addNotification(t('channelList.inviteCopied'), "success");
+      setIsServerMenuOpen(false);
+    } catch (error) {
+      console.error("Error handling invite:", error);
+      addNotification(t('common.errorOccurred'), "error");
+    }
+  };
 
   const handleMoveMember = async (userId: string, targetChannelId: string) => {
     if (!hasMoveMembers || !userId) return;
@@ -628,6 +669,17 @@ export default function ChannelList() {
                 transition={{ duration: 0.1 }}
                 className="absolute top-14 left-2 right-2 bg-zinc-950 border border-zinc-800 rounded-md shadow-xl z-50 py-2"
               >
+                {hasCreateInvite && (
+                  <button 
+                    className="w-full text-left px-3 py-2 text-sm text-indigo-400 hover:bg-indigo-500 hover:text-white flex items-center justify-between group"
+                    onClick={() => {
+                      handleInvite();
+                    }}
+                  >
+                    {t('channelList.invite')}
+                    <UserPlus className="w-4 h-4 opacity-0 group-hover:opacity-100" />
+                  </button>
+                )}
                 {hasManageServer && (
                   <button 
                     className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white flex items-center justify-between group"

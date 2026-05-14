@@ -567,6 +567,8 @@
     "leaveServerConfirm": "Are you sure you want to leave this server?",
     "leaveServer": "Leave Server",
     "serverSettings": "Server Settings",
+    "invite": "Invite",
+    "inviteCopied": "Invite code copied to clipboard!",
     "createChannelSuccess": "Channel created successfully",
     "createChannelError": "Error creating channel"
   },

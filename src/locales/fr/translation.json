@@ -567,6 +567,8 @@
     "leaveServerConfirm": "Es-tu sûr de vouloir quitter ce serveur ?",
     "leaveServer": "Quitter le serveur",
     "serverSettings": "Paramètres du serveur",
+    "invite": "Inviter",
+    "inviteCopied": "Code d'invitation copié dans le presse-papier !",
     "createChannelSuccess": "Salon créé avec succès",
     "createChannelError": "Erreur lors de la création du salon"
   },
