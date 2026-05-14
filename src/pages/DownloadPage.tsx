@@ -84,7 +84,7 @@ export default function DownloadPage() {
             <div className="flex flex-col md:flex-row items-center justify-center gap-6">
               <div className="flex flex-col items-center gap-3">
                 <a 
-                  href="http://drocsid.ddns.net/Drocsid-Setup.exe" 
+                  href="https://141.253.96.110.nip.io/download/Drocsid-Setup.exe" 
                   download
                   className="group relative inline-flex items-center gap-3 w-[280px] justify-center px-8 py-5 bg-[#0078D4] hover:bg-[#006cbd] text-white rounded-2xl font-bold text-xl shadow-2xl shadow-[#0078D4]/30 transition-all duration-300 hover:scale-105 active:scale-95"
                 >
@@ -98,7 +98,7 @@ export default function DownloadPage() {
 
               <div className="flex flex-col items-center gap-3">
                 <a 
-                  href="http://drocsid.ddns.net/drocsid-linux.zip" 
+                  href="https://141.253.96.110.nip.io/download/drocsid-linux.zip" 
                   download
                   className="group relative inline-flex items-center gap-3 w-[280px] justify-center px-8 py-5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-zinc-900/50 transition-all duration-300 hover:scale-105 active:scale-95"
                 >
