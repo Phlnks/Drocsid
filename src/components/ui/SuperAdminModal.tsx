@@ -155,14 +155,14 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col bg-zinc-800 relative min-h-0">
+        <div className="flex-1 flex flex-col bg-zinc-800 relative min-h-0 min-w-0">
           <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
             <button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 rounded-full transition-colors flex flex-col items-center gap-1">
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="p-6 md:p-10 flex-1 overflow-hidden flex flex-col">
+          <div className="p-6 md:p-10 flex-1 overflow-hidden flex flex-col min-w-0">
             <h2 className="text-xl font-bold text-zinc-100 mb-6">
               {activeTab === 'users' ? 'User Management' : 'Server Management'}
             </h2>
@@ -178,7 +178,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-w-0">
               {loading ? (
                 <div className="flex justify-center items-center h-40">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
@@ -186,30 +186,31 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
               ) : activeTab === 'users' ? (
                 <div className="space-y-2">
                   {filteredUsers.map(u => (
-                    <div key={u.id} className="bg-zinc-900/50 border border-zinc-700/50 p-4 rounded-lg flex items-center justify-between group">
-                      <div className="flex items-center gap-4">
-                        <img src={u.avatar_url || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full bg-zinc-800" />
-                        <div>
-                          <div className="font-bold text-zinc-100 flex items-center gap-2">
-                            {u.username}
-                            {u.is_super_admin && <span title="Super Admin"><Shield className="w-3.5 h-3.5 text-rose-500" /></span>}
+                    <div key={u.id} className="bg-zinc-900/50 border border-zinc-700/50 p-4 rounded-lg flex items-center justify-between group gap-4">
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <img src={u.avatar_url || 'https://via.placeholder.com/40'} alt="" className="w-10 h-10 rounded-full bg-zinc-800 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-zinc-100 flex items-center gap-2 truncate">
+                            <span className="truncate">{u.username}</span>
+                            {u.is_super_admin && <span title="Super Admin" className="shrink-0"><Shield className="w-3.5 h-3.5 text-rose-500" /></span>}
                           </div>
-                          <div className="text-xs text-zinc-500 font-mono flex items-center gap-2">
-                            {u.email && <span>{u.email}</span>}
-                            {u.email && <span className="text-zinc-700">•</span>}
-                            <span>ID: {u.id}</span>
+                          <div className="text-xs text-zinc-500 font-mono flex items-center gap-2 truncate">
+                            {u.email && <span className="truncate">{u.email}</span>}
+                            {u.email && <span className="text-zinc-700 shrink-0">•</span>}
+                            <span className="truncate">ID: {u.id}</span>
                           </div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 shrink-0">
                         <div className="flex items-center gap-2">
-                          <label className="text-xs text-zinc-400 font-medium whitespace-nowrap">Can Create Servers?</label>
+                          <label className="text-xs text-zinc-400 font-medium whitespace-nowrap hidden sm:block">Can Create Servers?</label>
+                          <label className="text-xs text-zinc-400 font-medium whitespace-nowrap sm:hidden">Create Srv?</label>
                           <button
                             onClick={() => toggleUserCreationRights(u.id, !!u.can_create_servers)}
                             disabled={u.is_super_admin}
                             className={clsx(
-                              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                              "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
                               u.can_create_servers ? "bg-emerald-500" : "bg-zinc-600",
                               u.is_super_admin && "opacity-50 cursor-not-allowed"
                             )}
