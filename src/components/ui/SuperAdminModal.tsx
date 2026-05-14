@@ -207,10 +207,11 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   };
 
   const toggleAllUsers = () => {
-    if (selectedUserIds.size === filteredUsers.length) {
+    const selectableUsers = filteredUsers.filter(u => !u.is_super_admin);
+    if (selectedUserIds.size === selectableUsers.length && selectableUsers.length > 0) {
       setSelectedUserIds(new Set());
     } else {
-      setSelectedUserIds(new Set(filteredUsers.filter(u => !u.is_super_admin).map(u => u.id)));
+      setSelectedUserIds(new Set(selectableUsers.map(u => u.id)));
     }
   };
 
@@ -509,10 +510,11 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                         <button
                           onClick={() => toggleUserCreationRights(u.id, !!u.can_create_servers)}
                           disabled={u.is_super_admin}
+                          title={u.can_create_servers ? "Revoke rights to create servers" : "Grant rights to create servers"}
                           className={clsx(
                             "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
                             u.can_create_servers ? "bg-emerald-500" : "bg-zinc-600",
-                            u.is_super_admin && "opacity-50 cursor-not-allowed"
+                            u.is_super_admin && "opacity-50 cursor-not-allowed hidden"
                           )}
                         >
                           <span className={clsx("inline-block h-3 w-3 transform rounded-full bg-white transition-transform", u.can_create_servers ? "translate-x-5" : "translate-x-1")} />
