@@ -303,15 +303,15 @@ export default function WebRTCManager() {
   // ─── LiveKit <-> UI Sync ───────────────────────────────────────────────────
   // ✅ Piste : La "Vérité" est dans LiveKit. Si le socket bug, LiveKit sait qui est là.
   useEffect(() => {
-    if (!connectedVoiceChannelId || !roomRef.current) return;
+    if (!connectedVoiceChannelId || !roomRef.current || !currentUser) return;
 
     const sync = () => {
       if (!roomRef.current || !connectedVoiceChannelId) return;
       const room = roomRef.current;
       const identities = [
-        room.localParticipant.identity,
+        currentUser.id,
         ...Array.from(room.remoteParticipants.values()).map(p => p.identity)
-      ];
+      ].filter(Boolean);
       syncVoiceParticipantsWithLiveKit(connectedVoiceChannelId, identities);
     };
 
@@ -335,7 +335,7 @@ export default function WebRTCManager() {
       room.off(RoomEvent.Reconnected, sync);
       clearInterval(interval);
     };
-  }, [connectedVoiceChannelId, syncVoiceParticipantsWithLiveKit]);
+  }, [connectedVoiceChannelId, syncVoiceParticipantsWithLiveKit, currentUser]);
 
 
   // ─── Mute local mic ────────────────────────────────────────────────────────

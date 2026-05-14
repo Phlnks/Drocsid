@@ -494,13 +494,23 @@ async function startServer() {
       const voiceInfo = socketVoiceMap.get(socket.id);
       if (voiceInfo) {
         const { channelId, userId } = voiceInfo;
-        voiceRooms.get(channelId)?.delete(userId);
         socketVoiceMap.delete(socket.id);
-        io.emit("voice-participants-update", {
-          channelId,
-          participants: Array.from(voiceRooms.get(channelId)?.values() || [])
+        
+        let userHasAnotherSocket = false;
+        socketVoiceMap.forEach((info) => {
+          if (info.userId === userId && info.channelId === channelId) {
+            userHasAnotherSocket = true;
+          }
         });
-        await cleanupVoiceRoom(channelId);
+
+        if (!userHasAnotherSocket) {
+          voiceRooms.get(channelId)?.delete(userId);
+          io.emit("voice-participants-update", {
+            channelId,
+            participants: Array.from(voiceRooms.get(channelId)?.values() || [])
+          });
+          await cleanupVoiceRoom(channelId);
+        }
       }
 
       if (currentUserId && onlineUsers.has(currentUserId)) {
