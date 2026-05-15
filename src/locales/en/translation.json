@@ -668,5 +668,17 @@
       "notifications": "Native notifications even when the app is closed.",
       "startup": "Automatically launch Drocsid on startup."
     }
+  },
+  "reports": {
+    "status": {
+      "pending": "Report pending",
+      "resolved": "Report resolved",
+      "dismissed": "Report dismissed"
+    },
+    "report": "Report Message",
+    "reportReceived": "Report received",
+    "reasonPrompt": "Reason for report:",
+    "reportSuccess": "Message reported to moderators.",
+    "reportError": "Error while reporting: "
   }
 }

@@ -528,7 +528,7 @@ async function startServer() {
       const systemMessage = `SYSTEM ANNOUNCEMENT: ${message}`;
       const messagesToInsert = Array.from(firstChannelPerServer.values()).map((chId) => ({
         channel_id: chId,
-        user_id: user.id,
+        author_id: user.id,
         content: systemMessage,
       }));
 

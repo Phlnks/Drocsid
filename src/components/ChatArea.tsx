@@ -628,7 +628,7 @@ export default function ChatArea() {
   const handleReport = async (msg: any) => {
     if (reportedMessages[msg.id]) return;
     
-    const reason = prompt("Raison du signalement :");
+    const reason = prompt(t('reports.reasonPrompt'));
     if (!reason || !reason.trim()) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -656,9 +656,9 @@ export default function ChatArea() {
       }
       
       setReportedMessages(prev => ({ ...prev, [msg.id]: 'pending' }));
-      addNotification("Message signalé aux modérateurs.", "success");
+      addNotification(t('reports.reportSuccess'), "success");
     } catch (e: any) {
-      addNotification("Erreur lors du signalement: " + e.message, "error");
+      addNotification(t('reports.reportError') + e.message, "error");
     }
   };
 
@@ -1165,10 +1165,10 @@ export default function ChatArea() {
                           reportedMessages[msg.id] ? "text-emerald-400 cursor-default" : "text-zinc-400 hover:text-amber-400 hover:bg-zinc-700"
                         )}
                         title={
-                          reportedMessages[msg.id] === 'resolved' ? 'Signalement traité' : 
-                          reportedMessages[msg.id] === 'dismissed' ? 'Signalement sans suite' : 
-                          reportedMessages[msg.id] === 'pending' ? 'Signalement en cours' : 
-                          'Signaler'
+                          reportedMessages[msg.id] === 'resolved' ? t('reports.status.resolved') : 
+                          reportedMessages[msg.id] === 'dismissed' ? t('reports.status.dismissed') : 
+                          reportedMessages[msg.id] === 'pending' ? t('reports.status.pending') : 
+                          t('reports.report')
                         }
                       >
                         <Flag className="w-4 h-4" />

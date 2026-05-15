@@ -668,5 +668,17 @@
       "notifications": "Notifications natives même quand l'application est fermée.",
       "startup": "Lancez Drocsid automatiquement au démarrage."
     }
+  },
+  "reports": {
+    "status": {
+      "pending": "Signalement en cours",
+      "resolved": "Signalement traité",
+      "dismissed": "Signalement sans suite"
+    },
+    "report": "Signaler",
+    "reportReceived": "Signalement reçu",
+    "reasonPrompt": "Raison du signalement :",
+    "reportSuccess": "Message signalé aux modérateurs.",
+    "reportError": "Erreur lors du signalement: "
   }
 }
