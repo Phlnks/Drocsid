@@ -369,12 +369,25 @@ async function startServer() {
         if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
 
         const { data, error } = await supabaseAdmin.from('server_logs')
-          .select('*, profiles!server_logs_user_id_fkey(username)')
+          .select('*')
           .eq('action', 'USER_REPORT')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        res.json(data || []);
+        
+        let logs = data || [];
+        if (logs.length > 0) {
+          const userIds = Array.from(new Set(logs.map(l => l.user_id).filter(Boolean)));
+          if (userIds.length > 0) {
+            const { data: pData } = await supabaseAdmin.from('profiles').select('id, username').in('id', userIds);
+            const profilesMap = Object.fromEntries((pData || []).map(p => [p.id, p]));
+            logs = logs.map(l => ({
+              ...l,
+              profiles: profilesMap[l.user_id]
+            }));
+          }
+        }
+        res.json(logs);
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
@@ -544,13 +557,26 @@ async function startServer() {
 
         // ilike search on content
         const { data, error } = await supabaseAdmin.from('messages')
-          .select('*, profiles!messages_user_id_fkey(username), channels!inner(name, servers!inner(name))')
+          .select('*, channels!inner(name, servers!inner(name))')
           .ilike('content', `%${q}%`)
           .order('created_at', { ascending: false })
           .limit(30);
 
         if (error) throw error;
-        res.json(data || []);
+        
+        let messages = data || [];
+        if (messages.length > 0) {
+          const userIds = Array.from(new Set(messages.map(m => m.author_id).filter(Boolean)));
+          if (userIds.length > 0) {
+            const { data: pData } = await supabaseAdmin.from('profiles').select('id, username').in('id', userIds);
+            const profilesMap = Object.fromEntries((pData || []).map(p => [p.id, p]));
+            messages = messages.map(m => ({
+              ...m,
+              profiles: profilesMap[m.author_id]
+            }));
+          }
+        }
+        res.json(messages);
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }

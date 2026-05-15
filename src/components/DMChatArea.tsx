@@ -27,7 +27,7 @@ import socket from '../lib/socket';
 
 export default function DMChatArea() {
   const { t, i18n } = useTranslation();
-  const { user, currentUserProfile, setCurrentUserProfile: setLocalProfile } = useAuthStore();
+  const { user, currentUserProfile, setCurrentUserProfile: setLocalProfile, isImpersonating } = useAuthStore();
   const { 
     selectedDmId, 
     setSelectedDmId, 
@@ -694,6 +694,22 @@ export default function DMChatArea() {
     return (
       <div className="flex-1 bg-zinc-800 flex items-center justify-center text-zinc-500">
         {t('chatArea.selectFriend')}
+      </div>
+    );
+  }
+
+  if (isImpersonating) {
+    return (
+      <div className="flex-1 bg-zinc-800 flex flex-col items-center justify-center text-center p-8">
+        <div className="w-16 h-16 rounded-full bg-zinc-700/50 flex items-center justify-center mb-4">
+          <User className="w-8 h-8 text-zinc-500" />
+        </div>
+        <h3 className="text-xl font-bold text-zinc-100 mb-2">
+          Contenu privé masqué
+        </h3>
+        <p className="text-zinc-400 max-w-sm">
+          Pour des raisons de confidentialité, le contenu des messages privés est inaccessible lorsque vous empruntez l'identité d'un autre utilisateur.
+        </p>
       </div>
     );
   }
