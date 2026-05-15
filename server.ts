@@ -230,6 +230,188 @@ async function startServer() {
       }
     });
 
+    app.get('/api/admin/dashboard/chart', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const days = 14;
+        const chartData = [];
+        
+        // We will generate the last 14 days in order
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          d.setHours(0,0,0,0);
+          
+          const nextDay = new Date(d);
+          nextDay.setDate(nextDay.getDate() + 1);
+          
+          const { count: msgs } = await supabaseAdmin.from('messages')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', d.toISOString())
+            .lt('created_at', nextDay.toISOString());
+
+          const { count: users } = await supabaseAdmin.from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', d.toISOString())
+            .lt('created_at', nextDay.toISOString());
+
+          chartData.push({
+            date: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            messages: msgs || 0,
+            users: users || 0
+          });
+        }
+
+        res.json(chartData);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/admin/storage', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        // Calculate size of avatars and attachments buckets
+        let totalSize = 0;
+        let totalFiles = 0;
+        
+        const buckets = ['avatars', 'chat-attachments', 'server-icons'];
+        const stats = {};
+
+        for (const bucket of buckets) {
+          const { data, error } = await supabaseAdmin.storage.from(bucket).list('', {
+            limit: 1000,
+            offset: 0,
+            sortBy: { column: 'name', order: 'asc' }
+          });
+          
+          let bucketSize = 0;
+          let bucketFiles = 0;
+          if (data) {
+            for (const file of data) {
+              if (file.id) { // Not a folder unless needed
+                bucketSize += file.metadata?.size || 0;
+                bucketFiles += 1;
+              }
+            }
+          }
+          
+          stats[bucket] = {
+            size: bucketSize,
+            count: bucketFiles
+          };
+          totalSize += bucketSize;
+          totalFiles += bucketFiles;
+        }
+
+        res.json({
+          totalSize,
+          totalFiles,
+          buckets: stats
+        });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/reports', express.json(), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { messageId, serverId, reason, content, authorName } = req.body;
+        if (!messageId || !reason) return res.status(400).json({ error: 'Missing fields' });
+
+        // Insert a new log mimicking a report in server_logs
+        // We set action: 'USER_REPORT'
+        const { error } = await supabaseAdmin.from('server_logs').insert({
+          action: 'USER_REPORT',
+          server_id: serverId || null, // Might be null for DMs
+          user_id: user.id, // reporter
+          details: JSON.stringify({ messageId, reason, content, authorName, status: 'pending' }),
+        });
+
+        if (error) throw error;
+        res.json({ ok: true });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/admin/reports', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { data, error } = await supabaseAdmin.from('server_logs')
+          .select('*, profiles!server_logs_user_id_fkey(username)')
+          .eq('action', 'USER_REPORT')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        res.json(data || []);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.put('/api/admin/reports/:id', express.json(), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: 'Missing auth header' });
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
+
+        const { data: profile } = await supabaseAdmin.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+        if (!profile?.is_super_admin) return res.status(403).json({ error: 'Forbidden' });
+
+        const { status } = req.body;
+        
+        // fetch existing report
+        const { data: report, error: fetchErr } = await supabaseAdmin.from('server_logs').select('details').eq('id', req.params.id).single();
+        if (fetchErr) throw fetchErr;
+
+        let details = null;
+        try { details = JSON.parse(report.details); } catch(e){}
+        if (details) details.status = status;
+
+        const { error } = await supabaseAdmin.from('server_logs').update({
+          details: JSON.stringify(details)
+        }).eq('id', req.params.id);
+
+        if (error) throw error;
+        res.json({ ok: true });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     app.post('/api/admin/announce', express.json(), async (req, res) => {
       try {
         const authHeader = req.headers.authorization;

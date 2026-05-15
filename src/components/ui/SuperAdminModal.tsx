@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell, Edit, MessageSquare, History } from 'lucide-react';
+import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell, Edit, MessageSquare, History, Flag, Database } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import clsx from 'clsx';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+
+function formatBytes(bytes: number, decimals = 2) {
+  if (!+bytes) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
 
 interface SuperAdminModalProps {
   isOpen: boolean;
@@ -16,10 +26,13 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   const { user: currentUser, currentUserProfile, startImpersonation } = useAuthStore();
   const { addNotification, setSelectedServerId } = useAppStore();
   
-  const [activeTab, setActiveTab] = useState<'users' | 'servers' | 'dashboard' | 'messages' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'servers' | 'dashboard' | 'messages' | 'audit' | 'reports'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [servers, setServers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [storageStats, setStorageStats] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageSearch, setMessageSearch] = useState('');
@@ -75,19 +88,34 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
           setServers([]);
         }
       } else if (activeTab === 'dashboard') {
-        const res = await fetch(`${baseUrl}/api/admin/dashboard`, {
+        const resStats = await fetch(`${baseUrl}/api/admin/dashboard`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        setStats(data);
+        if (!resStats.ok) throw new Error(await resStats.text());
+        setStats(await resStats.json());
+
+        const resChart = await fetch(`${baseUrl}/api/admin/dashboard/chart`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (resChart.ok) setChartData(await resChart.json());
+
+        const resStorage = await fetch(`${baseUrl}/api/admin/storage`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (resStorage.ok) setStorageStats(await resStorage.json());
+
       } else if (activeTab === 'audit') {
         const res = await fetch(`${baseUrl}/api/admin/audit`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        setAuditLogs(data || []);
+        setAuditLogs(await res.json() || []);
+      } else if (activeTab === 'reports') {
+        const res = await fetch(`${baseUrl}/api/admin/reports`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        setReports(await res.json() || []);
       }
     } catch (err: any) {
       console.error(err);
@@ -234,6 +262,26 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       setMessages(messages.filter(m => m.id !== msgId));
     } catch (e: any) {
       addNotification("Failed to delete message: " + e.message, "error");
+    }
+  };
+
+  const handleReportStatus = async (reportId: string, status: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${window.location.origin}/api/admin/reports/${reportId}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      addNotification(`Report marked as ${status}`, "success");
+      setReports(reports.map(r => r.id === reportId ? { ...r, details: JSON.stringify({ ...JSON.parse(r.details || '{}'), status }) } : r));
+    } catch (e: any) {
+      addNotification("Failed to update report: " + e.message, "error");
     }
   };
 
@@ -459,6 +507,17 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             <History className="w-4 h-4" />
             <span className="font-medium">Audit Logs</span>
           </button>
+          
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={clsx(
+              "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+              activeTab === 'reports' ? "bg-zinc-700/50 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
+            )}
+          >
+            <Flag className="w-4 h-4" />
+            <span className="font-medium">Signalements</span>
+          </button>
         </div>
 
         {/* Content */}
@@ -474,10 +533,11 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
               {activeTab === 'users' ? 'User Management' : 
                activeTab === 'servers' ? 'Server Management' : 
                activeTab === 'dashboard' ? 'Dashboard' :
-               activeTab === 'audit' ? 'Audit Logs' : 'Global Messages Search'}
+               activeTab === 'audit' ? 'Audit Logs' : 
+               activeTab === 'reports' ? 'Signalements Utilisateurs' : 'Global Messages Search'}
             </h2>
 
-            {activeTab !== 'dashboard' && activeTab !== 'audit' && activeTab !== 'messages' && (
+            {activeTab !== 'dashboard' && activeTab !== 'audit' && activeTab !== 'messages' && activeTab !== 'reports' && (
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -532,6 +592,53 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                       <div className="text-3xl font-bold text-white">{stats?.totalServers ?? '-'}</div>
                     </div>
                   </div>
+
+                  {chartData.length > 0 && (
+                    <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl">
+                      <h3 className="text-lg font-bold text-zinc-100 mb-6 flex items-center gap-2">
+                        <BarChart2 className="w-5 h-5 text-indigo-400" />
+                        Activity Overview (14 Days)
+                      </h3>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
+                            <XAxis dataKey="date" stroke="#a1a1aa" fontSize={12} tickMargin={10} />
+                            <YAxis stroke="#a1a1aa" fontSize={12} />
+                            <RechartsTooltip 
+                              contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', color: '#f4f4f5' }}
+                              itemStyle={{ color: '#818cf8' }}
+                            />
+                            <Line type="monotone" dataKey="messages" name="Messages" stroke="#818cf8" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            <Line type="monotone" dataKey="users" name="New Users" stroke="#34d399" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {storageStats && (
+                    <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl">
+                      <h3 className="text-lg font-bold text-zinc-100 mb-6 flex items-center gap-2">
+                        <Database className="w-5 h-5 text-indigo-400" />
+                        Storage Audit
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-zinc-950/50 border border-zinc-800 p-4 rounded-lg">
+                          <div className="text-zinc-500 text-xs font-semibold mb-1 uppercase">Total Usage</div>
+                          <div className="text-2xl font-bold text-indigo-400">{formatBytes(storageStats.totalSize)}</div>
+                          <div className="text-zinc-500 text-sm mt-1">{storageStats.totalFiles} files</div>
+                        </div>
+                        {Object.entries(storageStats.buckets).map(([name, data]: [string, any]) => (
+                          <div key={name} className="bg-zinc-950/50 border border-zinc-800 p-4 rounded-lg">
+                            <div className="text-zinc-500 text-xs font-semibold mb-1 uppercase">{name}</div>
+                            <div className="text-xl font-bold text-zinc-200">{formatBytes(data.size)}</div>
+                            <div className="text-zinc-500 text-sm mt-1">{data.count} files</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Global Announcement Section */}
                   <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl flex flex-col gap-4">
@@ -722,6 +829,69 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                   ))}
                   {auditLogs.length === 0 && !loading && (
                     <div className="text-center text-zinc-500 py-8">No events found.</div>
+                  )}
+                </div>
+              ) : activeTab === 'reports' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 px-4 py-2 text-xs font-semibold text-zinc-500 uppercase">
+                    <div className="flex-1">Report Details</div>
+                    <div className="w-32 text-center">Status</div>
+                    <div className="w-48 text-right">Actions</div>
+                  </div>
+                  {reports.map((r) => {
+                    let details: any = {};
+                    try { details = JSON.parse(r.details || '{}') } catch(e){}
+                    return (
+                      <div key={r.id} className="bg-zinc-900/50 border border-zinc-700/50 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-zinc-200 text-sm mb-1">
+                            Reported by: <span className="text-indigo-400">{r.profiles?.username}</span>
+                            <span className="text-zinc-500 font-normal ml-2 text-xs">{new Date(r.created_at).toLocaleString()}</span>
+                          </div>
+                          <div className="text-sm text-zinc-300 bg-zinc-950 p-3 rounded-md mb-2 border border-zinc-800">
+                            <strong>Reason:</strong> {details.reason}
+                          </div>
+                          {details.content && (
+                            <div className="text-xs text-zinc-400 border-l-2 border-zinc-700 pl-3 italic">
+                              Message ({details.authorName}): "{details.content}"
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="w-32 flex justify-center shrink-0">
+                          <span className={clsx(
+                            "px-2.5 py-1 rounded text-xs font-medium uppercase tracking-wide",
+                            details.status === 'resolved' ? "bg-emerald-500/10 text-emerald-400" :
+                            details.status === 'dismissed' ? "bg-zinc-500/10 text-zinc-400" :
+                            "bg-amber-500/10 text-amber-400"
+                          )}>
+                            {details.status || 'pending'}
+                          </span>
+                        </div>
+
+                        <div className="w-48 flex justify-end gap-2 shrink-0">
+                          {(!details.status || details.status === 'pending') && (
+                            <>
+                              <button
+                                onClick={() => handleReportStatus(r.id, 'resolved')}
+                                className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors rounded text-sm font-medium flex items-center gap-1"
+                              >
+                                <Check className="w-4 h-4" /> Resolve
+                              </button>
+                              <button
+                                onClick={() => handleReportStatus(r.id, 'dismissed')}
+                                className="px-3 py-1.5 bg-zinc-700/50 text-zinc-300 hover:bg-zinc-600 hover:text-white transition-colors rounded text-sm font-medium flex items-center gap-1"
+                              >
+                                <X className="w-4 h-4" /> Dismiss
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {reports.length === 0 && !loading && (
+                    <div className="text-center text-zinc-500 py-8">No reports found.</div>
                   )}
                 </div>
               ) : (

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { Hash, Volume2, Volume1, VolumeX, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, ArrowDown, Users, ArrowLeft, Check, Loader2, Pin, Bell, Plus } from 'lucide-react';
+import { Hash, Volume2, Volume1, VolumeX, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, ArrowDown, Users, ArrowLeft, Check, Loader2, Pin, Bell, Plus, Flag } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
@@ -40,7 +40,8 @@ export default function ChatArea() {
     voiceVolume,
     setVoiceVolume,
     isVoiceVolumeMuted,
-    setIsVoiceVolumeMuted
+    setIsVoiceVolumeMuted,
+    addNotification
   } = useAppStore();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -592,6 +593,36 @@ export default function ChatArea() {
     return format(date, appSettings.dateFormat, { locale: dateLocale });
   };
 
+  const handleReport = async (msg: any) => {
+    const reason = prompt("Raison du signalement :");
+    if (!reason || !reason.trim()) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const authorData = getUserData(msg.author_id, msg.profiles?.username, msg.profiles?.avatar_url);
+
+      const res = await fetch(`${window.location.origin}/api/reports`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          messageId: msg.id, 
+          serverId: selectedServerId, 
+          reason,
+          content: msg.content,
+          authorName: authorData.username
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      addNotification("Message signalé aux modérateurs.", "success");
+    } catch (e: any) {
+      addNotification("Erreur lors du signalement: " + e.message, "error");
+    }
+  };
+
   const MessageSkeleton = () => (
     <div className="px-4 py-3 flex gap-4 animate-pulse">
       <div className="w-10 h-10 rounded-full bg-zinc-700/50 flex-shrink-0" />
@@ -1084,6 +1115,15 @@ export default function ChatArea() {
                         title={t('chatArea.editMessage')}
                       >
                         <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                    {!isMessageAuthor && (
+                      <button 
+                        onClick={() => handleReport(msg)}
+                        className="p-1.5 text-zinc-400 hover:text-amber-400 hover:bg-zinc-700 transition-colors"
+                        title={'Signaler'}
+                      >
+                        <Flag className="w-4 h-4" />
                       </button>
                     )}
                     {canDelete && (
