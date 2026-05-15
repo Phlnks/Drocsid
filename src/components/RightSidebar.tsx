@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
-import { MessageSquare, Bell, Check, AtSign, X } from 'lucide-react';
+import { MessageSquare, Bell, Check, AtSign, X, Users, Flag } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { format } from 'date-fns';
 import clsx from 'clsx';
@@ -215,8 +215,9 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
   };
 
   const getGroupedUsers = () => {
-    const onlineUsers = users.filter(u => onlineUserIds.includes(u.id));
-    const offlineUsers = users.filter(u => !onlineUserIds.includes(u.id));
+    const isOnline = (u: any) => getDisplayStatus(u) !== 'offline';
+    const onlineUsers = users.filter(isOnline);
+    const offlineUsers = users.filter(u => !isOnline(u));
 
     if (!selectedServerId) {
       const groups = [];
@@ -241,7 +242,6 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
 
     // Server view: Group by role
     const groups: { id: string, name: string, users: any[], isOffline: boolean }[] = [];
-    const onlineIdSet = new Set(onlineUserIds);
     
     // Maps userId to its highest role (the one with the lowest order)
     const userHighestRole = new Map<string, any>();
@@ -257,7 +257,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
     serverRoles.forEach(role => {
       const membersInRole = users.filter(u => {
         const highestRole = userHighestRole.get(u.id);
-        return highestRole?.id === role.id && onlineIdSet.has(u.id);
+        return highestRole?.id === role.id && isOnline(u);
       }).sort((a, b) => a.username.localeCompare(b.username));
       
       if (membersInRole.length > 0) {
@@ -271,7 +271,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
     });
 
     // Members with no role and online
-    const membersWithNoRoleOnline = users.filter(u => !userHighestRole.has(u.id) && onlineIdSet.has(u.id))
+    const membersWithNoRoleOnline = users.filter(u => !userHighestRole.has(u.id) && isOnline(u))
       .sort((a, b) => a.username.localeCompare(b.username));
     
     if (membersWithNoRoleOnline.length > 0) {
@@ -284,7 +284,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
     }
 
     // Finally, offline members
-    const offlineMembers = users.filter(u => !onlineIdSet.has(u.id))
+    const offlineMembers = users.filter(u => !isOnline(u))
       .sort((a, b) => a.username.localeCompare(b.username));
     
     if (offlineMembers.length > 0) {
@@ -454,6 +454,7 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                     const isDM = notif.type === 'dm' || notif.is_dm;
                     const isFriendRequest = notif.type === 'friend_request';
                     const isFriendAccept = notif.type === 'friend_accept';
+                    const isReportUpdate = notif.type === 'REPORT_UPDATE';
 
                     return (
                       <div 
@@ -462,13 +463,14 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                           "bg-zinc-800/50 p-3 rounded-md border transition-colors cursor-pointer hover:bg-zinc-700/50 group",
                           notif.read ? "border-zinc-700/30 opacity-70" : "border-indigo-500/50 bg-indigo-500/5"
                         )}
-                        onClick={() => jumpToMessage(notif)}
+                        onClick={() => !isReportUpdate && jumpToMessage(notif)}
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 text-xs text-zinc-400">
                             {isMention && <AtSign className="w-3 h-3 text-indigo-400" />}
                             {isDM && <MessageSquare className="w-3 h-3 text-indigo-400" />}
                             {(isFriendRequest || isFriendAccept) && <Bell className="w-3 h-3 text-indigo-400" />}
+                            {isReportUpdate && <Flag className="w-3 h-3 text-amber-400" />}
                             <span>
                               {isMention && (
                                 <>
@@ -493,6 +495,9 @@ export default function RightSidebar({ forceTab }: { forceTab?: 'users' | 'notif
                                   <span className="font-medium text-zinc-300">{notif.data?.author_name || notif.author_name || t('common.user')} </span>
                                   {t('friends.notificationFriendAccepted')}
                                 </>
+                              )}
+                              {isReportUpdate && (
+                                <span className="font-medium text-amber-400">Mise à jour de signalement</span>
                               )}
                             </span>
                           </div>

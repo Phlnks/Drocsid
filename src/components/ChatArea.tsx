@@ -45,6 +45,7 @@ export default function ChatArea() {
   } = useAppStore();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
+  const [reportedMessageIds, setReportedMessageIds] = useState<Set<string>>(new Set());
   const [channel, setChannel] = useState<any>(null);
   const [server, setServer] = useState<any>(null);
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
@@ -593,7 +594,37 @@ export default function ChatArea() {
     return format(date, appSettings.dateFormat, { locale: dateLocale });
   };
 
+  // Fetch user's reports to show feedback
+  useEffect(() => {
+    const fetchReports = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('server_logs')
+          .select('details')
+          .eq('action', 'USER_REPORT')
+          .eq('user_id', user.id);
+        
+        if (data) {
+          const ids = new Set<string>();
+          data.forEach(log => {
+            try {
+              const details = JSON.parse(log.details || '{}');
+              if (details.messageId) ids.add(details.messageId);
+            } catch(e){}
+          });
+          setReportedMessageIds(ids);
+        }
+      } catch (e) {
+        console.error("Error fetching reports:", e);
+      }
+    };
+    fetchReports();
+  }, [user]);
+
   const handleReport = async (msg: any) => {
+    if (reportedMessageIds.has(msg.id)) return;
+    
     const reason = prompt("Raison du signalement :");
     if (!reason || !reason.trim()) return;
     try {
@@ -616,12 +647,18 @@ export default function ChatArea() {
           authorName: authorData.username
         })
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erreur inconnue");
+      }
+      
+      setReportedMessageIds(prev => new Set(Array.from(prev)).add(msg.id));
       addNotification("Message signalé aux modérateurs.", "success");
     } catch (e: any) {
       addNotification("Erreur lors du signalement: " + e.message, "error");
     }
   };
+
 
   const MessageSkeleton = () => (
     <div className="px-4 py-3 flex gap-4 animate-pulse">
@@ -1120,8 +1157,11 @@ export default function ChatArea() {
                     {!isMessageAuthor && (
                       <button 
                         onClick={() => handleReport(msg)}
-                        className="p-1.5 text-zinc-400 hover:text-amber-400 hover:bg-zinc-700 transition-colors"
-                        title={'Signaler'}
+                        className={clsx(
+                          "p-1.5 transition-colors",
+                          reportedMessageIds.has(msg.id) ? "text-emerald-400 cursor-default" : "text-zinc-400 hover:text-amber-400 hover:bg-zinc-700"
+                        )}
+                        title={reportedMessageIds.has(msg.id) ? 'Signalement reçu' : 'Signaler'}
                       >
                         <Flag className="w-4 h-4" />
                       </button>

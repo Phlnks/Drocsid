@@ -19,7 +19,7 @@ export default function FriendsDashboard() {
   const [addMessage, setAddMessage] = useState({ type: '', text: '' });
   
   const { user, currentUserProfile } = useAuthStore();
-  const { setSelectedDmId, setIsMobileNavOpen, connectedVoiceChannelId, addNotification } = useAppStore();
+  const { setSelectedDmId, setIsMobileNavOpen, connectedVoiceChannelId, addNotification, onlineUserIds } = useAppStore();
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -234,10 +234,16 @@ export default function FriendsDashboard() {
 
   const getOtherUserId = (rel: any) => rel.participants.find((id: string) => id !== user?.id);
 
+  const getDisplayStatus = (u: any) => {
+    if (!u) return 'offline';
+    if (!onlineUserIds.includes(u.id)) return 'offline';
+    return u.status || 'online';
+  };
+
   const friends = relationships.filter(r => r.status === 'accepted');
   const onlineFriends = friends.filter(r => {
     const otherUser = usersMap[getOtherUserId(r)];
-    return otherUser && (otherUser.status || 'online') !== 'offline';
+    return getDisplayStatus(otherUser) !== 'offline';
   });
   const pendingRequests = relationships.filter(r => r.status === 'pending');
 
@@ -262,6 +268,8 @@ export default function FriendsDashboard() {
           const otherUserId = getOtherUserId(rel);
           const otherUser = usersMap[otherUserId];
           if (!otherUser) return null;
+          
+          const displayStatus = getDisplayStatus(otherUser);
 
           return (
             <div 
@@ -270,15 +278,15 @@ export default function FriendsDashboard() {
               className="flex items-center justify-between p-3 hover:bg-zinc-800/50 rounded-lg group border-t border-zinc-800/50 first:border-0 cursor-pointer"
             >
               <div className="flex items-center gap-3">
-                <UserAvatar user={otherUser} size="md" />
+                <UserAvatar user={{...otherUser, status: displayStatus}} size="md" />
                 <div>
                   <div className="font-semibold text-zinc-100 flex items-center gap-2">
                     {otherUser.username}
                   </div>
                   <div className="text-sm text-zinc-400 capitalize">
-                    {otherUser.status === 'dnd' ? t('common.dnd') : 
-                     otherUser.status === 'idle' ? t('common.idle') : 
-                     otherUser.status === 'offline' ? t('common.offline') : t('common.online')}
+                    {displayStatus === 'dnd' ? t('common.dnd') : 
+                     displayStatus === 'idle' ? t('common.idle') : 
+                     displayStatus === 'offline' ? t('common.offline') : t('common.online')}
                   </div>
                 </div>
               </div>

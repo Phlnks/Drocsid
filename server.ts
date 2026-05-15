@@ -341,11 +341,23 @@ async function startServer() {
         const { messageId, serverId, reason, content, authorName } = req.body;
         if (!messageId || !reason) return res.status(400).json({ error: 'Missing fields' });
 
+        // Prevent duplicate reports by same user for same message
+        const { data: existingReport } = await supabaseAdmin
+          .from('server_logs')
+          .select('id')
+          .eq('action', 'USER_REPORT')
+          .eq('user_id', user.id)
+          .ilike('details', `%${messageId}%`)
+          .maybeSingle();
+
+        if (existingReport) {
+          return res.status(400).json({ error: 'Vous avez déjà signalé ce message.' });
+        }
+
         // Insert a new log mimicking a report in server_logs
-        // We set action: 'USER_REPORT'
         const { error } = await supabaseAdmin.from('server_logs').insert({
           action: 'USER_REPORT',
-          server_id: serverId || null, // Might be null for DMs
+          server_id: serverId || null,
           user_id: user.id, // reporter
           details: JSON.stringify({ messageId, reason, content, authorName, status: 'pending' }),
         });
@@ -407,7 +419,7 @@ async function startServer() {
         const { status } = req.body;
         
         // fetch existing report
-        const { data: report, error: fetchErr } = await supabaseAdmin.from('server_logs').select('details').eq('id', req.params.id).single();
+        const { data: report, error: fetchErr } = await supabaseAdmin.from('server_logs').select('details, user_id').eq('id', req.params.id).single();
         if (fetchErr) throw fetchErr;
 
         let details = null;
@@ -419,6 +431,28 @@ async function startServer() {
         }).eq('id', req.params.id);
 
         if (error) throw error;
+
+        // Notify reporter
+        if (report.user_id) {
+          const statusText = status === 'resolved' ? 'traité' : 'classé sans suite';
+          await supabaseAdmin.from('notifications').insert({
+            user_id: report.user_id,
+            type: 'REPORT_UPDATE',
+            data: {
+              reportId: req.params.id,
+              status: status,
+              message: `Votre signalement a été ${statusText}.`
+            }
+          });
+
+          // Also try push notification
+          sendPushToUser(report.user_id, {
+            title: 'Mise à jour de signalement',
+            body: `Votre signalement a été ${statusText}.`,
+            url: '/channels/@me'
+          });
+        }
+
         res.json({ ok: true });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -555,9 +589,9 @@ async function startServer() {
         const { q } = req.query;
         if (!q || typeof q !== 'string') return res.json([]);
 
-        // ilike search on content
+        // Explicitly avoid relationship joins if they fail in schema cache
         const { data, error } = await supabaseAdmin.from('messages')
-          .select('*, channels!inner(name, servers!inner(name))')
+          .select('*')
           .ilike('content', `%${q}%`)
           .order('created_at', { ascending: false })
           .limit(30);
@@ -566,15 +600,34 @@ async function startServer() {
         
         let messages = data || [];
         if (messages.length > 0) {
-          const userIds = Array.from(new Set(messages.map(m => m.author_id).filter(Boolean)));
-          if (userIds.length > 0) {
-            const { data: pData } = await supabaseAdmin.from('profiles').select('id, username').in('id', userIds);
-            const profilesMap = Object.fromEntries((pData || []).map(p => [p.id, p]));
-            messages = messages.map(m => ({
+          const authorIds = Array.from(new Set(messages.map(m => m.author_id).filter(Boolean)));
+          const channelIds = Array.from(new Set(messages.map(m => m.channel_id).filter(Boolean)));
+
+          const [profilesRes, channelsRes] = await Promise.all([
+            supabaseAdmin.from('profiles').select('id, username').in('id', authorIds),
+            supabaseAdmin.from('channels').select('id, name, server_id').in('id', channelIds)
+          ]);
+
+          const profilesMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id, p]));
+          const channelsMap = Object.fromEntries((channelsRes.data || []).map(c => [c.id, c]));
+
+          // also need server names
+          const serverIds = Array.from(new Set((channelsRes.data || []).map(c => c.server_id).filter(Boolean)));
+          const { data: serversData } = await supabaseAdmin.from('servers').select('id, name').in('id', serverIds);
+          const serversMap = Object.fromEntries((serversData || []).map(s => [s.id, s]));
+
+          messages = messages.map(m => {
+            const chan = channelsMap[m.channel_id];
+            const serv = chan ? serversMap[chan.server_id] : null;
+            return {
               ...m,
-              profiles: profilesMap[m.author_id]
-            }));
-          }
+              profiles: profilesMap[m.author_id],
+              channels: chan ? {
+                ...chan,
+                servers: serv
+              } : null
+            };
+          });
         }
         res.json(messages);
       } catch (err: any) {

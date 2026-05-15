@@ -275,11 +275,6 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
             <h2 className="text-xl font-bold text-zinc-100" style={{ color: user.color || '#f4f4f5' }}>
               {user.username || user.displayName || 'User'}
             </h2>
-            <div className="text-sm text-zinc-400 capitalize">
-              {user.status === 'dnd' ? t('modals.userProfile.dnd') : 
-               user.status === 'idle' ? t('modals.userProfile.idle') : 
-               user.status === 'offline' ? t('modals.userProfile.offline') : t('modals.userProfile.online')}
-            </div>
             {user.bio && (
               <div className="mt-4">
                 <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">

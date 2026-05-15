@@ -39,11 +39,18 @@ export default function DMChatArea() {
     highlightedMessageId: globalHighlightedMessageId, 
     setHighlightedMessageId: setGlobalHighlightedMessageId,
     voiceParticipants: voiceParticipantsMap,
-    appSettings
+    appSettings,
+    onlineUserIds
   } = useAppStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [otherUsers, setOtherUsers] = useState<any[]>([]);
   const [otherUser, setOtherUser] = useState<any>(null);
+
+  const getDisplayStatus = (u: any) => {
+    if (!u) return 'offline';
+    if (!onlineUserIds.includes(u.id)) return 'offline';
+    return u.status || 'online';
+  };
   const [dmData, setDmData] = useState<any>(null);
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -743,7 +750,7 @@ export default function DMChatArea() {
                     user={{
                       username: otherUser?.username || t('common.user'),
                       avatar_url: otherUser?.avatar_url,
-                      status: otherUser?.status || 'offline'
+                      status: getDisplayStatus(otherUser)
                     }} 
                     size="md" 
                   />
