@@ -268,7 +268,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
         
         <div className="px-4 pb-4 relative">
           <div className="absolute -top-12 left-4 p-1.5 bg-zinc-900 rounded-full">
-            <UserAvatar user={user} size="xl" />
+            <UserAvatar user={user} size="xl" showStatus={false} />
           </div>
           
           <div className="pt-14 pb-4">

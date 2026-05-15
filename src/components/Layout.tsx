@@ -105,9 +105,9 @@ export default function Layout() {
       {/* Main Content (ChatArea/DMChatArea/FriendsDashboard) */}
       <div className={`flex-1 h-full min-w-0 min-h-0 ${!isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
         {selectedServerId === null ? (
-          activeStreamFocus ? <FocusedScreenShare /> : (selectedDmId ? <DMChatArea /> : <FriendsDashboard />)
+          activeStreamFocus ? <FocusedScreenShare /> : (selectedDmId ? <DMChatArea key={`dm-${selectedDmId}`} /> : <FriendsDashboard />)
         ) : (
-          activeStreamFocus ? <FocusedScreenShare /> : <ChatArea />
+          activeStreamFocus ? <FocusedScreenShare /> : <ChatArea key={`server-${selectedServerId}`} />
         )}
       </div>
 

@@ -103,7 +103,7 @@
     "noDirectMessages": "Aucun message privé",
     "directMessages": "MESSAGES PRIVÉS",
     "onlineCount": "EN LIGNE — {{count}}",
-    "offlineCount": "HORS LIGNE — {{count}}",
+    "offlineCount": "INVISIBLE — {{count}}",
     "addFriendsModalTitle": "Ajouter des amis",
     "searchFriends": "Rechercher des amis...",
     "noMoreFriends": "Vous n'avez pas d'autres amis à ajouter.",

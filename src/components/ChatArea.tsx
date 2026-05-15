@@ -522,6 +522,36 @@ export default function ChatArea() {
       .map((a: any) => ({ url: a.url, name: a.name, messageId: m.id }))
   );
 
+  // Fetch user's reports to show feedback
+  useEffect(() => {
+    const fetchReports = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('server_logs')
+          .select('details')
+          .eq('action', 'USER_REPORT')
+          .eq('user_id', user.id);
+        
+        if (data) {
+          const ids = new Set<string>();
+          data.forEach(log => {
+            try {
+              const details = JSON.parse(log.details || '{}');
+              if (details.messageId) ids.add(details.messageId);
+            } catch(e){}
+          });
+          setReportedMessageIds(ids);
+        }
+      } catch (e) {
+        console.error("Error fetching reports:", e);
+      }
+    };
+    fetchReports();
+  }, [user]);
+
+  const isServerOwner = server?.owner_id === user?.id;
+
   if (!selectedChannelId) {
     return (
       <div className="flex-1 bg-zinc-800 flex items-center justify-center text-zinc-500">
@@ -530,7 +560,6 @@ export default function ChatArea() {
     );
   }
 
-  const isServerOwner = server?.owner_id === user?.id;
   let hasManageMessages = isServerOwner;
   let hasPinPermission = isServerOwner;
 
@@ -593,34 +622,6 @@ export default function ChatArea() {
     if (isYesterday(date)) return t('chatArea.yesterday');
     return format(date, appSettings.dateFormat, { locale: dateLocale });
   };
-
-  // Fetch user's reports to show feedback
-  useEffect(() => {
-    const fetchReports = async () => {
-      if (!user) return;
-      try {
-        const { data, error } = await supabase
-          .from('server_logs')
-          .select('details')
-          .eq('action', 'USER_REPORT')
-          .eq('user_id', user.id);
-        
-        if (data) {
-          const ids = new Set<string>();
-          data.forEach(log => {
-            try {
-              const details = JSON.parse(log.details || '{}');
-              if (details.messageId) ids.add(details.messageId);
-            } catch(e){}
-          });
-          setReportedMessageIds(ids);
-        }
-      } catch (e) {
-        console.error("Error fetching reports:", e);
-      }
-    };
-    fetchReports();
-  }, [user]);
 
   const handleReport = async (msg: any) => {
     if (reportedMessageIds.has(msg.id)) return;
