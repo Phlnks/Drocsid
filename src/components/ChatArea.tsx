@@ -45,7 +45,7 @@ export default function ChatArea() {
   } = useAppStore();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
-  const [reportedMessageIds, setReportedMessageIds] = useState<Set<string>>(new Set());
+  const [reportedMessages, setReportedMessages] = useState<Record<string, string>>({});
   const [channel, setChannel] = useState<any>(null);
   const [server, setServer] = useState<any>(null);
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
@@ -534,14 +534,16 @@ export default function ChatArea() {
           .eq('user_id', user.id);
         
         if (data) {
-          const ids = new Set<string>();
+          const map: Record<string, string> = {};
           data.forEach(log => {
             try {
               const details = JSON.parse(log.details || '{}');
-              if (details.messageId) ids.add(details.messageId);
+              if (details.messageId) {
+                map[details.messageId] = details.status || 'pending';
+              }
             } catch(e){}
           });
-          setReportedMessageIds(ids);
+          setReportedMessages(map);
         }
       } catch (e) {
         console.error("Error fetching reports:", e);
@@ -624,7 +626,7 @@ export default function ChatArea() {
   };
 
   const handleReport = async (msg: any) => {
-    if (reportedMessageIds.has(msg.id)) return;
+    if (reportedMessages[msg.id]) return;
     
     const reason = prompt("Raison du signalement :");
     if (!reason || !reason.trim()) return;
@@ -653,7 +655,7 @@ export default function ChatArea() {
         throw new Error(err.error || "Erreur inconnue");
       }
       
-      setReportedMessageIds(prev => new Set(Array.from(prev)).add(msg.id));
+      setReportedMessages(prev => ({ ...prev, [msg.id]: 'pending' }));
       addNotification("Message signalé aux modérateurs.", "success");
     } catch (e: any) {
       addNotification("Erreur lors du signalement: " + e.message, "error");
@@ -1160,9 +1162,14 @@ export default function ChatArea() {
                         onClick={() => handleReport(msg)}
                         className={clsx(
                           "p-1.5 transition-colors",
-                          reportedMessageIds.has(msg.id) ? "text-emerald-400 cursor-default" : "text-zinc-400 hover:text-amber-400 hover:bg-zinc-700"
+                          reportedMessages[msg.id] ? "text-emerald-400 cursor-default" : "text-zinc-400 hover:text-amber-400 hover:bg-zinc-700"
                         )}
-                        title={reportedMessageIds.has(msg.id) ? 'Signalement reçu' : 'Signaler'}
+                        title={
+                          reportedMessages[msg.id] === 'resolved' ? 'Signalement traité' : 
+                          reportedMessages[msg.id] === 'dismissed' ? 'Signalement sans suite' : 
+                          reportedMessages[msg.id] === 'pending' ? 'Signalement en cours' : 
+                          'Signaler'
+                        }
                       >
                         <Flag className="w-4 h-4" />
                       </button>
