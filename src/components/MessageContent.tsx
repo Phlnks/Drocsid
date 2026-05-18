@@ -62,7 +62,7 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
 
   // Pre-process content for mentions - handle @username and @"user name"
   // and avoid common false positives like email addresses.
-  const processedContent = content.replace(/(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.]+))/g, (match, prefix, p1, p2) => {
+  const processedContent = content.replace(/(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g, (match, prefix, p1, p2) => {
     const username = p1 || p2;
     const encodedUsername = encodeURIComponent(username);
     return `${prefix}[@${username}](https://mention.local/${encodedUsername})`;

@@ -53,7 +53,7 @@ export default function ChatArea() {
   const [serverMembers, setServerMembers] = useState<any[]>([]);
   const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const initialLoadRef = useRef(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [mobileActionMessageId, setMobileActionMessageId] = useState<string | null>(null);
@@ -249,7 +249,7 @@ export default function ChatArea() {
     setMessageLimit(100);
     setHasMore(true);
     setIsFetchingMore(false);
-    initialLoadRef.current = true;
+    setIsInitialLoading(true);
     setMessages([]); 
     setReplyingTo(null);
     setShowPins(false);
@@ -306,16 +306,20 @@ export default function ChatArea() {
         setMessages(sortedMessages);
         if (messagesData.length < 50) setHasMore(false);
 
-        if (initialLoadRef.current && messagesData.length > 0) {
-          // Increase delay to ensure DOM is ready
-          setTimeout(() => {
-            virtuosoRef.current?.scrollToIndex({ 
-              index: sortedMessages.length - 1, 
-              align: 'end',
-              behavior: 'auto'
-            });
-            initialLoadRef.current = false;
-          }, 200);
+        if (isInitialLoading) {
+          if (messagesData.length > 0) {
+            // Increase delay to ensure DOM is ready
+            setTimeout(() => {
+              virtuosoRef.current?.scrollToIndex({ 
+                index: sortedMessages.length - 1, 
+                align: 'end',
+                behavior: 'auto'
+              });
+              setIsInitialLoading(false);
+            }, 200);
+          } else {
+            setIsInitialLoading(false);
+          }
         }
       }
 
@@ -800,12 +804,26 @@ export default function ChatArea() {
             </div>
           ) : (
             <div className="flex-1 flex flex-col min-h-0 relative">
-              {messages.length === 0 && initialLoadRef.current ? (
-                <div className="flex-1 flex flex-col py-4 overflow-hidden">
-                  {[...Array(6)].map((_, i) => (
-                    <MessageSkeleton key={i} />
-                  ))}
-                </div>
+              {messages.length === 0 ? (
+                isInitialLoading ? (
+                  <div className="flex-1 flex flex-col py-4 overflow-hidden">
+                    {[...Array(6)].map((_, i) => (
+                      <MessageSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-end p-4 text-left">
+                    <div className="mb-4">
+                      <div className="w-16 h-16 bg-zinc-700 rounded-full flex items-center justify-center mb-4">
+                        <Hash className="w-10 h-10 text-white" />
+                      </div>
+                      <h1 className="text-3xl font-bold text-white mb-2">{t('chatArea.welcome')} #{channel?.name}</h1>
+                      <p className="text-zinc-400">
+                        {t('chatArea.startOfChannel', { channel: channel?.name })}
+                      </p>
+                    </div>
+                  </div>
+                )
               ) : (
                 <Virtuoso
                 ref={virtuosoRef}
