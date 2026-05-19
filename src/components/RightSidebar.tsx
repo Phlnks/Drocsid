@@ -526,16 +526,23 @@ export default function RightSidebar({
                             size="md"
                             className={group.isOffline ? "opacity-60" : ""}
                           />
-                          <span
-                            className={clsx(
-                              "text-sm font-medium truncate shrink",
-                              group.isOffline
-                                ? "text-zinc-400"
-                                : "text-zinc-300"
+                          <div className="flex flex-col truncate">
+                            <span
+                              className={clsx(
+                                "text-sm font-medium truncate shrink",
+                                group.isOffline
+                                  ? "text-zinc-400"
+                                  : "text-zinc-300"
+                              )}
+                            >
+                              {user.username}
+                            </span>
+                            {user.custom_status && (
+                              <span className="text-[11px] text-zinc-400 truncate opacity-90 leading-tight">
+                                {user.custom_status}
+                              </span>
                             )}
-                          >
-                            {user.username}
-                          </span>
+                          </div>
                         </div>
                       );
                     })}

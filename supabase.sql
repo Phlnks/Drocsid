@@ -37,6 +37,7 @@ CREATE TABLE public.profiles (
   username text UNIQUE,
   avatar_url text,
   status text DEFAULT 'offline'::text CHECK (status = ANY (ARRAY['online'::text, 'idle'::text, 'dnd'::text, 'offline'::text])),
+  custom_status text,
   last_read jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   display_name text,

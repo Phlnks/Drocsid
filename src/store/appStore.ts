@@ -110,7 +110,9 @@ interface AppState {
     dateFormat: 'dd/MM/yyyy' | 'MM/dd/yyyy' | 'yyyy-MM-dd';
     timeFormat: 'HH:mm' | 'hh:mm a';
   };
+  serverOrder: string[];
   
+  setServerOrder: (order: string[]) => void;
   setSelectedServerId: (id: string | null) => void;
   setSelectedChannelId: (id: string | null) => void;
   setSelectedDmId: (id: string | null) => void;
@@ -198,7 +200,12 @@ export const useAppStore = create<AppState>((set) => ({
   },
   keybinds: safeParse('drocsid-keybinds', { mute: 'CommandOrControl+Shift+M', deafen: 'CommandOrControl+Shift+D' }),
   appSettings: safeParse('drocsid-app-settings', { launchAtStartup: false, dateFormat: 'dd/MM/yyyy', timeFormat: 'HH:mm' }),
+  serverOrder: safeParse('drocsid-server-order', []),
   
+  setServerOrder: (order) => set(() => {
+    localStorage.setItem('drocsid-server-order', JSON.stringify(order));
+    return { serverOrder: order };
+  }),
   setServerSounds: (sounds) => set({ serverSounds: sounds }),
   setCanUseSoundboard: (can) => set({ canUseSoundboard: can }),
   setSelectedServerId: (id) => set((state) => {

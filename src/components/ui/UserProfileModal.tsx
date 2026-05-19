@@ -275,6 +275,11 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
             <h2 className="text-xl font-bold text-zinc-100" style={{ color: user.color || '#f4f4f5' }}>
               {user.username || user.displayName || 'User'}
             </h2>
+            {user.custom_status && (
+              <div className="mt-2 text-[15px] text-zinc-300">
+                {user.custom_status}
+              </div>
+            )}
             {user.bio && (
               <div className="mt-4">
                 <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">

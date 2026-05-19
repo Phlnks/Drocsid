@@ -1,14 +1,46 @@
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import LinkPreview from './ui/LinkPreview';
-import { useState } from 'react';
-import UserContextMenu from './ui/UserContextMenu';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import LinkPreview from "./ui/LinkPreview";
+import { useState } from "react";
+import UserContextMenu from "./ui/UserContextMenu";
 
-const YOUTUBE_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n<]+)(?:[^ \n<]+)?/g;
-const IMAGE_REGEX = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/ig;
+const YOUTUBE_REGEX =
+  /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n<]+)(?:[^ \n<]+)?/g;
+const IMAGE_REGEX = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/gi;
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
+const Spoiler = ({ children }: { children: React.ReactNode }) => {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <span
+      className={`inline-block rounded px-1.5 py-0.5 mx-0.5 cursor-pointer transition-colors duration-200 ${
+        revealed
+          ? "bg-zinc-700/50"
+          : "bg-zinc-800 text-transparent hover:bg-zinc-700"
+      }`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setRevealed(true);
+      }}
+      title={!revealed ? "Cliquez pour révéler le spoiler" : ""}
+    >
+      <span
+        className={
+          revealed
+            ? "text-inherit pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }
+      >
+        {children}
+      </span>
+    </span>
+  );
+};
 
 interface MessageContentProps {
   content: string;
@@ -16,17 +48,29 @@ interface MessageContentProps {
   serverId?: string | null;
 }
 
-export default function MessageContent({ content, usersMap = {}, serverId = null }: MessageContentProps) {
-  const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
+export default function MessageContent({
+  content,
+  usersMap = {},
+  serverId = null,
+}: MessageContentProps) {
+  const [contextMenu, setContextMenu] = useState<{
+    userId: string;
+    username: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   if (!content) return null;
 
   // Check if content is only emojis
   const isOnlyEmojis = () => {
-    const noSpaces = content.replace(/\s/g, '');
+    const noSpaces = content.replace(/\s/g, "");
     if (noSpaces.length === 0) return false;
     // Remove all emojis, variation selectors, ZWJ, and modifiers (skin tones)
-    const stripped = noSpaces.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Emoji_Component}\uFE0F\u200D]/gu, '');
+    const stripped = noSpaces.replace(
+      /[\p{Emoji_Presentation}\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Emoji_Component}\uFE0F\u200D]/gu,
+      ""
+    );
     return stripped.length === 0;
   };
 
@@ -44,7 +88,9 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
   // Extract Image URLs
   const imageUrls: string[] = [];
   while ((match = IMAGE_REGEX.exec(content)) !== null) {
-    const isMarkdownImage = match.index > 1 && content.substring(match.index - 2, match.index) === '](';
+    const isMarkdownImage =
+      match.index > 1 &&
+      content.substring(match.index - 2, match.index) === "](";
     if (!isMarkdownImage && !imageUrls.includes(match[1])) {
       imageUrls.push(match[1]);
     }
@@ -53,30 +99,47 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
   // Extract generic URLs for LinkPreview (excluding youtube and images)
   const genericUrls: string[] = [];
   while ((match = URL_REGEX.exec(content)) !== null) {
-    const isMarkdownImage = match.index > 1 && content.substring(match.index - 2, match.index) === '](';
+    const isMarkdownImage =
+      match.index > 1 &&
+      content.substring(match.index - 2, match.index) === "](";
     const url = match[1];
-    if (!isMarkdownImage && !url.match(YOUTUBE_REGEX) && !url.match(IMAGE_REGEX) && !genericUrls.includes(url)) {
+    if (
+      !isMarkdownImage &&
+      !url.match(YOUTUBE_REGEX) &&
+      !url.match(IMAGE_REGEX) &&
+      !genericUrls.includes(url)
+    ) {
       genericUrls.push(url);
     }
   }
 
   // Pre-process content for mentions - handle @username and @"user name"
   // and avoid common false positives like email addresses.
-  const processedContent = content.replace(/(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g, (match, prefix, p1, p2) => {
-    const username = p1 || p2;
-    const encodedUsername = encodeURIComponent(username);
-    return `${prefix}[@${username}](https://mention.local/${encodedUsername})`;
-  });
+  let processedContent = content.replace(
+    /(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g,
+    (match, prefix, p1, p2) => {
+      const username = p1 || p2;
+      const encodedUsername = encodeURIComponent(username);
+      return `${prefix}[@${username}](https://mention.local/${encodedUsername})`;
+    }
+  );
+
+  // Pre-process spoilers: replace ||...|| with <spoiler>...</spoiler>
+  processedContent = processedContent.replace(
+    /\|\|([\s\S]*?)\|\|/g,
+    "<spoiler>$1</spoiler>"
+  );
 
   const handleMentionContextMenu = (e: React.MouseEvent, username: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Try to find the user in our map
     const decodedUsername = decodeURIComponent(username);
-    const userProfile = Object.values(usersMap).find(u => 
-      u.username?.toLowerCase() === decodedUsername.toLowerCase() ||
-      u.display_name?.toLowerCase() === decodedUsername.toLowerCase()
+    const userProfile = Object.values(usersMap).find(
+      (u) =>
+        u.username?.toLowerCase() === decodedUsername.toLowerCase() ||
+        u.display_name?.toLowerCase() === decodedUsername.toLowerCase()
     );
 
     if (userProfile) {
@@ -84,19 +147,27 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
         userId: userProfile.id,
         username: userProfile.username,
         x: e.clientX,
-        y: e.clientY
+        y: e.clientY,
       });
     }
   };
 
   return (
     <div className="flex flex-col gap-2 relative">
-      <div className={`text-zinc-100 markdown-body break-words ${emojiOnly ? 'text-[45px] leading-tight' : 'text-[15px] leading-relaxed'}`}>
-        <ReactMarkdown 
+      <div
+        className={`text-zinc-100 markdown-body break-words ${
+          emojiOnly
+            ? "text-[45px] leading-tight"
+            : "text-[15px] leading-relaxed"
+        }`}
+      >
+        <ReactMarkdown
           remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
           components={{
-            code({node, inline, className, children, ...props}: any) {
-              const match = /language-(\w+)/.exec(className || '');
+            spoiler: Spoiler as any,
+            code({ node, inline, className, children, ...props }: any) {
+              const match = /language-(\w+)/.exec(className || "");
               return !inline && match ? (
                 <div className="rounded-md overflow-hidden my-2 border border-zinc-700/50">
                   <div className="bg-zinc-800/80 px-4 py-1 text-xs text-zinc-400 font-mono flex items-center justify-between border-b border-zinc-700/50">
@@ -107,22 +178,29 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
                     style={vscDarkPlus as any}
                     language={match[1]}
                     PreTag="div"
-                    customStyle={{ margin: 0, padding: '1rem', background: '#1e1e1e' }}
+                    customStyle={{
+                      margin: 0,
+                      padding: "1rem",
+                      background: "#1e1e1e",
+                    }}
                   >
-                    {String(children).replace(/\n$/, '')}
+                    {String(children).replace(/\n$/, "")}
                   </SyntaxHighlighter>
                 </div>
               ) : (
-                <code {...props} className={`${className} bg-zinc-800 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-sm`}>
+                <code
+                  {...props}
+                  className={`${className} bg-zinc-800 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-sm`}
+                >
                   {children}
                 </code>
               );
             },
-            a: ({node, href, children, ...props}) => {
-              if (href?.startsWith('https://mention.local/')) {
-                const username = href.replace('https://mention.local/', '');
+            a: ({ node, href, children, ...props }) => {
+              if (href?.startsWith("https://mention.local/")) {
+                const username = href.replace("https://mention.local/", "");
                 return (
-                  <span 
+                  <span
                     className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-default hover:bg-indigo-500/40 transition-colors inline-flex items-center"
                     onContextMenu={(e) => handleMentionContextMenu(e, username)}
                     onClick={(e) => {
@@ -134,20 +212,39 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
                   </span>
                 );
               }
-              return <a href={href} {...props} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">{children}</a>;
+              return (
+                <a
+                  href={href}
+                  {...props}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-400 hover:underline"
+                >
+                  {children}
+                </a>
+              );
             },
-            img: ({node, src, alt, ...props}: any) => {
-              if (alt?.startsWith('custom_emoji:')) {
-                return <img src={src} title={alt.replace('custom_emoji:', '')} className="w-6 h-6 inline-block align-middle mx-0.5" alt={alt.replace('custom_emoji:', '')} />;
+            img: ({ node, src, alt, ...props }: any) => {
+              if (alt?.startsWith("custom_emoji:")) {
+                return (
+                  <img
+                    src={src}
+                    title={alt.replace("custom_emoji:", "")}
+                    className="w-6 h-6 inline-block align-middle mx-0.5"
+                    alt={alt.replace("custom_emoji:", "")}
+                  />
+                );
               }
-              return <img 
-                        src={src} 
-                        alt={alt} 
-                        className="rounded-md max-w-full max-h-80 object-contain" 
-                        referrerPolicy="no-referrer" 
-                        loading="lazy"
-                      />;
-            }
+              return (
+                <img
+                  src={src}
+                  alt={alt}
+                  className="rounded-md max-w-full max-h-80 object-contain"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                />
+              );
+            },
           }}
         >
           {processedContent}
@@ -164,8 +261,11 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
         />
       )}
 
-      {youtubeIds.map(id => (
-        <div key={id} className="mt-2 max-w-[400px] rounded-md overflow-hidden border border-zinc-700/50 aspect-video bg-zinc-900/50">
+      {youtubeIds.map((id) => (
+        <div
+          key={id}
+          className="mt-2 max-w-[400px] rounded-md overflow-hidden border border-zinc-700/50 aspect-video bg-zinc-900/50"
+        >
           <iframe
             width="100%"
             height="100%"
@@ -179,11 +279,14 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
         </div>
       ))}
 
-      {imageUrls.map(url => (
-        <div key={url} className="mt-2 max-w-md bg-zinc-900/50 rounded-md min-h-[100px] flex items-center justify-center">
-          <img 
-            src={url} 
-            alt="Embedded" 
+      {imageUrls.map((url) => (
+        <div
+          key={url}
+          className="mt-2 max-w-md bg-zinc-900/50 rounded-md min-h-[100px] flex items-center justify-center"
+        >
+          <img
+            src={url}
+            alt="Embedded"
             className="rounded-md max-h-80 object-contain"
             referrerPolicy="no-referrer"
             loading="lazy"
@@ -191,7 +294,7 @@ export default function MessageContent({ content, usersMap = {}, serverId = null
         </div>
       ))}
 
-      {genericUrls.map(url => (
+      {genericUrls.map((url) => (
         <LinkPreview key={url} url={url} />
       ))}
     </div>
