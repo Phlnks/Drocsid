@@ -574,7 +574,6 @@ export default function MessageInput({
 
         if (!isDM && textToSend.includes("@")) {
           // Accurate regex for mentions: handles @username and @"user name"
-          // We removed the preceding space requirement to work inside spoilers/markdown
           const mentionRegex = /@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g;
           let match;
 
@@ -582,9 +581,9 @@ export default function MessageInput({
             const rawUsername = match[1] || match[2];
             if (!rawUsername) continue;
             
-            const username = rawUsername.toLowerCase();
+            const username = rawUsername;
             
-            if (username === "everyone") {
+            if (username.toLowerCase() === "everyone") {
               users.forEach((u) => {
                 if (u.id !== user.id) mentionedUserIds.add(u.id);
               });
@@ -594,17 +593,19 @@ export default function MessageInput({
             // Match with existing users state (case-insensitive)
             let mentionedUser = users.find(
               (u) =>
-                (u.username || "").toLowerCase() === username ||
-                (u.display_name || "").toLowerCase() === username
+                (u.username || "").toLowerCase() === username.toLowerCase() ||
+                (u.display_name || "").toLowerCase() === username.toLowerCase()
             );
 
             if (!mentionedUser) {
               // Fetch user if not in local member list (e.g. if member list is large or paging)
-              // We wrap the value in quotes for PostgREST to handle special characters safely
+              // We use ilike for case-insensitivity which is better for mentions
+              // We wrap in double quotes if there are spaces for PostgREST compatibility
+              const filterVal = username.includes(' ') ? `"${username}"` : username;
               const { data } = await supabase
                 .from("profiles")
                 .select("id, username, display_name")
-                .or(`username.ilike."${username}",display_name.ilike."${username}"`)
+                .or(`username.ilike.${filterVal},display_name.ilike.${filterVal}`)
                 .maybeSingle();
               if (data) mentionedUser = data;
             }
@@ -645,6 +646,11 @@ export default function MessageInput({
               (targetId) => ({
                 user_id: targetId,
                 type: "mention",
+                content: textToSend.slice(0, 200),
+                author_id: user.id,
+                author_name: currentUsername,
+                server_id: serverId,
+                channel_id: channelId,
                 data: {
                   author_id: user.id,
                   author_name: currentUsername,
@@ -702,6 +708,11 @@ export default function MessageInput({
           await supabase.from("notifications").insert({
             user_id: replyingTo.author_id,
             type: "reply",
+            author_id: user.id,
+            author_name: currentUsername,
+            content: textToSend.slice(0, 200) || (fileToSend ? "📎 Fichier" : "Message"),
+            server_id: isDM ? undefined : serverId,
+            channel_id: channelId,
             data: {
               author_id: user.id,
               author_name: currentUsername,
@@ -743,6 +754,10 @@ export default function MessageInput({
               const notifications = recipients.map((targetId) => ({
                 user_id: targetId,
                 type: "dm",
+                content: textToSend.slice(0, 200) || (fileToSend ? "📎 Fichier" : "Message"),
+                author_id: user.id,
+                author_name: currentUsername,
+                channel_id: channelId,
                 data: {
                   author_id: user.id,
                   author_name: currentUsername,
