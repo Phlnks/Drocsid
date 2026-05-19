@@ -1,9 +1,15 @@
 import { MessageSquare, Server, Bell, Settings } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../store/authStore';
+import { supabase } from '../supabase';
+import { useEffect, useState } from 'react';
 
 export default function MobileBottomNav() {
   const { t } = useTranslation();
+  const { user } = useAuthStore();
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  
   const { 
     setSelectedServerId, 
     setSelectedDmId,
@@ -11,6 +17,32 @@ export default function MobileBottomNav() {
     mobileTab,
     setMobileTab
   } = useAppStore();
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkNotifications = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+        
+      setHasUnreadNotifications((count || 0) > 0);
+    };
+    
+    checkNotifications();
+    
+    const sub = supabase.channel(`mobile_nav_notifs_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
+        checkNotifications();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(sub);
+    };
+  }, [user]);
 
   if (!isMobileNavOpen) return null;
 
@@ -24,7 +56,9 @@ export default function MobileBottomNav() {
         }}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'messages' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <MessageSquare className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        <div className="relative">
+          <MessageSquare className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        </div>
         <span className="text-[10px] font-medium leading-none">{t('app.sidebar.directMessages')}</span>
       </button>
 
@@ -42,7 +76,14 @@ export default function MobileBottomNav() {
         onClick={() => setMobileTab('notifications')}
         className={`flex flex-col items-center justify-center w-20 py-2 gap-1 transition-colors ${mobileTab === 'notifications' ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <Bell className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+        <div className="relative">
+          <Bell className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+          {hasUnreadNotifications && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center border-2 border-zinc-950 shadow-sm animate-in zoom-in duration-300">
+              <span className="text-white text-[8px] font-bold">!</span>
+            </div>
+          )}
+        </div>
         <span className="text-[10px] font-medium leading-none">{t('settings.notifications')}</span>
       </button>
 
