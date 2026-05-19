@@ -15,6 +15,15 @@ const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 const Spoiler = ({ children }: { children: React.ReactNode }) => {
   const [revealed, setRevealed] = useState(false);
 
+  useEffect(() => {
+    if (revealed) {
+      const timer = setTimeout(() => {
+        setRevealed(false);
+      }, 20000); // Dévoiler pendant 20 secondes
+      return () => clearTimeout(timer);
+    }
+  }, [revealed]);
+
   return (
     <button
       type="button"
@@ -153,6 +162,94 @@ export default function MessageContent({
     }
   };
 
+  const components = React.useMemo(() => ({
+    span: ({ node, className, children, ...props }: any) => {
+      if (className === "spoiler-tag") {
+        return <Spoiler>{children}</Spoiler>;
+      }
+      return <span className={className} {...props}>{children}</span>;
+    },
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || "");
+      return !inline && match ? (
+        <div className="rounded-md overflow-hidden my-2 border border-zinc-700/50">
+          <div className="bg-zinc-800/80 px-4 py-1 text-xs text-zinc-400 font-mono flex items-center justify-between border-b border-zinc-700/50">
+            <span>{match[1]}</span>
+          </div>
+          <SyntaxHighlighter
+            {...props}
+            style={vscDarkPlus as any}
+            language={match[1]}
+            PreTag="div"
+            customStyle={{
+              margin: 0,
+              padding: "1rem",
+              background: "#1e1e1e",
+            }}
+          >
+            {String(children).replace(/\n$/, "")}
+          </SyntaxHighlighter>
+        </div>
+      ) : (
+        <code
+          {...props}
+          className={`${className} bg-zinc-800 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-sm`}
+        >
+          {children}
+        </code>
+      );
+    },
+    a: ({ node, href, children, ...props }: any) => {
+      if (href?.startsWith("https://mention.local/")) {
+        const username = href.replace("https://mention.local/", "");
+        return (
+          <span
+            className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-default hover:bg-indigo-500/40 transition-colors inline-flex items-center"
+            onContextMenu={(e) => handleMentionContextMenu(e, username)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            {children}
+          </span>
+        );
+      }
+      return (
+        <a
+          href={href}
+          {...props}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-400 hover:underline"
+        >
+          {children}
+        </a>
+      );
+    },
+    img: ({ node, src, alt, ...props }: any) => {
+      if (alt?.startsWith("custom_emoji:")) {
+        return (
+          <img
+            src={src}
+            title={alt.replace("custom_emoji:", "")}
+            className="w-6 h-6 inline-block align-middle mx-0.5"
+            alt={alt.replace("custom_emoji:", "")}
+          />
+        );
+      }
+      return (
+        <img
+          src={src}
+          alt={alt}
+          className="rounded-md max-w-full max-h-80 object-contain"
+          referrerPolicy="no-referrer"
+          loading="lazy"
+        />
+      );
+    },
+  }), [usersMap, serverId]);
+
   return (
     <div className="flex flex-col gap-2 relative">
       <div
@@ -165,93 +262,7 @@ export default function MessageContent({
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
-          components={{
-            span: ({ node, className, children, ...props }: any) => {
-              if (className === "spoiler-tag") {
-                return <Spoiler>{children}</Spoiler>;
-              }
-              return <span className={className} {...props}>{children}</span>;
-            },
-            code({ node, inline, className, children, ...props }: any) {
-              const match = /language-(\w+)/.exec(className || "");
-              return !inline && match ? (
-                <div className="rounded-md overflow-hidden my-2 border border-zinc-700/50">
-                  <div className="bg-zinc-800/80 px-4 py-1 text-xs text-zinc-400 font-mono flex items-center justify-between border-b border-zinc-700/50">
-                    <span>{match[1]}</span>
-                  </div>
-                  <SyntaxHighlighter
-                    {...props}
-                    style={vscDarkPlus as any}
-                    language={match[1]}
-                    PreTag="div"
-                    customStyle={{
-                      margin: 0,
-                      padding: "1rem",
-                      background: "#1e1e1e",
-                    }}
-                  >
-                    {String(children).replace(/\n$/, "")}
-                  </SyntaxHighlighter>
-                </div>
-              ) : (
-                <code
-                  {...props}
-                  className={`${className} bg-zinc-800 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-sm`}
-                >
-                  {children}
-                </code>
-              );
-            },
-            a: ({ node, href, children, ...props }) => {
-              if (href?.startsWith("https://mention.local/")) {
-                const username = href.replace("https://mention.local/", "");
-                return (
-                  <span
-                    className="bg-indigo-500/30 text-indigo-300 px-1.5 py-0.5 rounded-md font-medium cursor-default hover:bg-indigo-500/40 transition-colors inline-flex items-center"
-                    onContextMenu={(e) => handleMentionContextMenu(e, username)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                  >
-                    {children}
-                  </span>
-                );
-              }
-              return (
-                <a
-                  href={href}
-                  {...props}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-400 hover:underline"
-                >
-                  {children}
-                </a>
-              );
-            },
-            img: ({ node, src, alt, ...props }: any) => {
-              if (alt?.startsWith("custom_emoji:")) {
-                return (
-                  <img
-                    src={src}
-                    title={alt.replace("custom_emoji:", "")}
-                    className="w-6 h-6 inline-block align-middle mx-0.5"
-                    alt={alt.replace("custom_emoji:", "")}
-                  />
-                );
-              }
-              return (
-                <img
-                  src={src}
-                  alt={alt}
-                  className="rounded-md max-w-full max-h-80 object-contain"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                />
-              );
-            },
-          }}
+          components={components as any}
         >
           {processedContent}
         </ReactMarkdown>

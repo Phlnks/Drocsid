@@ -574,7 +574,6 @@ export default function MessageInput({
 
         if (!isDM && textToSend.includes("@")) {
           // Accurate regex for mentions: handles @username and @"user name"
-          // Matches the logic in MessageContent.tsx
           const mentionRegex = /(?:^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g;
           let match;
 
@@ -600,6 +599,7 @@ export default function MessageInput({
 
             if (!mentionedUser) {
               // Fetch user if not in local member list (e.g. if member list is large or paging)
+              // We use ilike with % for more flexibility, but exact match is preferred for mentions
               const { data } = await supabase
                 .from("profiles")
                 .select("id, username, display_name")
@@ -624,8 +624,17 @@ export default function MessageInput({
               "Utilisateur";
 
             // Get names from current context for better notifications
-            const { data: serverInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
-            const { data: channelInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
+            let serverName = "";
+            let channelName = "";
+
+            if (serverId) {
+              const { data: sInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
+              serverName = sInfo?.name || "";
+            }
+            if (channelId) {
+              const { data: cInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
+              channelName = cInfo?.name || "";
+            }
 
             const notifications = Array.from(mentionedUserIds).map(
               (targetId) => ({
@@ -636,9 +645,9 @@ export default function MessageInput({
                   author_name: currentUsername,
                   content: textToSend.slice(0, 200),
                   server_id: serverId,
-                  server_name: serverInfo?.name,
+                  server_name: serverName,
                   channel_id: channelId,
-                  channel_name: channelInfo?.name,
+                  channel_name: channelName,
                   message_id: newMessage.id,
                   is_dm: false,
                 },
@@ -665,14 +674,20 @@ export default function MessageInput({
             user?.user_metadata?.display_name ||
             user?.email?.split("@")[0] ||
             "Utilisateur";
+
           // Get names from current context for better notifications
-          const { data: serverInfo } = !isDM ? await supabase.from('servers').select('name').eq('id', serverId).maybeSingle() : { data: null };
-          const { data: channelInfo } = await supabase.from(isDM ? 'dms' : 'channels').select('id').eq('id', channelId).maybeSingle(); 
-          // For channel name, if it it's text channel we get name
-          let channelName = '';
+          let serverName = "";
+          let channelName = "";
+
           if (!isDM) {
-             const { data: ci } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
-             channelName = ci?.name || '';
+             if (serverId) {
+               const { data: sInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
+               serverName = sInfo?.name || "";
+             }
+             if (channelId) {
+                const { data: cInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
+                channelName = cInfo?.name || "";
+             }
           }
 
           await supabase.from("notifications").insert({
@@ -685,7 +700,7 @@ export default function MessageInput({
                 textToSend.slice(0, 200) ||
                 (fileToSend ? "📎 Fichier" : "Message"),
               server_id: isDM ? undefined : serverId,
-              server_name: serverInfo?.name,
+              server_name: serverName,
               channel_id: channelId,
               channel_name: channelName,
               message_id: newMessage.id,
