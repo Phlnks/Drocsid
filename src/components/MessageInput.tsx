@@ -1,18 +1,30 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { supabase } from '../supabase';
-import { useAuthStore } from '../store/authStore';
-import { useAppStore } from '../store/appStore';
-import { PlusCircle, Loader2, Send, SmilePlus, X, Image as ImageIcon, AtSign, Mic, StopCircle, FileUp, BarChart3 } from 'lucide-react';
-const EmojiPicker = lazy(() => import('emoji-picker-react'));
-import PromptModal from './ui/PromptModal';
-import socket from '../lib/socket';
-import PollModal from './PollModal';
-import { useTranslation } from 'react-i18next';
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
+import { supabase } from "../supabase";
+import { useAuthStore } from "../store/authStore";
+import { useAppStore } from "../store/appStore";
+import {
+  PlusCircle,
+  Loader2,
+  Send,
+  SmilePlus,
+  X,
+  Image as ImageIcon,
+  AtSign,
+  Mic,
+  StopCircle,
+  FileUp,
+  BarChart3,
+} from "lucide-react";
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
+import PromptModal from "./ui/PromptModal";
+import socket from "../lib/socket";
+import PollModal from "./PollModal";
+import { useTranslation } from "react-i18next";
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
 const fileToBase64 = (file: File): Promise<string> => {
@@ -31,7 +43,7 @@ const processImageForSupabase = async (file: File): Promise<string> => {
     return await fileToBase64(file);
   }
 
-  if (file.type === 'image/gif') {
+  if (file.type === "image/gif") {
     throw new Error("GIF_TOO_LARGE");
   }
 
@@ -42,7 +54,7 @@ const processImageForSupabase = async (file: File): Promise<string> => {
       const img = new Image();
       img.src = event.target?.result as string;
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         const MAX_WIDTH = 1200;
         const MAX_HEIGHT = 1200;
         let width = img.width;
@@ -62,11 +74,11 @@ const processImageForSupabase = async (file: File): Promise<string> => {
 
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, width, height);
-        
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-        
+
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+
         if (compressedBase64.length > 1000000) {
           reject(new Error("IMAGE_STILL_TOO_LARGE"));
         } else {
@@ -79,7 +91,7 @@ const processImageForSupabase = async (file: File): Promise<string> => {
   });
 };
 
-import GifPicker from './GifPicker';
+import GifPicker from "./GifPicker";
 
 interface MessageInputProps {
   channelId: string;
@@ -90,28 +102,47 @@ interface MessageInputProps {
   onEditLastMessage?: () => void;
 }
 
-export default function MessageInput({ channelId, serverId, isDM = false, replyingTo, onCancelReply, onEditLastMessage }: MessageInputProps) {
+export default function MessageInput({
+  channelId,
+  serverId,
+  isDM = false,
+  replyingTo,
+  onCancelReply,
+  onEditLastMessage,
+}: MessageInputProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { addNotification, drafts, setDraft } = useAppStore();
-  const [content, setContent] = useState(drafts[channelId] || '');
+  const [content, setContent] = useState(drafts[channelId] || "");
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [showGifPicker, setShowGifPicker] = useState(false);
-  const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, label: string, onSubmit: (val: string) => void}>({
-    isOpen: false, title: '', label: '', onSubmit: () => {}
+  const [promptConfig, setPromptConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    label: string;
+    onSubmit: (val: string) => void;
+  }>({
+    isOpen: false,
+    title: "",
+    label: "",
+    onSubmit: () => {},
   });
   const [isDragging, setIsDragging] = useState(false);
-  const [serverEmojis, setServerEmojis] = useState<{name: string, url: string}[]>([]);
+  const [serverEmojis, setServerEmojis] = useState<
+    { name: string; url: string }[]
+  >([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(
+    null
+  );
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [isPollModalOpen, setIsPollModalOpen] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recordingIntervalRef = useRef<any>(null);
@@ -119,26 +150,33 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+      if (
+        addMenuRef.current &&
+        !addMenuRef.current.contains(event.target as Node)
+      ) {
         setShowAddMenu(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       const chunks: Blob[] = [];
 
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-        const voiceFile = new File([audioBlob], `voice-message-${Date.now()}.webm`, { type: 'audio/webm' });
-        await sendPayload('', voiceFile, null, 'voice');
-        stream.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        const voiceFile = new File(
+          [audioBlob],
+          `voice-message-${Date.now()}.webm`,
+          { type: "audio/webm" }
+        );
+        await sendPayload("", voiceFile, null, "voice");
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       recorder.start();
@@ -146,11 +184,11 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
       setIsRecording(true);
       setRecordingTime(0);
       recordingIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      addNotification(t('errors.micAccessDenied'), "error");
+      addNotification(t("errors.micAccessDenied"), "error");
     }
   };
 
@@ -169,56 +207,64 @@ export default function MessageInput({ channelId, serverId, isDM = false, replyi
   }, [replyingTo]);
 
   useEffect(() => {
-    setContent(drafts[channelId] || '');
+    setContent(drafts[channelId] || "");
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
+      inputRef.current.style.height = "auto";
     }
   }, [channelId, drafts]);
 
-// ✅ FIX: chargement filtré — avant: select('*') chargeait TOUTE la table profiles
-useEffect(() => {
-  if (!user) return;
-  const fetchUsers = async () => {
-    try {
-      let memberIds: string[] = [];
+  // ✅ FIX: chargement filtré — avant: select('*') chargeait TOUTE la table profiles
+  useEffect(() => {
+    if (!user) return;
+    const fetchUsers = async () => {
+      try {
+        let memberIds: string[] = [];
 
-      if (serverId && !isDM) {
-        const { data: members } = await supabase
-          .from('server_members')
-          .select('user_id')
-          .eq('server_id', serverId);
-        memberIds = (members ?? []).map((m: any) => m.user_id).filter(Boolean);
-      } else {
-        const { data: dms } = await supabase
-          .from('dms')
-          .select('participants')
-          .contains('participants', [user.id]);
-        const set = new Set<string>();
-        (dms ?? []).forEach((dm: any) =>
-          dm.participants?.forEach((p: string) => { if (p !== user.id) set.add(p); })
-        );
-        memberIds = Array.from(set);
+        if (serverId && !isDM) {
+          const { data: members } = await supabase
+            .from("server_members")
+            .select("user_id")
+            .eq("server_id", serverId);
+          memberIds = (members ?? [])
+            .map((m: any) => m.user_id)
+            .filter(Boolean);
+        } else {
+          const { data: dms } = await supabase
+            .from("dms")
+            .select("participants")
+            .contains("participants", [user.id]);
+          const set = new Set<string>();
+          (dms ?? []).forEach((dm: any) =>
+            dm.participants?.forEach((p: string) => {
+              if (p !== user.id) set.add(p);
+            })
+          );
+          memberIds = Array.from(set);
+        }
+
+        if (memberIds.length === 0) return;
+
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .in("id", memberIds);
+
+        if (data) setUsers(data);
+      } catch (err) {
+        console.error("[MessageInput] fetchUsers error:", err);
       }
-
-      if (memberIds.length === 0) return;
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, avatar_url')
-        .in('id', memberIds);
-
-      if (data) setUsers(data);
-    } catch (err) {
-      console.error('[MessageInput] fetchUsers error:', err);
-    }
-  };
-  fetchUsers();
-}, [serverId, isDM, user]);
+    };
+    fetchUsers();
+  }, [serverId, isDM, user]);
 
   useEffect(() => {
     if (serverId && !isDM) {
       const fetchEmojis = async () => {
-        const { data } = await supabase.from('servers').select('custom_emojis').eq('id', serverId).maybeSingle();
+        const { data } = await supabase
+          .from("servers")
+          .select("custom_emojis")
+          .eq("id", serverId)
+          .maybeSingle();
         if (data && data.custom_emojis) {
           setServerEmojis(data.custom_emojis);
         }
@@ -226,15 +272,25 @@ useEffect(() => {
       fetchEmojis();
 
       const chanName = `server_emojis_${serverId}`;
-      supabase.getChannels().forEach(c => {
+      supabase.getChannels().forEach((c) => {
         if (c.topic === `realtime:${chanName}`) supabase.removeChannel(c);
       });
-      const channel = supabase.channel(chanName)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${serverId}` }, (payload) => {
-          if (payload.new && payload.new.custom_emojis) {
-            setServerEmojis(payload.new.custom_emojis);
+      const channel = supabase
+        .channel(chanName)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "servers",
+            filter: `id=eq.${serverId}`,
+          },
+          (payload) => {
+            if (payload.new && payload.new.custom_emojis) {
+              setServerEmojis(payload.new.custom_emojis);
+            }
           }
-        })
+        )
         .subscribe();
 
       return () => {
@@ -243,26 +299,32 @@ useEffect(() => {
     }
   }, [serverId, isDM]);
 
-  const filteredUsers = mentionQuery !== null 
-    ? [{ username: 'everyone', id: 'everyone' }, ...users].filter(u => 
-        (u.username || u.displayName || '').toLowerCase().includes(mentionQuery.toLowerCase())
-      )
-    : [];
+  const filteredUsers =
+    mentionQuery !== null
+      ? [{ username: "everyone", id: "everyone" }, ...users].filter((u) =>
+          (u.username || u.displayName || "")
+            .toLowerCase()
+            .includes(mentionQuery.toLowerCase())
+        )
+      : [];
 
   const insertMention = (username: string) => {
     if (!inputRef.current) return;
     const cursorPosition = inputRef.current.selectionStart || 0;
     const textBeforeCursor = content.slice(0, cursorPosition);
     const textAfterCursor = content.slice(cursorPosition);
-    
+
     const match = textBeforeCursor.match(/(?:^|\s)@([^"'\s]*)$/);
     if (match) {
       const start = cursorPosition - match[1].length - 1;
-      const mentionText = /^[a-zA-Z0-9_-]+$/.test(username) ? `@${username}` : `@"${username}"`;
-      const newContent = content.slice(0, start) + `${mentionText} ` + textAfterCursor;
+      const mentionText = /^[a-zA-Z0-9_-]+$/.test(username)
+        ? `@${username}`
+        : `@"${username}"`;
+      const newContent =
+        content.slice(0, start) + `${mentionText} ` + textAfterCursor;
       setContent(newContent);
       setMentionQuery(null);
-      
+
       setTimeout(() => {
         if (inputRef.current) {
           inputRef.current.selectionStart = start + mentionText.length + 1;
@@ -277,11 +339,14 @@ useEffect(() => {
     const val = e.target.value;
     setContent(val);
     setDraft(channelId, val);
-    
+
     // Auto-resize textarea
     if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
-      inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+      inputRef.current.style.height = "auto";
+      inputRef.current.style.height = `${Math.min(
+        inputRef.current.scrollHeight,
+        120
+      )}px`;
     }
 
     const cursorPosition = e.target.selectionStart || 0;
@@ -296,54 +361,67 @@ useEffect(() => {
     }
 
     if (user) {
-      socket.emit('typing', {
+      socket.emit("typing", {
         channelId,
         userId: user.id,
-        username: user.user_metadata?.username || 'User',
-        isTyping: !!val.trim()
+        username: user.user_metadata?.username || "User",
+        isTyping: !!val.trim(),
       });
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (mentionQuery !== null && filteredUsers.length > 0) {
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         setMentionIndex((prev) => (prev + 1) % filteredUsers.length);
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setMentionIndex((prev) => (prev - 1 + filteredUsers.length) % filteredUsers.length);
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        setMentionIndex(
+          (prev) => (prev - 1 + filteredUsers.length) % filteredUsers.length
+        );
+      } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         insertMention(filteredUsers[mentionIndex].username);
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         setMentionQuery(null);
       }
       return;
     }
 
-    if (e.key === 'ArrowUp' && !content && onEditLastMessage) {
+    if (e.key === "ArrowUp" && !content && onEditLastMessage) {
       e.preventDefault();
       onEditLastMessage();
     }
 
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       if (replyingTo && onCancelReply) {
         onCancelReply();
       }
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   };
 
-  const sendPayload = async (textToSend: string, fileToSend: File | null, gifUrl: string | null = null, forcedType?: string, pollData?: any) => {
-    if ((!textToSend.trim() && !fileToSend && !gifUrl && !pollData) || !user || isUploading) return;
+  const sendPayload = async (
+    textToSend: string,
+    fileToSend: File | null,
+    gifUrl: string | null = null,
+    forcedType?: string,
+    pollData?: any
+  ) => {
+    if (
+      (!textToSend.trim() && !fileToSend && !gifUrl && !pollData) ||
+      !user ||
+      isUploading
+    )
+      return;
 
     if (fileToSend && fileToSend.size > 20 * 1024 * 1024) {
-      addNotification(t('errors.fileTooLarge', { max: 20 }), "error");
+      addNotification(t("errors.fileTooLarge", { max: 20 }), "error");
       return;
     }
 
@@ -351,10 +429,10 @@ useEffect(() => {
     const previousContent = textToSend;
     const previousReply = replyingTo;
     if (!fileToSend && !gifUrl && !pollData) {
-      setDraft(channelId, '');
-      setContent('');
+      setDraft(channelId, "");
+      setContent("");
       setMentionQuery(null);
-      if (inputRef.current) inputRef.current.style.height = 'auto';
+      if (inputRef.current) inputRef.current.style.height = "auto";
       if (replyingTo && onCancelReply) onCancelReply();
     }
 
@@ -363,62 +441,80 @@ useEffect(() => {
 
     try {
       if (fileToSend) {
-        const fileExt = fileToSend.name.split('.').pop();
+        const fileExt = fileToSend.name.split(".").pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${channelId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('chat-attachments')
+          .from("chat-attachments")
           .upload(filePath, fileToSend);
 
         if (uploadError) {
-          if (fileToSend.type.startsWith('image/')) {
-            console.warn("Storage upload failed, falling back to base64 compression", uploadError);
+          if (fileToSend.type.startsWith("image/")) {
+            console.warn(
+              "Storage upload failed, falling back to base64 compression",
+              uploadError
+            );
             imageUrl = await processImageForSupabase(fileToSend);
           } else {
-            console.error("Storage upload failed for non-image file", uploadError);
-            if (uploadError.message === 'Failed to fetch') {
-              throw new Error("L'envoi a échoué (CORS / Failed to fetch). Si vous utilisez Nginx, assurez-vous d'avoir ajouté 'client_max_body_size 50M;' dans votre bloc 'listen 443 ssl' (HTTPS), et non pas seulement dans le bloc HTTP.");
+            console.error(
+              "Storage upload failed for non-image file",
+              uploadError
+            );
+            if (uploadError.message === "Failed to fetch") {
+              throw new Error(
+                "L'envoi a échoué (CORS / Failed to fetch). Si vous utilisez Nginx, assurez-vous d'avoir ajouté 'client_max_body_size 50M;' dans votre bloc 'listen 443 ssl' (HTTPS), et non pas seulement dans le bloc HTTP."
+              );
             }
-            throw new Error(`Erreur lors de l'envoi du fichier: ${uploadError?.message || (uploadError as any)?.error || 'Erreur inconnue'}`);
+            throw new Error(
+              `Erreur lors de l'envoi du fichier: ${
+                uploadError?.message ||
+                (uploadError as any)?.error ||
+                "Erreur inconnue"
+              }`
+            );
           }
         } else {
-          const { data: { publicUrl } } = supabase.storage
-            .from('chat-attachments')
-            .getPublicUrl(filePath);
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
           imageUrl = publicUrl;
         }
       }
 
-      let attachmentType = forcedType || 'file';
+      let attachmentType = forcedType || "file";
       if (!forcedType) {
-        if (gifUrl || (fileToSend && fileToSend.type.startsWith('image/'))) {
-          attachmentType = 'image';
-        } else if (fileToSend && fileToSend.type.startsWith('video/')) {
-          attachmentType = 'video';
-        } else if (fileToSend && fileToSend.type.startsWith('audio/')) {
-          attachmentType = 'audio';
+        if (gifUrl || (fileToSend && fileToSend.type.startsWith("image/"))) {
+          attachmentType = "image";
+        } else if (fileToSend && fileToSend.type.startsWith("video/")) {
+          attachmentType = "video";
+        } else if (fileToSend && fileToSend.type.startsWith("audio/")) {
+          attachmentType = "audio";
         }
       }
 
-      const attachmentsArray: any[] = imageUrl ? [{ 
-        url: imageUrl, 
-        type: attachmentType,
-        name: fileToSend?.name || (gifUrl ? 'gif' : 'file'),
-        size: fileToSend?.size || 0
-      }] : [];
+      const attachmentsArray: any[] = imageUrl
+        ? [
+            {
+              url: imageUrl,
+              type: attachmentType,
+              name: fileToSend?.name || (gifUrl ? "gif" : "file"),
+              size: fileToSend?.size || 0,
+            },
+          ]
+        : [];
 
       if (pollData) {
         attachmentsArray.push({
-          type: 'poll',
-          data: pollData
+          type: "poll",
+          data: pollData,
         });
       }
 
       const messageData: any = {
         author_id: user.id,
-        content: textToSend.trim() || '',
-        attachments: attachmentsArray
+        content: textToSend.trim() || "",
+        attachments: attachmentsArray,
       };
 
       if (isDM) {
@@ -433,7 +529,7 @@ useEffect(() => {
       }
 
       // 1. Send the message
-      const tableName = isDM ? 'dm_messages' : 'messages';
+      const tableName = isDM ? "dm_messages" : "messages";
       const { data: newMessage, error: insertError } = await supabase
         .from(tableName)
         .insert(messageData)
@@ -449,101 +545,170 @@ useEffect(() => {
       // 2. Update last_message_at for unread tracking
       const timestamp = new Date().toISOString();
       if (isDM) {
-        await supabase.from('dms').update({ last_message_at: timestamp }).eq('id', channelId);
+        await supabase
+          .from("dms")
+          .update({ last_message_at: timestamp })
+          .eq("id", channelId);
       } else {
-        await supabase.from('channels').update({ last_message_at: timestamp }).eq('id', channelId);
+        await supabase
+          .from("channels")
+          .update({ last_message_at: timestamp })
+          .eq("id", channelId);
       }
 
       // Explicitly tell socket
-      const eventName = isDM ? 'new-dm-message' : 'new-message';
-     const currentProfile = users.find(u => u.id === user.id);
-      const authorName = currentProfile?.display_name || currentProfile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur';
+      const eventName = isDM ? "new-dm-message" : "new-message";
+      const currentProfile = users.find((u) => u.id === user.id);
+      const authorName =
+        currentProfile?.display_name ||
+        currentProfile?.username ||
+        user?.user_metadata?.username ||
+        user?.email?.split("@")[0] ||
+        "Utilisateur";
 
       socket.emit(eventName, { ...newMessage, author_name: authorName });
 
       // --- MENTION & NOTIFICATION LOGIC ---
       try {
-        if (!isDM && textToSend.includes('@')) {
+        const mentionedUserIds = new Set<string>();
+
+        if (!isDM && textToSend.includes("@")) {
           // Robust regex for mentions, same as MessageContent.tsx
           const mentionRegex = /@(?:"([^"]+)"|([^\s"':;,.!?]+))/g;
           let match;
-          const mentionedUserIds = new Set<string>();
 
           while ((match = mentionRegex.exec(textToSend)) !== null) {
             const username = (match[1] || match[2]).toLowerCase();
-            if (username === 'everyone') {
-              users.forEach(u => {
+            if (username === "everyone") {
+              users.forEach((u) => {
                 if (u.id !== user.id) mentionedUserIds.add(u.id);
               });
               continue;
             }
-            
+
             // Match with existing users state or fetch if needed
-            let mentionedUser = users.find(u => 
-              (u.username || '').toLowerCase() === username || 
-              (u.display_name || '').toLowerCase() === username
+            let mentionedUser = users.find(
+              (u) =>
+                (u.username || "").toLowerCase() === username ||
+                (u.display_name || "").toLowerCase() === username
             );
-            
+
             if (!mentionedUser) {
               // Fallback fetch if not found in local state (maybe new user)
-              const { data } = await supabase.from('profiles')
-                .select('id, username, display_name')
+              const { data } = await supabase
+                .from("profiles")
+                .select("id, username, display_name")
                 .or(`username.ilike.${username},display_name.ilike.${username}`)
                 .maybeSingle();
               if (data) mentionedUser = data;
             }
-            
+
             if (mentionedUser && mentionedUser.id !== user.id) {
               mentionedUserIds.add(mentionedUser.id);
             }
           }
 
           if (mentionedUserIds.size > 0) {
-            const currentProfile = users.find(u => u.id === user.id);
-            const currentUsername = currentProfile?.display_name || currentProfile?.username || user?.user_metadata?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Utilisateur';
-            const notifications = Array.from(mentionedUserIds).map(targetId => ({
-              user_id: targetId,
-              type: 'mention',
-              data: {
-                author_id: user.id,
-                author_name: currentUsername,
-                content: textToSend.slice(0, 200),
-                server_id: serverId,
-                channel_id: channelId,
-                message_id: newMessage.id,
-                is_dm: false
-              },
-              read: false,
-              notified: false
-            }));
+            const currentProfile = users.find((u) => u.id === user.id);
+            const currentUsername =
+              currentProfile?.display_name ||
+              currentProfile?.username ||
+              user?.user_metadata?.username ||
+              user?.user_metadata?.display_name ||
+              user?.email?.split("@")[0] ||
+              "Utilisateur";
+            const notifications = Array.from(mentionedUserIds).map(
+              (targetId) => ({
+                user_id: targetId,
+                type: "mention",
+                data: {
+                  author_id: user.id,
+                  author_name: currentUsername,
+                  content: textToSend.slice(0, 200),
+                  server_id: serverId,
+                  channel_id: channelId,
+                  message_id: newMessage.id,
+                  is_dm: false,
+                },
+                read: false,
+                notified: false,
+              })
+            );
 
-            await supabase.from('notifications').insert(notifications);
+            await supabase.from("notifications").insert(notifications);
           }
+        }
+
+        // Reply notification
+        if (
+          replyingTo &&
+          replyingTo.author_id !== user.id &&
+          !mentionedUserIds.has(replyingTo.author_id)
+        ) {
+          const currentProfile = users.find((u) => u.id === user.id);
+          const currentUsername =
+            currentProfile?.display_name ||
+            currentProfile?.username ||
+            user?.user_metadata?.username ||
+            user?.user_metadata?.display_name ||
+            user?.email?.split("@")[0] ||
+            "Utilisateur";
+          await supabase.from("notifications").insert({
+            user_id: replyingTo.author_id,
+            type: "reply",
+            data: {
+              author_id: user.id,
+              author_name: currentUsername,
+              content:
+                textToSend.slice(0, 200) ||
+                (fileToSend ? "📎 Fichier" : "Message"),
+              server_id: isDM ? undefined : serverId,
+              channel_id: channelId,
+              message_id: newMessage.id,
+              is_dm: isDM,
+            },
+            read: false,
+            notified: false,
+          });
         }
 
         // Automatically create notification for DM recipient
         if (isDM) {
-          const { data: dmData } = await supabase.from('dms').select('participants').eq('id', channelId).maybeSingle();
+          const { data: dmData } = await supabase
+            .from("dms")
+            .select("participants")
+            .eq("id", channelId)
+            .maybeSingle();
           if (dmData && dmData.participants) {
-            const recipients = dmData.participants.filter((p: string) => p !== user.id);
+            const recipients = dmData.participants.filter(
+              (p: string) => p !== user.id
+            );
             if (recipients.length > 0) {
-              const currentProfile = users.find(u => u.id === user.id);
-              const currentUsername = currentProfile?.display_name || currentProfile?.username || user?.user_metadata?.username || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Utilisateur';
-              const notifications = recipients.map(targetId => ({
+              const currentProfile = users.find((u) => u.id === user.id);
+              const currentUsername =
+                currentProfile?.display_name ||
+                currentProfile?.username ||
+                user?.user_metadata?.username ||
+                user?.user_metadata?.display_name ||
+                user?.email?.split("@")[0] ||
+                "Utilisateur";
+              const notifications = recipients.map((targetId) => ({
                 user_id: targetId,
-                type: 'dm',
+                type: "dm",
                 data: {
                   author_id: user.id,
                   author_name: currentUsername,
-                  content: textToSend.slice(0, 200) || (fileToSend ? '📎 Fichier' : 'Message'),
+                  content:
+                    textToSend.slice(0, 200) ||
+                    (fileToSend ? "📎 Fichier" : "Message"),
                   channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
                   message_id: newMessage.id,
-                  is_dm: true
+                  is_dm: true,
                 },
                 read: false,
-                notified: false
+                notified: false,
               }));
-              await supabase.from('notifications').insert(notifications);
+              await supabase.from("notifications").insert(notifications);
             }
           }
         }
@@ -555,24 +720,24 @@ useEffect(() => {
 
       // Clear draft after successful send if it was not optimistically cleared
       if (fileToSend || gifUrl) {
-        setDraft(channelId, '');
-        setContent('');
+        setDraft(channelId, "");
+        setContent("");
         setMentionQuery(null);
         if (onCancelReply) onCancelReply();
       }
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
-      
+
       if (user) {
-        socket.emit('typing', {
+        socket.emit("typing", {
           channelId,
           userId: user.id,
-          username: user.user_metadata?.username || 'User',
-          isTyping: false
+          username: user.user_metadata?.username || "User",
+          isTyping: false,
         });
       }
-      
+
       // Keep focus on input after sending
       setTimeout(() => {
         if (inputRef.current) {
@@ -582,11 +747,11 @@ useEffect(() => {
     } catch (error: any) {
       console.error("Error sending message:", error);
       if (error.message === "GIF_TOO_LARGE") {
-        addNotification(t('errors.gifTooLarge'), "error");
+        addNotification(t("errors.gifTooLarge"), "error");
       } else if (error.message === "IMAGE_STILL_TOO_LARGE") {
-        addNotification(t('errors.imageTooComplex'), "error");
+        addNotification(t("errors.imageTooComplex"), "error");
       } else {
-        addNotification(t('errors.messageSendFailed'), "error");
+        addNotification(t("errors.messageSendFailed"), "error");
       }
     } finally {
       setIsUploading(false);
@@ -620,7 +785,7 @@ useEffect(() => {
     if (!items) return;
 
     for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file') {
+      if (items[i].kind === "file") {
         const file = items[i].getAsFile();
         if (file) {
           e.preventDefault();
@@ -636,7 +801,7 @@ useEffect(() => {
     if (emojiData.isCustom) {
       emojiText = `![custom_emoji:${emojiData.names[0]}](${emojiData.imageUrl}) `;
     }
-    
+
     const newContent = content + emojiText;
     setContent(newContent);
     setDraft(channelId, newContent);
@@ -681,7 +846,7 @@ useEffect(() => {
   };
 
   return (
-    <div 
+    <div
       className="p-4 pb-safe shrink-0 flex flex-col gap-2 relative"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -707,7 +872,9 @@ useEffect(() => {
                 key={user.id}
                 onClick={() => insertMention(user.username)}
                 className={`px-3 py-2 flex items-center gap-2 cursor-pointer transition-colors ${
-                  idx === mentionIndex ? 'bg-indigo-500/20 text-indigo-300' : 'text-zinc-300 hover:bg-zinc-700/50'
+                  idx === mentionIndex
+                    ? "bg-indigo-500/20 text-indigo-300"
+                    : "text-zinc-300 hover:bg-zinc-700/50"
                 }`}
               >
                 <AtSign className="w-4 h-4 opacity-50" />
@@ -721,22 +888,31 @@ useEffect(() => {
       {replyingTo && (
         <div className="flex items-center justify-between bg-zinc-800/80 px-4 py-2 rounded-t-lg border-l-4 border-indigo-500 text-sm">
           <div className="flex items-center gap-2 text-zinc-300 truncate">
-            <span className="font-semibold">En réponse à @{replyingTo.author_name}</span>
-            <span className="text-zinc-500 truncate max-w-md">{replyingTo.content}</span>
+            <span className="font-semibold">
+              En réponse à @{replyingTo.author_name}
+            </span>
+            <span className="text-zinc-500 truncate max-w-md">
+              {replyingTo.content}
+            </span>
           </div>
-          <button onClick={onCancelReply} className="text-zinc-400 hover:text-zinc-200">
+          <button
+            onClick={onCancelReply}
+            className="text-zinc-400 hover:text-zinc-200"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
-      
-      <form 
-        onSubmit={handleSubmit} 
-        className={`bg-zinc-700 flex items-center px-4 py-2 gap-3 transition-colors ${replyingTo ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'} ${isDragging ? 'ring-2 ring-indigo-500 bg-zinc-700/80' : ''}`}
+
+      <form
+        onSubmit={handleSubmit}
+        className={`bg-zinc-700 flex items-center px-4 py-2 gap-3 transition-colors ${
+          replyingTo ? "rounded-b-lg rounded-tr-lg" : "rounded-lg"
+        } ${isDragging ? "ring-2 ring-indigo-500 bg-zinc-700/80" : ""}`}
       >
         <div className="relative" ref={addMenuRef}>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => setShowAddMenu(!showAddMenu)}
             className="text-zinc-400 hover:text-zinc-200 transition-colors"
             disabled={isUploading || isRecording}
@@ -756,7 +932,7 @@ useEffect(() => {
                 className="w-full px-4 py-2 flex items-center gap-3 text-zinc-300 hover:bg-zinc-700 transition-colors text-sm"
               >
                 <FileUp className="w-4 h-4 text-zinc-400" />
-                {t('messageInput.uploadFile')}
+                {t("messageInput.uploadFile")}
               </button>
               <button
                 type="button"
@@ -773,18 +949,22 @@ useEffect(() => {
           )}
         </div>
 
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileSelect} 
-          className="hidden" 
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          className="hidden"
         />
-        
+
         {isRecording ? (
           <div className="flex-1 flex items-center gap-3 bg-zinc-800/50 rounded-md px-3 py-1 text-zinc-200">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="font-mono text-sm">{formatTime(recordingTime)}</span>
-            <span className="text-zinc-400 text-xs italic">Enregistrement en cours...</span>
+            <span className="font-mono text-sm">
+              {formatTime(recordingTime)}
+            </span>
+            <span className="text-zinc-400 text-xs italic">
+              Enregistrement en cours...
+            </span>
             <div className="flex-1" />
             <button
               type="button"
@@ -806,18 +986,22 @@ useEffect(() => {
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={replyingTo ? `Répondre à @${replyingTo.author_name}...` : "Message..."}
+            placeholder={
+              replyingTo
+                ? `Répondre à @${replyingTo.author_name}...`
+                : "Message..."
+            }
             className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-zinc-100 placeholder-zinc-400 resize-none custom-scrollbar py-1"
             disabled={isUploading}
             rows={1}
             maxLength={2000}
-            style={{ minHeight: '24px', maxHeight: '120px' }}
+            style={{ minHeight: "24px", maxHeight: "120px" }}
           />
         )}
-        
+
         <div className="flex items-center gap-1 md:gap-2 relative shrink-0">
           {!isRecording && !content.trim() && (
-            <button 
+            <button
               type="button"
               onClick={startRecording}
               className="text-zinc-400 hover:text-red-400 transition-colors flex items-center justify-center p-1"
@@ -829,7 +1013,7 @@ useEffect(() => {
           )}
 
           {isRecording && (
-            <button 
+            <button
               type="button"
               onClick={stopRecording}
               className="text-red-500 hover:text-red-400 transition-colors flex items-center justify-center p-1 scale-110"
@@ -841,7 +1025,7 @@ useEffect(() => {
 
           {!isRecording && (
             <>
-              <button 
+              <button
                 type="button"
                 onClick={handleGifClick}
                 className="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center justify-center p-1"
@@ -852,14 +1036,14 @@ useEffect(() => {
               </button>
 
               {showGifPicker && (
-                <GifPicker 
-                  onSelect={handleGifSelect} 
-                  onClose={() => setShowGifPicker(false)} 
+                <GifPicker
+                  onSelect={handleGifSelect}
+                  onClose={() => setShowGifPicker(false)}
                 />
               )}
 
               <div className="relative flex items-center justify-center">
-                <button 
+                <button
                   type="button"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   className="text-zinc-400 hover:text-zinc-200 transition-colors flex items-center justify-center p-1"
@@ -868,17 +1052,27 @@ useEffect(() => {
                 >
                   <SmilePlus className="w-5 h-5" />
                 </button>
-                
+
                 {showEmojiPicker && (
                   <div className="absolute right-0 bottom-full mb-4 z-50">
-                    <Suspense fallback={<div className="w-[300px] h-[350px] bg-zinc-800 rounded-lg flex items-center justify-center"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" /></div>}>
-                      <EmojiPicker 
-                        theme={'dark' as any} 
+                    <Suspense
+                      fallback={
+                        <div className="w-[300px] h-[350px] bg-zinc-800 rounded-lg flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                        </div>
+                      }
+                    >
+                      <EmojiPicker
+                        theme={"dark" as any}
                         onEmojiClick={handleEmojiClick}
                         lazyLoadEmojis={true}
                         height={350}
                         width={300}
-                        customEmojis={serverEmojis.map(e => ({ id: e.name, names: [e.name], imgUrl: e.url }))}
+                        customEmojis={serverEmojis.map((e) => ({
+                          id: e.name,
+                          names: [e.name],
+                          imgUrl: e.url,
+                        }))}
                       />
                     </Suspense>
                   </div>
@@ -888,8 +1082,8 @@ useEffect(() => {
           )}
 
           {content.trim() && !isUploading && (
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center p-1 ml-1"
             >
               <Send className="w-5 h-5" />
@@ -902,15 +1096,15 @@ useEffect(() => {
         </div>
       </form>
 
-      <PollModal 
+      <PollModal
         isOpen={isPollModalOpen}
         onClose={() => setIsPollModalOpen(false)}
-        onSubmit={(pollData) => sendPayload('', null, null, 'poll', pollData)}
+        onSubmit={(pollData) => sendPayload("", null, null, "poll", pollData)}
       />
 
       <PromptModal
         isOpen={promptConfig.isOpen}
-        onClose={() => setPromptConfig(prev => ({ ...prev, isOpen: false }))}
+        onClose={() => setPromptConfig((prev) => ({ ...prev, isOpen: false }))}
         onSubmit={promptConfig.onSubmit}
         title={promptConfig.title}
         inputLabel={promptConfig.label}

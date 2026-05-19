@@ -557,10 +557,12 @@ export default function DMChatArea() {
     const users = [...(reactions[emoji] || [])];
     
     try {
+      let isAdding = false;
       if (users.includes(uid)) {
         reactions[emoji] = users.filter(id => id !== uid);
       } else {
         reactions[emoji] = [...users, uid];
+        isAdding = true;
       }
 
       // Optimistic update
@@ -576,10 +578,34 @@ export default function DMChatArea() {
         reactions,
         isDM: true
       });
+
+      if (isAdding) {
+        const targetMsg = messages.find(m => m.id === msgId);
+        if (targetMsg && targetMsg.author_id !== uid) {
+          const authorProfile = usersMap[uid];
+          const authorName = authorProfile?.display_name || authorProfile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur';
+
+          await supabase.from('notifications').insert({
+             user_id: targetMsg.author_id,
+             type: 'reaction',
+             data: {
+               author_id: uid,
+               author_name: authorName,
+               content: emoji,
+               channel_id: selectedDmId,
+               message_id: msgId,
+               is_dm: true
+             },
+             read: false,
+             notified: false
+          });
+        }
+      }
     } catch (error) {
       console.error("Error updating reaction:", error);
     }
     setShowEmojiPicker(null);
+    setShowFullEmojiPicker(null);
   };
 
   const getUserData = (userId: string, fallbackName: string, fallbackAvatar: string) => {

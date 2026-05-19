@@ -97,7 +97,7 @@ export default function NotificationManager() {
             return;
           }
 
-          if (notificationSettings.sounds) {
+          if (notificationSettings.sounds && n.type !== 'reaction') {
             playMessageSound();
           }
           
@@ -107,6 +107,8 @@ export default function NotificationManager() {
           let title = 'Notification';
           let finalContent = content;
           if (n.type === 'mention') title = `Mention de ${authorName}`;
+          else if (n.type === 'reply') title = `${authorName} a répondu à votre message`;
+          else if (n.type === 'reaction') title = `${authorName} a réagi à votre message : ${content}`;
           else if (n.type === 'friend_request') title = `Demande d'ami de ${authorName}`;
           else if (n.type === 'friend_accept') {
              title = `${authorName} a accepté votre demande d'ami`;

@@ -421,6 +421,14 @@ export default function ChatArea() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, (payload) => {
         setServer(payload.new);
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload: any) => {
+        setUsersMap(prev => {
+          if (prev[payload.new.id] || serverMembers.some(sm => sm.user_id === payload.new.id)) {
+            return { ...prev, [payload.new.id]: payload.new };
+          }
+          return prev;
+        });
+      })
       .subscribe();
 
     socket.on('message', handleNewMessage);
@@ -495,10 +503,12 @@ export default function ChatArea() {
     const users = [...(reactions[emoji] || [])];
     
     try {
+      let isAdding = false;
       if (users.includes(uid)) {
         reactions[emoji] = users.filter(id => id !== uid);
       } else {
         reactions[emoji] = [...users, uid];
+        isAdding = true;
       }
 
       // Optimistic update
@@ -514,6 +524,30 @@ export default function ChatArea() {
         reactions,
         isDM: false
       });
+
+      if (isAdding) {
+        const targetMsg = messages.find(m => m.id === msgId);
+        if (targetMsg && targetMsg.author_id !== uid) {
+          const authorProfile = usersMap[uid];
+          const authorName = authorProfile?.display_name || authorProfile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur';
+          
+          await supabase.from('notifications').insert({
+             user_id: targetMsg.author_id,
+             type: 'reaction',
+             data: {
+               author_id: uid,
+               author_name: authorName,
+               content: emoji,
+               server_id: selectedServerId,
+               channel_id: selectedChannelId,
+               message_id: msgId,
+               is_dm: false
+             },
+             read: false,
+             notified: false
+          });
+        }
+      }
     } catch (error) {
       console.error("Error updating reaction:", error);
     }
