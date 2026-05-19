@@ -573,12 +573,17 @@ export default function MessageInput({
         const mentionedUserIds = new Set<string>();
 
         if (!isDM && textToSend.includes("@")) {
-          // Robust regex for mentions, same as MessageContent.tsx
-          const mentionRegex = /@(?:"([^"]+)"|([^\s"':;,.!?]+))/g;
+          // Accurate regex for mentions: handles @username and @"user name"
+          // Matches the logic in MessageContent.tsx
+          const mentionRegex = /(?:^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g;
           let match;
 
           while ((match = mentionRegex.exec(textToSend)) !== null) {
-            const username = (match[1] || match[2]).toLowerCase();
+            const rawUsername = match[1] || match[2];
+            if (!rawUsername) continue;
+            
+            const username = rawUsername.toLowerCase();
+            
             if (username === "everyone") {
               users.forEach((u) => {
                 if (u.id !== user.id) mentionedUserIds.add(u.id);
@@ -586,7 +591,7 @@ export default function MessageInput({
               continue;
             }
 
-            // Match with existing users state or fetch if needed
+            // Match with existing users state (case-insensitive)
             let mentionedUser = users.find(
               (u) =>
                 (u.username || "").toLowerCase() === username ||
@@ -594,11 +599,11 @@ export default function MessageInput({
             );
 
             if (!mentionedUser) {
-              // Fallback fetch if not found in local state (maybe new user)
+              // Fetch user if not in local member list (e.g. if member list is large or paging)
               const { data } = await supabase
                 .from("profiles")
                 .select("id, username, display_name")
-                .or(`username.ilike.${username},display_name.ilike.${username}`)
+                .or(`username.ilike."${username}",display_name.ilike."${username}"`)
                 .maybeSingle();
               if (data) mentionedUser = data;
             }
@@ -617,6 +622,7 @@ export default function MessageInput({
               user?.user_metadata?.display_name ||
               user?.email?.split("@")[0] ||
               "Utilisateur";
+
             const notifications = Array.from(mentionedUserIds).map(
               (targetId) => ({
                 user_id: targetId,

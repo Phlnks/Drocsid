@@ -17,27 +17,25 @@ const Spoiler = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <span
-      className={`inline-block rounded px-1.5 py-0.5 mx-0.5 cursor-pointer transition-colors duration-200 ${
+      className={`inline-flex items-center justify-center rounded px-2 py-0.5 mx-0.5 cursor-pointer transition-all duration-200 min-h-[1.5em] min-w-[50px] ${
         revealed
           ? "bg-zinc-700/50"
-          : "bg-zinc-800 text-transparent hover:bg-zinc-700"
+          : "bg-zinc-800 ring-1 ring-zinc-700 hover:bg-zinc-100 hover:ring-zinc-200 active:scale-95 group/spoiler"
       }`}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setRevealed(true);
+        if (!revealed) setRevealed(true);
       }}
       title={!revealed ? "Cliquez pour révéler le spoiler" : ""}
     >
-      <span
-        className={
-          revealed
-            ? "text-inherit pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }
-      >
-        {children}
-      </span>
+      {revealed ? (
+        <span className="text-inherit">{children}</span>
+      ) : (
+        <span className="text-[10px] font-bold tracking-widest text-zinc-400 uppercase select-none flex items-center group-hover/spoiler:text-zinc-900 transition-colors">
+          Spoiler
+        </span>
+      )}
     </span>
   );
 };
