@@ -4,7 +4,7 @@ import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import LinkPreview from "./ui/LinkPreview";
-import { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import UserContextMenu from "./ui/UserContextMenu";
 
 const YOUTUBE_REGEX =
@@ -126,11 +126,11 @@ export default function MessageContent({
   // Pre-process content for mentions - handle @username and @"user name"
   // and avoid common false positives like email addresses.
   let processedContent = content.replace(
-    /(^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g,
-    (match, prefix, p1, p2) => {
+    /@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g,
+    (match, p1, p2) => {
       const username = p1 || p2;
       const encodedUsername = encodeURIComponent(username);
-      return `${prefix}[@${username}](https://mention.local/${encodedUsername})`;
+      return `[@${username}](https://mention.local/${encodedUsername})`;
     }
   );
 
@@ -162,7 +162,7 @@ export default function MessageContent({
     }
   };
 
-  const components = React.useMemo(() => ({
+  const components = useMemo(() => ({
     span: ({ node, className, children, ...props }: any) => {
       if (className === "spoiler-tag") {
         return <Spoiler>{children}</Spoiler>;

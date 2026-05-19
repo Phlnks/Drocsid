@@ -574,7 +574,8 @@ export default function MessageInput({
 
         if (!isDM && textToSend.includes("@")) {
           // Accurate regex for mentions: handles @username and @"user name"
-          const mentionRegex = /(?:^|\s)@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g;
+          // We removed the preceding space requirement to work inside spoilers/markdown
+          const mentionRegex = /@(?:"([^"]+)"|([a-zA-Z0-9_.\-]+))/g;
           let match;
 
           while ((match = mentionRegex.exec(textToSend)) !== null) {
@@ -599,11 +600,11 @@ export default function MessageInput({
 
             if (!mentionedUser) {
               // Fetch user if not in local member list (e.g. if member list is large or paging)
-              // We use ilike with % for more flexibility, but exact match is preferred for mentions
+              // We wrap the value in quotes for PostgREST to handle special characters safely
               const { data } = await supabase
                 .from("profiles")
                 .select("id, username, display_name")
-                .or(`username.ilike.${username},display_name.ilike.${username}`)
+                .or(`username.ilike."${username}",display_name.ilike."${username}"`)
                 .maybeSingle();
               if (data) mentionedUser = data;
             }
@@ -624,16 +625,20 @@ export default function MessageInput({
               "Utilisateur";
 
             // Get names from current context for better notifications
-            let serverName = "";
-            let channelName = "";
+            let serverName = "Serveur";
+            let channelName = "salon";
 
-            if (serverId) {
-              const { data: sInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
-              serverName = sInfo?.name || "";
-            }
-            if (channelId) {
-              const { data: cInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
-              channelName = cInfo?.name || "";
+            try {
+              if (serverId) {
+                const { data: sInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
+                if (sInfo?.name) serverName = sInfo.name;
+              }
+              if (channelId) {
+                const { data: cInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
+                if (cInfo?.name) channelName = cInfo.name;
+              }
+            } catch (err) {
+              console.error("Failed to fetch context names for notification", err);
             }
 
             const notifications = Array.from(mentionedUserIds).map(
@@ -676,18 +681,22 @@ export default function MessageInput({
             "Utilisateur";
 
           // Get names from current context for better notifications
-          let serverName = "";
-          let channelName = "";
+          let serverName = "Serveur";
+          let channelName = "salon";
 
           if (!isDM) {
-             if (serverId) {
-               const { data: sInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
-               serverName = sInfo?.name || "";
-             }
-             if (channelId) {
+            try {
+              if (serverId) {
+                const { data: sInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
+                if (sInfo?.name) serverName = sInfo.name;
+              }
+              if (channelId) {
                 const { data: cInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
-                channelName = cInfo?.name || "";
-             }
+                if (cInfo?.name) channelName = cInfo.name;
+              }
+            } catch (err) {
+              console.error("Failed to fetch context names for notification", err);
+            }
           }
 
           await supabase.from("notifications").insert({
