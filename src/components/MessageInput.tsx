@@ -603,7 +603,7 @@ export default function MessageInput({
               const { data } = await supabase
                 .from("profiles")
                 .select("id, username, display_name")
-                .or(`username.ilike."${username}",display_name.ilike."${username}"`)
+                .or(`username.ilike.${username},display_name.ilike.${username}`)
                 .maybeSingle();
               if (data) mentionedUser = data;
             }
@@ -623,6 +623,10 @@ export default function MessageInput({
               user?.email?.split("@")[0] ||
               "Utilisateur";
 
+            // Get names from current context for better notifications
+            const { data: serverInfo } = await supabase.from('servers').select('name').eq('id', serverId).maybeSingle();
+            const { data: channelInfo } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
+
             const notifications = Array.from(mentionedUserIds).map(
               (targetId) => ({
                 user_id: targetId,
@@ -632,7 +636,9 @@ export default function MessageInput({
                   author_name: currentUsername,
                   content: textToSend.slice(0, 200),
                   server_id: serverId,
+                  server_name: serverInfo?.name,
                   channel_id: channelId,
+                  channel_name: channelInfo?.name,
                   message_id: newMessage.id,
                   is_dm: false,
                 },
@@ -659,6 +665,16 @@ export default function MessageInput({
             user?.user_metadata?.display_name ||
             user?.email?.split("@")[0] ||
             "Utilisateur";
+          // Get names from current context for better notifications
+          const { data: serverInfo } = !isDM ? await supabase.from('servers').select('name').eq('id', serverId).maybeSingle() : { data: null };
+          const { data: channelInfo } = await supabase.from(isDM ? 'dms' : 'channels').select('id').eq('id', channelId).maybeSingle(); 
+          // For channel name, if it it's text channel we get name
+          let channelName = '';
+          if (!isDM) {
+             const { data: ci } = await supabase.from('channels').select('name').eq('id', channelId).maybeSingle();
+             channelName = ci?.name || '';
+          }
+
           await supabase.from("notifications").insert({
             user_id: replyingTo.author_id,
             type: "reply",
@@ -669,7 +685,9 @@ export default function MessageInput({
                 textToSend.slice(0, 200) ||
                 (fileToSend ? "📎 Fichier" : "Message"),
               server_id: isDM ? undefined : serverId,
+              server_name: serverInfo?.name,
               channel_id: channelId,
+              channel_name: channelName,
               message_id: newMessage.id,
               is_dm: isDM,
             },

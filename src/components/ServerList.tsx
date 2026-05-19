@@ -461,12 +461,14 @@ export default function ServerList() {
             >
               <div
                 className={clsx(
-                  "absolute left-0 bg-white transition-all duration-200",
+                  "absolute left-0 transition-all duration-200",
                   selectedServerId === server.id
-                    ? "h-12 md:h-10 w-1.5 md:w-1 rounded-r-full"
+                    ? "h-12 md:h-10 w-1.5 md:w-1 rounded-r-full bg-white"
+                    : serverMentions[server.id] > 0
+                    ? "h-10 md:h-8 w-2 md:w-1.5 opacity-100 rounded-r-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
                     : unreadServers.has(server.id)
-                    ? "h-2 md:h-2 w-1.5 md:w-1 opacity-100 rounded-r-full group-hover:h-5 md:group-hover:h-5 group-hover:rounded-r-md"
-                    : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md"
+                    ? "h-2 md:h-2 w-1.5 md:w-1 opacity-100 rounded-r-full bg-white group-hover:h-5 md:group-hover:h-5 group-hover:rounded-r-md"
+                    : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md bg-white"
                 )}
               />
               <div

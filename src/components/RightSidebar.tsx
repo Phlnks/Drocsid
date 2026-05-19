@@ -681,6 +681,12 @@ export default function RightSidebar({
                                       notif.author_name ||
                                       t("common.user")}
                                   </span>
+                                  {notif.data?.server_name && (
+                                    <span className="text-[10px] text-zinc-500 block mt-0.5">
+                                      dans {notif.data.server_name} #
+                                      {notif.data.channel_name || "salon"}
+                                    </span>
+                                  )}
                                 </>
                               )}
                               {isReply && (
@@ -691,6 +697,12 @@ export default function RightSidebar({
                                       t("common.user")}
                                   </span>{" "}
                                   a répondu
+                                  {notif.data?.server_name && (
+                                    <span className="text-[10px] text-zinc-500 block mt-0.5">
+                                      dans {notif.data.server_name} #
+                                      {notif.data.channel_name || "salon"}
+                                    </span>
+                                  )}
                                 </>
                               )}
                               {isReaction && (
