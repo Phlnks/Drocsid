@@ -124,10 +124,10 @@ export default function MessageContent({
     }
   );
 
-  // Pre-process spoilers: replace ||...|| with <spoiler>...</spoiler>
+  // Pre-process spoilers: replace ||...|| with <span class="spoiler-tag">...</span>
   processedContent = processedContent.replace(
     /\|\|([\s\S]*?)\|\|/g,
-    "<spoiler>$1</spoiler>"
+    '<span class="spoiler-tag">$1</span>'
   );
 
   const handleMentionContextMenu = (e: React.MouseEvent, username: string) => {
@@ -165,7 +165,12 @@ export default function MessageContent({
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
           components={{
-            spoiler: Spoiler as any,
+            span: ({ node, className, children, ...props }: any) => {
+              if (className === "spoiler-tag") {
+                return <Spoiler>{children}</Spoiler>;
+              }
+              return <span className={className} {...props}>{children}</span>;
+            },
             code({ node, inline, className, children, ...props }: any) {
               const match = /language-(\w+)/.exec(className || "");
               return !inline && match ? (
