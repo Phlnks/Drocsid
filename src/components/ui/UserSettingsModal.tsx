@@ -79,7 +79,6 @@ export default function UserSettingsModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [allCustomEmojis, setAllCustomEmojis] = useState<any[]>([]);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Mic test state
@@ -150,45 +149,9 @@ export default function UserSettingsModal({
     };
   }, [showEmojiPicker]);
 
-  useEffect(() => {
-    const fetchAllCustomEmojis = async () => {
-      if (!user) return;
-      try {
-        const { data: memberData } = await supabase
-          .from("server_members")
-          .select("server_id")
-          .eq("user_id", user.id);
-
-        if (!memberData?.length) return;
-
-        const serverIds = memberData.map((m) => m.server_id);
-        const { data: serversData } = await supabase
-          .from("servers")
-          .select("custom_emojis")
-          .in("id", serverIds);
-
-        if (serversData) {
-          const emojis = serversData.flatMap((s) => s.custom_emojis || []);
-          const uniqueEmojis = Array.from(
-            new Map(emojis.map((e) => [e.name, e])).values()
-          );
-          setAllCustomEmojis(uniqueEmojis);
-        }
-      } catch (err) {
-        console.error("Error fetching all custom emojis:", err);
-      }
-    };
-
-    if (isOpen) {
-      fetchAllCustomEmojis();
-    }
-  }, [isOpen, user]);
 
   const handleEmojiClick = (emojiData: any) => {
-    let emojiText = emojiData.emoji;
-    if (emojiData.isCustom) {
-      emojiText = `![custom_emoji:${emojiData.names[0]}](${emojiData.imageUrl}) `;
-    }
+    const emojiText = emojiData.emoji;
 
     setProfile((prev) => ({
       ...prev,
@@ -949,11 +912,6 @@ export default function UserSettingsModal({
                                     )}
                                     skinTonesDisabled={true}
                                     previewConfig={{ showPreview: false }}
-                                    customEmojis={allCustomEmojis.map((e) => ({
-                                      id: e.name,
-                                      names: [e.name],
-                                      imgUrl: e.url,
-                                    }))}
                                   />
                                 </Suspense>
                               </div>
