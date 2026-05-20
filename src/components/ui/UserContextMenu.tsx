@@ -320,7 +320,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     
     const currUserRoles = serverRoles.filter(r => currentUserMember.roles?.includes(r.id));
     currUserRoles.forEach(r => {
-      if ((r.order || 999) < currentUserHighestOrder) currentUserHighestOrder = r.order || 999;
+      if ((r.order ?? 999) < currentUserHighestOrder) currentUserHighestOrder = r.order ?? 999;
       if (r.permissions?.includes('ADMINISTRATOR')) {
         currentUserHasAdmin = true;
         currentUserHasMod = true;
@@ -354,7 +354,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     if (serverMember) {
       const targetRoles = serverRoles.filter(r => serverMember.roles?.includes(r.id));
       targetRoles.forEach(r => {
-        if ((r.order || 999) < targetUserHighestOrder) targetUserHighestOrder = r.order || 999;
+        if ((r.order ?? 999) < targetUserHighestOrder) targetUserHighestOrder = r.order ?? 999;
       });
     }
 

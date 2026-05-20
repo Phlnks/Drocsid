@@ -5,6 +5,7 @@ import { Volume2, MicOff, Headphones, UserMinus, Ban, PhoneOff, MonitorUp, Moon,
 import { useAppStore } from '../store/appStore';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
+import UserProfileModal from './ui/UserProfileModal';
 import { useTranslation } from 'react-i18next';
 
 import { playScreenShareJoinSound, playScreenShareLeaveSound } from '../lib/sounds';
@@ -45,6 +46,7 @@ export default function VoiceChannelItem({
   const participants = allVoiceParticipants[channel.id] || [];
   const [isDragOver, setIsDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, userId: string, username: string } | null>(null);
+  const [showProfile, setShowProfile] = useState<any>(null);
 
   const handleContextMenu = (e: React.MouseEvent, user: any) => {
     e.preventDefault();
@@ -226,6 +228,21 @@ export default function VoiceChannelItem({
           serverId={selectedServerId}
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={() => setContextMenu(null)}
+          onViewProfile={() => {
+            const p = participants.find(part => part.id === contextMenu.userId);
+            if (p) {
+              const uProfile = globalProfiles[p.id];
+              setShowProfile(uProfile || { id: p.id, username: p.name, avatar_url: p.avatarUrl });
+            }
+          }}
+        />
+      )}
+
+      {showProfile && (
+        <UserProfileModal
+          isOpen={!!showProfile}
+          onClose={() => setShowProfile(null)}
+          user={showProfile}
         />
       )}
     </div>
