@@ -87,6 +87,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      if (showUsernamePrompt) return;
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
@@ -387,8 +388,12 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   let x = position.x;
   let y = position.y;
 
-  if (x + menuWidth > window.innerWidth) x -= menuWidth;
-  if (y + menuHeight > window.innerHeight) y -= menuHeight;
+  if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+  if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
+  
+  // Ensure the menu doesn't go off the top or left of the screen
+  x = Math.max(10, x);
+  y = Math.max(10, y);
 
   return createPortal(
     <>
