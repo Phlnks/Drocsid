@@ -59,6 +59,28 @@ export default function ChatArea() {
   const [mobileActionMessageId, setMobileActionMessageId] = useState<string | null>(null);
   const touchTimerRef = useRef<any>(null);
   const [editContent, setEditContent] = useState('');
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editingMessageId && editInputRef.current) {
+      editInputRef.current.focus();
+      // Set cursor to end
+      const length = editInputRef.current.value.length;
+      editInputRef.current.setSelectionRange(length, length);
+      
+      // Initial auto-resize
+      editInputRef.current.style.height = "auto";
+      editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
+    }
+  }, [editingMessageId]);
+
+  const handleEditContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditContent(e.target.value);
+    if (editInputRef.current) {
+      editInputRef.current.style.height = "auto";
+      editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
+    }
+  };
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState<string | null>(null);
   const [emojiPickerDirection, setEmojiPickerDirection] = useState<'up' | 'down'>('up');
@@ -465,10 +487,11 @@ export default function ChatArea() {
   };
 
   const handleEditSave = async (msgId: string) => {
-    if (!editContent.trim()) return;
+    const trimmedContent = editContent.trim();
+    if (!trimmedContent) return;
     try {
       const { data } = await supabase.from('messages').update({
-        content: editContent.trim(),
+        content: trimmedContent,
         is_edited: true
       }).eq('id', msgId).select().single();
       
@@ -994,17 +1017,19 @@ export default function ChatArea() {
                   
                   {editingMessageId === msg.id ? (
                     <div className="mt-1">
-                      <input 
-                        type="text" 
+                      <textarea 
+                        ref={editInputRef}
                         value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full bg-zinc-900 text-zinc-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onChange={handleEditContentChange}
+                        className="w-full bg-zinc-900 text-zinc-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
                         maxLength={2000}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleEditSave(msg.id);
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleEditSave(msg.id);
+                          }
                           if (e.key === 'Escape') setEditingMessageId(null);
                         }}
-                        autoFocus
                       />
                       <div className="text-xs text-zinc-400 mt-1">
                         {t('chatArea.editInstructions')}
