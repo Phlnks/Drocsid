@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import socket from '../../lib/socket';
 import { useTranslation } from 'react-i18next';
+import clsx from 'clsx';
 import PromptModal from './PromptModal';
 
 interface UserContextMenuProps {
@@ -97,7 +98,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [onClose]);
+  }, [onClose, showUsernamePrompt]);
 
 
   useEffect(() => {
@@ -293,6 +294,17 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
         throw new Error(error.error || 'Failed to update username');
       }
 
+      // Update local store to reflect changes immediately
+      const { data: updatedProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (updatedProfile) {
+        useAppStore.getState().setGlobalProfile(updatedProfile);
+      }
+
       addNotification(t('common.savedSuccessfully'), 'success');
       onClose();
     } catch (error: any) {
@@ -399,7 +411,10 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     <>
       <div 
         ref={menuRef}
-        className="fixed z-[9999] bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 w-[200px] animate-in fade-in zoom-in duration-100"
+        className={clsx(
+          "fixed z-[9999] bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 w-[200px] animate-in fade-in zoom-in duration-100",
+          showUsernamePrompt && "opacity-0 pointer-events-none"
+        )}
         style={{ left: x, top: y }}
       >
         <div className="px-3 py-2 border-b border-zinc-800 mb-1">
