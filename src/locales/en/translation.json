@@ -369,7 +369,10 @@
       "kick": "Kick",
       "ban": "Ban",
       "kickConfirm": "Are you sure you want to kick {{username}}?",
-      "banConfirm": "Are you sure you want to ban {{username}}?"
+      "banConfirm": "Are you sure you want to ban {{username}}?",
+      "changeUsername": "Change Username",
+      "changeUsernameDesc": "Enter the new username for this user.",
+      "newUsername": "New Username"
     },
     "createServer": {
       "title": "Customize your server",

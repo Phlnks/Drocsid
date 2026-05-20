@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign, MicOff, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2, PhoneOff, User as UserIcon, AtSign, MicOff, Volume2, Volume1, VolumeX, Edit2 } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import socket from '../../lib/socket';
 import { useTranslation } from 'react-i18next';
+import PromptModal from './PromptModal';
 
 interface UserContextMenuProps {
   userId: string;
@@ -25,6 +26,8 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const [currentUserMember, setCurrentUserMember] = useState<any>(null);
   const [serverRoles, setServerRoles] = useState<any[]>([]);
   const [serverInfo, setServerInfo] = useState<any>(null);
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
+  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
   const { user } = useAuthStore();
@@ -267,11 +270,44 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     socket.emit('force-mute', { userId, mute: !currentlyMuted });
   };
 
+  const handleUpdateUsername = async (newUsername: string) => {
+    if (!serverId || !userId || !newUsername) return;
+    setIsUpdatingUsername(true);
+    try {
+      const response = await fetch('/api/server/update-member-username', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          serverId,
+          targetUserId: userId,
+          newUsername
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update username');
+      }
+
+      addNotification(t('common.savedSuccessfully'), 'success');
+      onClose();
+    } catch (error: any) {
+      console.error("Error updating username:", error);
+      addNotification(error.message, 'error');
+    } finally {
+      setIsUpdatingUsername(false);
+    }
+  };
+
   let isOwner = false;
   let canKick = false;
   let canBan = false;
   let canMove = false;
   let canMute = false;
+  let canChangeUsername = false;
 
   if (serverInfo && currentUserMember) {
     isOwner = serverInfo.owner_id === user?.id;
@@ -280,13 +316,23 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     // Determine highest order for current user (lower number = higher hierarchical priority)
     let currentUserHighestOrder = isOwner ? 0 : Infinity;
     let currentUserHasAdmin = false;
+    let currentUserHasMod = false;
     
     const currUserRoles = serverRoles.filter(r => currentUserMember.roles?.includes(r.id));
     currUserRoles.forEach(r => {
       if ((r.order || 999) < currentUserHighestOrder) currentUserHighestOrder = r.order || 999;
-      if (r.permissions?.includes('ADMINISTRATOR')) currentUserHasAdmin = true;
-      if (r.permissions?.includes('KICK_MEMBERS')) canKick = true;
-      if (r.permissions?.includes('BAN_MEMBERS')) canBan = true;
+      if (r.permissions?.includes('ADMINISTRATOR')) {
+        currentUserHasAdmin = true;
+        currentUserHasMod = true;
+      }
+      if (r.permissions?.includes('KICK_MEMBERS')) {
+        canKick = true;
+        currentUserHasMod = true;
+      }
+      if (r.permissions?.includes('BAN_MEMBERS')) {
+        canBan = true;
+        currentUserHasMod = true;
+      }
       if (r.permissions?.includes('MOVE_MEMBERS')) canMove = true;
       if (r.permissions?.includes('MUTE_MEMBERS')) canMute = true;
     });
@@ -296,6 +342,11 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       canBan = true;
       canMove = true;
       canMute = true;
+      canChangeUsername = true;
+    }
+
+    if (currentUserHasMod) {
+      canChangeUsername = true;
     }
 
     // Evaluate target user's highest order
@@ -307,16 +358,18 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       });
     }
 
-    // Hierarchical check: cannot kick/ban someone with a higher or equal rank (lower order)
+    // Hierarchical check: cannot kick/ban/change someone with a higher or equal rank (lower order)
     if (!isOwner && currentUserHighestOrder >= targetUserHighestOrder) {
       canKick = false;
       canBan = false;
+      canChangeUsername = false;
     }
 
-    // Never kick/ban owner
+    // Never kick/ban/change owner
     if (targetIsOwner) {
       canKick = false;
       canBan = false;
+      canChangeUsername = false;
     }
   }
 
@@ -324,7 +377,8 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const menuWidth = 200;
   const isSelf = userId === user?.id;
   const targetVoiceState = Object.values(voiceParticipants).flat().find(p => p.id === userId);
-  const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove || canMute);
+  const { addNotification } = useAppStore();
+  const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove || canMute || canChangeUsername);
   let menuHeight = 160;
   if (onViewProfile) menuHeight += 40;
   if (showAdminActions) menuHeight += 160;
@@ -337,145 +391,167 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   if (y + menuHeight > window.innerHeight) y -= menuHeight;
 
   return createPortal(
-    <div 
-      ref={menuRef}
-      className="fixed z-[9999] bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 w-[200px] animate-in fade-in zoom-in duration-100"
-      style={{ left: x, top: y }}
-    >
-      <div className="px-3 py-2 border-b border-zinc-800 mb-1">
-        <p className="text-xs font-bold text-zinc-500 uppercase truncate">{username}</p>
-      </div>
+    <>
+      <div 
+        ref={menuRef}
+        className="fixed z-[9999] bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 w-[200px] animate-in fade-in zoom-in duration-100"
+        style={{ left: x, top: y }}
+      >
+        <div className="px-3 py-2 border-b border-zinc-800 mb-1">
+          <p className="text-xs font-bold text-zinc-500 uppercase truncate">{username}</p>
+        </div>
 
-      {onViewProfile && (
-        <button 
-          onClick={() => {
-            onClose();
-            onViewProfile();
-          }}
-          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
-        >
-          <UserIcon className="w-4 h-4" />
-          {t('modals.userContextMenu.profile')}
-        </button>
-      )}
-
-      {!isSelf && (
-        <>
+        {onViewProfile && (
           <button 
-            onClick={handleDM}
+            onClick={() => {
+              onClose();
+              onViewProfile();
+            }}
             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
           >
-            <MessageSquare className="w-4 h-4" />
-            {t('modals.userContextMenu.message')}
+            <UserIcon className="w-4 h-4" />
+            {t('modals.userContextMenu.profile')}
           </button>
+        )}
 
-          <button 
-            onClick={handleCall}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
-          >
-            <Phone className="w-4 h-4" />
-            {t('modals.userContextMenu.call')}
-          </button>
-
-          {dmId && (
+        {!isSelf && (
+          <>
             <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleMuteDm(dmId);
-                onClose();
-              }}
+              onClick={handleDM}
               className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
             >
-              <PhoneOff className="w-4 h-4" />
-              {mutedDms.includes(dmId) ? t('modals.userContextMenu.unmute') : t('modals.userContextMenu.mute')}
+              <MessageSquare className="w-4 h-4" />
+              {t('modals.userContextMenu.message')}
             </button>
-          )}
 
-          <button 
-            onClick={handleFriendAction}
-            disabled={isLoading}
-            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors disabled:opacity-50"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : relationship?.status === 'accepted' ? (
+            <button 
+              onClick={handleCall}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
+            >
+              <Phone className="w-4 h-4" />
+              {t('modals.userContextMenu.call')}
+            </button>
+
+            {dmId && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMuteDm(dmId);
+                  onClose();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
+              >
+                <PhoneOff className="w-4 h-4" />
+                {mutedDms.includes(dmId) ? t('modals.userContextMenu.unmute') : t('modals.userContextMenu.mute')}
+              </button>
+            )}
+
+            <button 
+              onClick={handleFriendAction}
+              disabled={isLoading}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors disabled:opacity-50"
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : relationship?.status === 'accepted' ? (
+                <>
+                  <UserMinus className="w-4 h-4" />
+                  {t('modals.userContextMenu.removeFriend')}
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  {t('modals.userContextMenu.addFriend')}
+                </>
+              )}
+            </button>
+
+            {targetVoiceState && (
               <>
-                <UserMinus className="w-4 h-4" />
-                {t('modals.userContextMenu.removeFriend')}
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-4 h-4" />
-                {t('modals.userContextMenu.addFriend')}
+                <div className="h-px bg-zinc-800 my-1" />
+                <div className="px-3 py-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      {localVolume === 0 ? (
+                        <VolumeX className="w-4 h-4 text-zinc-500" />
+                      ) : localVolume < 0.5 ? (
+                        <Volume1 className="w-4 h-4 text-zinc-400" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 text-zinc-300" />
+                      )}
+                      <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t('modals.userContextMenu.userVolume', 'Volume utilisateur')}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-zinc-500">{Math.round(localVolume * 100)}%</span>
+                  </div>
+                  <input 
+                    type="range"
+                    min="0"
+                    max="1.0"
+                    step="0.01"
+                    value={localVolume}
+                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
               </>
             )}
-          </button>
+          </>
+        )}
 
-          {targetVoiceState && (
-            <>
-              <div className="h-px bg-zinc-800 my-1" />
-              <div className="px-3 py-2">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    {localVolume === 0 ? (
-                      <VolumeX className="w-4 h-4 text-zinc-500" />
-                    ) : localVolume < 0.5 ? (
-                      <Volume1 className="w-4 h-4 text-zinc-400" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 text-zinc-300" />
-                    )}
-                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{t('modals.userContextMenu.userVolume', 'Volume utilisateur')}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-zinc-500">{Math.round(localVolume * 100)}%</span>
-                </div>
-                <input 
-                  type="range"
-                  min="0"
-                  max="1.0"
-                  step="0.01"
-                  value={localVolume}
-                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-              </div>
-            </>
-          )}
-        </>
-      )}
+        {showAdminActions && (
+          <>
+            <div className="h-px bg-zinc-800 my-1" />
+            {targetVoiceState && canMute && (
+              <button 
+                onClick={handleMuteUser}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+              >
+                <MicOff className="w-4 h-4 text-orange-400" />
+                {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Rendre muet')}
+              </button>
+            )}
+            {canChangeUsername && (
+              <button 
+                onClick={() => setShowUsernamePrompt(true)}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                {t('modals.userContextMenu.changeUsername', 'Modifier le username')}
+              </button>
+            )}
+            {canKick && (
+              <button 
+                onClick={handleKick}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+              >
+                <ShieldAlert className="w-4 h-4" />
+                {t('modals.userContextMenu.kick')}
+              </button>
+            )}
+            {canBan && (
+              <button 
+                onClick={handleBan}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+              >
+                <UserX className="w-4 h-4" />
+                {t('modals.userContextMenu.ban')}
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
-      {showAdminActions && (
-        <>
-          <div className="h-px bg-zinc-800 my-1" />
-          {targetVoiceState && canMute && (
-            <button 
-              onClick={handleMuteUser}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
-            >
-              <MicOff className="w-4 h-4 text-orange-400" />
-              {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Rendre muet')}
-            </button>
-          )}
-          {canKick && (
-            <button 
-              onClick={handleKick}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-            >
-              <ShieldAlert className="w-4 h-4" />
-              {t('modals.userContextMenu.kick')}
-            </button>
-          )}
-          {canBan && (
-            <button 
-              onClick={handleBan}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-            >
-              <UserX className="w-4 h-4" />
-              {t('modals.userContextMenu.ban')}
-            </button>
-          )}
-        </>
-      )}
-    </div>,
+      <PromptModal
+        isOpen={showUsernamePrompt}
+        onClose={() => setShowUsernamePrompt(false)}
+        onSubmit={handleUpdateUsername}
+        title={t('modals.userContextMenu.changeUsername', 'Modifier le username')}
+        description={t('modals.userContextMenu.changeUsernameDesc', 'Entrez le nouveau username pour cet utilisateur.')}
+        inputLabel={t('modals.userContextMenu.newUsername', 'Nouveau username')}
+        placeholder={username}
+        submitText={isUpdatingUsername ? t('common.saving') : t('common.save')}
+      />
+    </>,
     document.body
   );
 }

@@ -560,6 +560,79 @@ async function startServer() {
     }
   });
 
+  app.put("/api/server/update-member-username", express.json(), async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return res.status(401).json({ error: "Missing auth header" });
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !currentUser) return res.status(401).json({ error: "Invalid token" });
+
+      const { serverId, targetUserId, newUsername } = req.body;
+      if (!serverId || !targetUserId || !newUsername) {
+        return res.status(400).json({ error: "Missing fields" });
+      }
+
+      // Verify hierarchy and permissions
+      const [rolesRes, membersRes, serverRes] = await Promise.all([
+        supabaseAdmin.from('roles').select('*').eq('server_id', serverId),
+        supabaseAdmin.from('server_members').select('*').eq('server_id', serverId).in('user_id', [currentUser.id, targetUserId]),
+        supabaseAdmin.from('servers').select('owner_id').eq('id', serverId).single()
+      ]);
+
+      const roles = rolesRes.data || [];
+      const members = membersRes.data || [];
+      const server = serverRes.data;
+
+      const currentMember = members.find(m => m.user_id === currentUser.id);
+      const targetMember = members.find(m => m.user_id === targetUserId);
+
+      if (!currentMember || !targetMember || !server) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const isOwner = server.owner_id === currentUser.id;
+      const targetIsOwner = server.owner_id === targetUserId;
+
+      if (targetIsOwner) return res.status(403).json({ error: "Cannot modify owner" });
+
+      let currentHighestOrder = isOwner ? 0 : Infinity;
+      let hasModPerm = isOwner;
+      
+      const currentRoles = roles.filter(r => currentMember.roles.includes(r.id));
+      currentRoles.forEach(r => {
+        if ((r.order || 999) < currentHighestOrder) currentHighestOrder = r.order || 999;
+        if (r.permissions?.includes('ADMINISTRATOR') || r.permissions?.includes('KICK_MEMBERS') || r.permissions?.includes('BAN_MEMBERS')) {
+          hasModPerm = true;
+        }
+      });
+
+      if (!hasModPerm) return res.status(403).json({ error: "Insufficient permissions" });
+
+      let targetHighestOrder = Infinity;
+      const targetRoles = roles.filter(r => targetMember.roles.includes(r.id));
+      targetRoles.forEach(r => {
+        if ((r.order || 999) < targetHighestOrder) targetHighestOrder = r.order || 999;
+      });
+
+      if (!isOwner && currentHighestOrder >= targetHighestOrder) {
+        return res.status(403).json({ error: "Target has higher or equal rank" });
+      }
+
+      // Update username
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ username: newUsername })
+        .eq('id', targetUserId);
+
+      if (updateError) throw updateError;
+
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.put("/api/admin/server/:targetId", express.json(), async (req, res) => {
     try {
       const user = await requireSuperAdmin(req, res);

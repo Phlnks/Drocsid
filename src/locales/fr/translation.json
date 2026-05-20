@@ -369,7 +369,10 @@
       "kick": "Exclure",
       "ban": "Bannir",
       "kickConfirm": "Voulez-vous vraiment exclure {{username}} ?",
-      "banConfirm": "Voulez-vous vraiment bannir {{username}} ?"
+      "banConfirm": "Voulez-vous vraiment bannir {{username}} ?",
+      "changeUsername": "Modifier le username",
+      "changeUsernameDesc": "Entrez le nouveau username pour cet utilisateur.",
+      "newUsername": "Nouveau username"
     },
     "createServer": {
       "title": "Personnalise ton serveur",
