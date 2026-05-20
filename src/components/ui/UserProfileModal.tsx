@@ -4,6 +4,7 @@ import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import UserAvatar from './UserAvatar';
+import StatusContent from '../StatusContent';
 import socket from '../../lib/socket';
 import { useTranslation } from 'react-i18next';
 
@@ -277,7 +278,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
             </h2>
             {user.custom_status && (
               <div className="mt-2 text-[15px] text-zinc-300">
-                {user.custom_status}
+                <StatusContent content={user.custom_status} />
               </div>
             )}
             {user.bio && (

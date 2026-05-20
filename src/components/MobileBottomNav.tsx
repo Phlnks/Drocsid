@@ -30,8 +30,11 @@ export default function MobileBottomNav() {
         .eq('read', false);
         
       if (notifs) {
-        setHasUnreadMentions(notifs.some(n => n.type === 'mention' || n.type === 'reply' || (!n.type && !n.data?.is_dm)));
-        setUnreadDMsCount(notifs.filter(n => n.type === 'dm' || n.data?.is_dm === true).length);
+        const dms = notifs.filter(n => n.type === 'dm' || n.data?.is_dm === true);
+        const others = notifs.filter(n => n.type !== 'dm' && n.data?.is_dm !== true);
+        
+        setUnreadDMsCount(dms.length);
+        setHasUnreadMentions(others.length > 0);
       }
     };
     

@@ -154,14 +154,15 @@ export default function ServerList() {
       let dmsCount = 0;
       if (notifs) {
         notifs.forEach((n) => {
-          if (
-            (n.type === "mention" || n.type === "reply") &&
+          const isDm = n.type === "dm" || n.data?.is_dm === true;
+          if (isDm) {
+            dmsCount++;
+          } else if (
+            (n.type === "mention" || n.type === "reply" || !n.type) &&
             n.data?.server_id
           ) {
             mentionsMap[n.data.server_id] =
               (mentionsMap[n.data.server_id] || 0) + 1;
-          } else if (n.type === "dm") {
-            dmsCount++;
           }
         });
       }

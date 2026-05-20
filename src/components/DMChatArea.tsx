@@ -246,6 +246,14 @@ export default function DMChatArea() {
         userId: user.id,
         timestamp: now
       });
+
+      // Also mark notifications for this DM as read
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .filter('data->>channel_id', 'eq', selectedDmId);
     } catch (error) {
       console.error("Error updating last_read:", error);
     }

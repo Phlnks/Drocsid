@@ -16,6 +16,7 @@ import clsx from "clsx";
 import UserProfileModal from "./ui/UserProfileModal";
 import UserAvatar from "./ui/UserAvatar";
 import UserContextMenu from "./ui/UserContextMenu";
+import StatusContent from "./StatusContent";
 import { useTranslation } from "react-i18next";
 
 export default function RightSidebar({
@@ -530,7 +531,7 @@ export default function RightSidebar({
                             </span>
                             {user.custom_status && (
                               <span className="text-[11px] text-zinc-400 truncate opacity-90 leading-tight">
-                                {user.custom_status}
+                                <StatusContent content={user.custom_status} />
                               </span>
                             )}
                           </div>
@@ -565,16 +566,17 @@ export default function RightSidebar({
               {notifications.length > 0 ? (
                 <div className="space-y-3">
                   {notifications.map((notif) => {
+                    const isDm =
+                      notif.type === "dm" || notif.data?.is_dm === true;
                     const isMention =
-                      notif.type === "mention" || (!notif.type && !notif.is_dm);
+                      notif.type === "mention" || (!notif.type && !isDm);
                     const isReply = notif.type === "reply";
                     const isReaction = notif.type === "reaction";
-                    const isDM =
-                      notif.type === "dm" ||
-                      (notif.is_dm && !isReply && !isReaction && !isMention);
                     const isFriendRequest = notif.type === "friend_request";
                     const isFriendAccept = notif.type === "friend_accept";
                     const isReportUpdate = notif.type === "REPORT_UPDATE";
+
+                    const isDM = isDm && !isReply && !isReaction && !isMention;
 
                     return (
                       <div

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import {
   X,
   Mic,
@@ -13,11 +13,14 @@ import {
   User,
   Palette,
   Monitor,
+  SmilePlus,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "../../supabase";
 import { useAppStore } from "../../store/appStore";
 import { useAuthStore } from "../../store/authStore";
 import PromptModal from "./PromptModal";
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import { processImageForSupabase } from "../../lib/imageUtils";
 import { useTranslation } from "react-i18next";
 
@@ -75,6 +78,9 @@ export default function UserSettingsModal({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [allCustomEmojis, setAllCustomEmojis] = useState<any[]>([]);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Mic test state
   const [isTestingMic, setIsTestingMic] = useState(false);
@@ -126,6 +132,70 @@ export default function UserSettingsModal({
       fetchProfile();
     }
   }, [isOpen, user]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
+
+  useEffect(() => {
+    const fetchAllCustomEmojis = async () => {
+      if (!user) return;
+      try {
+        const { data: memberData } = await supabase
+          .from("server_members")
+          .select("server_id")
+          .eq("user_id", user.id);
+
+        if (!memberData?.length) return;
+
+        const serverIds = memberData.map((m) => m.server_id);
+        const { data: serversData } = await supabase
+          .from("servers")
+          .select("custom_emojis")
+          .in("id", serverIds);
+
+        if (serversData) {
+          const emojis = serversData.flatMap((s) => s.custom_emojis || []);
+          const uniqueEmojis = Array.from(
+            new Map(emojis.map((e) => [e.name, e])).values()
+          );
+          setAllCustomEmojis(uniqueEmojis);
+        }
+      } catch (err) {
+        console.error("Error fetching all custom emojis:", err);
+      }
+    };
+
+    if (isOpen) {
+      fetchAllCustomEmojis();
+    }
+  }, [isOpen, user]);
+
+  const handleEmojiClick = (emojiData: any) => {
+    let emojiText = emojiData.emoji;
+    if (emojiData.isCustom) {
+      emojiText = `![custom_emoji:${emojiData.names[0]}](${emojiData.imageUrl}) `;
+    }
+
+    setProfile((prev) => ({
+      ...prev,
+      custom_status: (prev.custom_status || "") + emojiText,
+    }));
+    setShowEmojiPicker(false);
+  };
 
   // Cleanup mic test on unmount or modal close
   useEffect(() => {
@@ -845,18 +915,63 @@ export default function UserSettingsModal({
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
                           Statut personnalisé
                         </label>
-                        <input
-                          type="text"
-                          value={profile.custom_status}
-                          onChange={(e) =>
-                            setProfile({
-                              ...profile,
-                              custom_status: e.target.value,
-                            })
-                          }
-                          placeholder="Ex: 💻 En train de coder"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
-                        />
+                        <div className="relative flex items-center gap-2">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                              className="bg-zinc-800 border border-zinc-700 hover:border-zinc-600 rounded-md p-2 text-zinc-400 hover:text-zinc-200 transition-colors"
+                              title="Ajouter un emoji"
+                            >
+                              <SmilePlus className="w-5 h-5" />
+                            </button>
+
+                            {showEmojiPicker && (
+                              <div
+                                ref={emojiPickerRef}
+                                className="absolute left-0 bottom-full mb-2 z-50 shadow-xl"
+                              >
+                                <Suspense
+                                  fallback={
+                                    <div className="w-[300px] h-[350px] bg-zinc-800 rounded-lg flex items-center justify-center border border-zinc-700">
+                                      <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                                    </div>
+                                  }
+                                >
+                                  <EmojiPicker
+                                    theme={"dark" as any}
+                                    onEmojiClick={handleEmojiClick}
+                                    lazyLoadEmojis={true}
+                                    height={350}
+                                    width={300}
+                                    searchPlaceholder={t(
+                                      "chatArea.searchPlaceholder"
+                                    )}
+                                    skinTonesDisabled={true}
+                                    previewConfig={{ showPreview: false }}
+                                    customEmojis={allCustomEmojis.map((e) => ({
+                                      id: e.name,
+                                      names: [e.name],
+                                      imgUrl: e.url,
+                                    }))}
+                                  />
+                                </Suspense>
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={profile.custom_status}
+                            onChange={(e) =>
+                              setProfile({
+                                ...profile,
+                                custom_status: e.target.value,
+                              })
+                            }
+                            placeholder="Ex: 💻 En train de coder"
+                            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
                       </div>
 
                       <div>

@@ -438,7 +438,7 @@ async function startServer() {
         if (userIds.length > 0) {
           const { data: pData } = await supabaseAdmin.from("profiles").select("id, username").in("id", userIds);
           const profilesMap = Object.fromEntries((pData || []).map((p: any) => [p.id, p]));
-          logs = logs.map((l: any) => ({ ...l, profile: profilesMap[l.user_id] || null }));
+          logs = logs.map((l: any) => ({ ...l, profiles: profilesMap[l.user_id] || null }));
         }
       }
 
