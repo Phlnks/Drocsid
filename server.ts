@@ -1009,17 +1009,17 @@ async function startServer() {
 
     socket.on("move-user", (data) => {
       const sockets = onlineUsers.get(data.userId);
-      sockets?.forEach((socketId) => io.to(socketId).emit("force-move", data.channelId));
+      sockets?.forEach((socketId) => io.to(socketId).emit("force-move", { channelId: data.channelId }));
     });
 
     socket.on("force-mute", (data) => {
       const sockets = onlineUsers.get(data.userId);
-      sockets?.forEach((socketId) => io.to(socketId).emit("force-mute", data.mute));
+      sockets?.forEach((socketId) => io.to(socketId).emit("force-mute", { mute: data.mute }));
     });
 
     socket.on("server-kick", (data) => {
       const sockets = onlineUsers.get(data.userId);
-      sockets?.forEach((socketId) => io.to(socketId).emit("server-kick", data.serverId));
+      sockets?.forEach((socketId) => io.to(socketId).emit("server-kick", { serverId: data.serverId }));
     });
 
     socket.on("play-soundboard-sound", (data) => {

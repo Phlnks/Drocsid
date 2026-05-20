@@ -227,7 +227,10 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     onClose();
 
     try {
-      // Force disconnect from voice as requested by user (only disconnect, don't remove from server)
+      await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
+      // Force disconnect and redirect
+      socket.emit('server-kick', { userId, serverId });
+      // Also force disconnect from voice specifically
       socket.emit('move-user', { userId, channelId: null });
     } catch (error) {
       console.error("Error kicking user:", error);
@@ -248,6 +251,8 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
       // Force disconnect and redirect
       socket.emit('server-kick', { userId, serverId });
+      // Also force disconnect from voice specifically
+      socket.emit('move-user', { userId, channelId: null });
     } catch (error) {
       console.error("Error banning user:", error);
     }
@@ -528,6 +533,15 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
               >
                 <MicOff className="w-4 h-4 text-orange-400" />
                 {targetVoiceState.isMuted ? t('modals.userContextMenu.unmuteMember', 'Rendre la parole') : t('modals.userContextMenu.muteMember', 'Rendre muet')}
+              </button>
+            )}
+            {targetVoiceState && canMove && (
+              <button 
+                onClick={handleDisconnectVoice}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition-colors"
+              >
+                <PhoneOff className="w-4 h-4 text-red-400" />
+                {t('modals.userContextMenu.disconnectVoice', 'Déconnecter du vocal')}
               </button>
             )}
             {canChangeUsername && (
