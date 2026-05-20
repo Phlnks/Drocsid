@@ -646,11 +646,6 @@ export default function MessageInput({
               (targetId) => ({
                 user_id: targetId,
                 type: "mention",
-                content: textToSend.slice(0, 200),
-                author_id: user.id,
-                author_name: currentUsername,
-                server_id: serverId,
-                channel_id: channelId,
                 data: {
                   author_id: user.id,
                   author_name: currentUsername,
@@ -708,11 +703,6 @@ export default function MessageInput({
           await supabase.from("notifications").insert({
             user_id: replyingTo.author_id,
             type: "reply",
-            author_id: user.id,
-            author_name: currentUsername,
-            content: textToSend.slice(0, 200) || (fileToSend ? "📎 Fichier" : "Message"),
-            server_id: isDM ? undefined : serverId,
-            channel_id: channelId,
             data: {
               author_id: user.id,
               author_name: currentUsername,
@@ -754,10 +744,6 @@ export default function MessageInput({
               const notifications = recipients.map((targetId) => ({
                 user_id: targetId,
                 type: "dm",
-                content: textToSend.slice(0, 200) || (fileToSend ? "📎 Fichier" : "Message"),
-                author_id: user.id,
-                author_name: currentUsername,
-                channel_id: channelId,
                 data: {
                   author_id: user.id,
                   author_name: currentUsername,

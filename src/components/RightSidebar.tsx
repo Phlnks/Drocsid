@@ -326,16 +326,7 @@ export default function RightSidebar({
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const unreadDMsList = unreadDMs.filter((dm) => {
-    const lastRead = currentUserProfile?.last_read?.[dm.id] || 0;
-    return (
-      dm.last_message_at &&
-      new Date(dm.last_message_at).getTime() > lastRead &&
-      selectedDmId !== dm.id
-    );
-  });
-
-  const totalUnreadCount = unreadCount + unreadDMsList.length;
+  const totalUnreadCount = unreadCount;
 
   const getDisplayStatus = (user: any) => {
     if (!onlineUserIds.includes(user.id)) return "offline";
@@ -571,57 +562,6 @@ export default function RightSidebar({
                 )}
               </div>
 
-              {unreadDMsList.length > 0 && (
-                <div className="mb-6 space-y-3">
-                  <h4 className="text-xs font-medium text-zinc-500 uppercase">
-                    {t("notifications.unreadDMs")}
-                  </h4>
-                  {unreadDMsList.map((dm) => {
-                    const isGroup = dm.participants.length > 2;
-                    const dmName = isGroup
-                      ? t("common.group")
-                      : users.find(
-                          (u) =>
-                            u.id ===
-                            dm.participants.find(
-                              (p: string) => p !== currentUser?.id
-                            )
-                        )?.username || t("common.user");
-
-                    return (
-                      <div
-                        key={dm.id}
-                        className="bg-zinc-800/50 p-3 rounded-md border border-indigo-500/50 bg-indigo-500/5 transition-colors cursor-pointer hover:bg-zinc-700/50"
-                        onClick={() => {
-                          setSelectedServerId(null);
-                          setSelectedDmId(dm.id);
-                        }}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <MessageSquare className="w-4 h-4 text-indigo-400" />
-                          <span className="font-medium text-zinc-200">
-                            {t("notifications.newMessageFrom", {
-                              name: dmName,
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-[10px] text-zinc-500">
-                            {format(
-                              new Date(dm.last_message_at),
-                              "dd/MM/yyyy HH:mm"
-                            )}
-                          </span>
-                          <span className="text-xs text-indigo-400 font-medium">
-                            {t("common.open")}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               {notifications.length > 0 ? (
                 <div className="space-y-3">
                   {notifications.map((notif) => {
@@ -791,11 +731,11 @@ export default function RightSidebar({
                     );
                   })}
                 </div>
-              ) : unreadDMsList.length === 0 ? (
+              ) : (
                 <div className="text-center py-10 text-zinc-500 text-sm">
                   {t("notifications.noNotifications")}
                 </div>
-              ) : null}
+              )}
             </div>
           )}
         </div>

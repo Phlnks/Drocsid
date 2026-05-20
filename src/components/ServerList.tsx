@@ -29,6 +29,7 @@ export default function ServerList() {
   const [serverMentions, setServerMentions] = useState<Record<string, number>>(
     {}
   );
+  const [unreadDMsCount, setUnreadDMsCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -150,6 +151,7 @@ export default function ServerList() {
         .eq("user_id", user.id)
         .eq("read", false);
       const mentionsMap: Record<string, number> = {};
+      let dmsCount = 0;
       if (notifs) {
         notifs.forEach((n) => {
           if (
@@ -158,10 +160,13 @@ export default function ServerList() {
           ) {
             mentionsMap[n.data.server_id] =
               (mentionsMap[n.data.server_id] || 0) + 1;
+          } else if (n.type === "dm") {
+            dmsCount++;
           }
         });
       }
       setServerMentions(mentionsMap);
+      setUnreadDMsCount(dmsCount);
     };
 
     fetchUnreads();
@@ -417,15 +422,22 @@ export default function ServerList() {
                 : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md"
             )}
           />
-          <div
-            className={clsx(
-              "w-16 h-16 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 overflow-hidden",
-              selectedServerId === null
-                ? "bg-black rounded-[20px] md:rounded-[16px]"
-                : "bg-zinc-800 rounded-[32px] md:rounded-[24px] group-hover:rounded-[20px] md:group-hover:rounded-[16px] group-hover:bg-black"
+          <div className="relative">
+            <div
+              className={clsx(
+                "w-16 h-16 md:w-12 md:h-12 flex items-center justify-center transition-all duration-200 overflow-hidden",
+                selectedServerId === null
+                  ? "bg-black rounded-[20px] md:rounded-[16px]"
+                  : "bg-zinc-800 rounded-[32px] md:rounded-[24px] group-hover:rounded-[20px] md:group-hover:rounded-[16px] group-hover:bg-black"
+              )}
+            >
+              <DrocsidLogo className="w-16 h-16 md:w-12 md:h-12" />
+            </div>
+            {unreadDMsCount > 0 && (
+              <div className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] md:text-[9px] font-bold min-w-[20px] md:min-w-[16px] h-[20px] md:h-[16px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-sm animate-in zoom-in duration-300">
+                {unreadDMsCount > 99 ? "99+" : unreadDMsCount}
+              </div>
             )}
-          >
-            <DrocsidLogo className="w-16 h-16 md:w-12 md:h-12" />
           </div>
           <span className="text-[10px] md:text-[9px] px-1 md:px-1 bg-indigo-500/10 text-indigo-400 rounded-sm font-bold tracking-tight border border-indigo-500/20 leading-none py-0.5 select-none shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
             BETA
@@ -501,7 +513,7 @@ export default function ServerList() {
 
               {/* Mention Badge */}
               {serverMentions[server.id] > 0 && (
-                <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] md:text-[9px] font-bold min-w-[20px] md:min-w-[16px] h-[20px] md:h-[16px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-sm animate-in zoom-in duration-300">
+                <div className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] md:text-[9px] font-bold min-w-[20px] md:min-w-[16px] h-[20px] md:h-[16px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-sm animate-in zoom-in duration-300">
                   {serverMentions[server.id] > 99
                     ? "99+"
                     : serverMentions[server.id]}

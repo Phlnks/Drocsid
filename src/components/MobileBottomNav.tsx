@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react';
 export default function MobileBottomNav() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [hasUnreadMentions, setHasUnreadMentions] = useState(false);
+  const [unreadDMsCount, setUnreadDMsCount] = useState(0);
   
   const { 
     setSelectedServerId, 
@@ -22,13 +23,16 @@ export default function MobileBottomNav() {
     if (!user) return;
     
     const checkNotifications = async () => {
-      const { count } = await supabase
+      const { data: notifs } = await supabase
         .from('notifications')
-        .select('*', { count: 'exact', head: true })
+        .select('type')
         .eq('user_id', user.id)
         .eq('read', false);
         
-      setHasUnreadNotifications((count || 0) > 0);
+      if (notifs) {
+        setHasUnreadMentions(notifs.some(n => n.type === 'mention' || n.type === 'reply'));
+        setUnreadDMsCount(notifs.filter(n => n.type === 'dm').length);
+      }
     };
     
     checkNotifications();
@@ -58,6 +62,11 @@ export default function MobileBottomNav() {
       >
         <div className="relative">
           <MessageSquare className="w-6 h-6 shrink-0" strokeWidth={2.5} />
+          {unreadDMsCount > 0 && (
+            <div className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-[16px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-sm animate-in zoom-in duration-300">
+              {unreadDMsCount > 99 ? "99+" : unreadDMsCount}
+            </div>
+          )}
         </div>
         <span className="text-[10px] font-medium leading-none">{t('app.sidebar.directMessages')}</span>
       </button>
@@ -78,7 +87,7 @@ export default function MobileBottomNav() {
       >
         <div className="relative">
           <Bell className="w-6 h-6 shrink-0" strokeWidth={2.5} />
-          {hasUnreadNotifications && (
+          {hasUnreadMentions && (
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center border-2 border-zinc-950 shadow-sm animate-in zoom-in duration-300">
               <span className="text-white text-[8px] font-bold">!</span>
             </div>
