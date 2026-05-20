@@ -221,22 +221,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     }
   };
 
-  const handleKick = async () => {
-    if (!serverId || !userId) return;
-    if (!window.confirm(t('modals.userContextMenu.kickConfirm', { username }))) return;
-    onClose();
-
-    try {
-      await supabase.from('server_members').delete().eq('server_id', serverId).eq('user_id', userId);
-      // Force disconnect and redirect
-      socket.emit('server-kick', { userId, serverId });
-      // Also force disconnect from voice specifically
-      socket.emit('move-user', { userId, channelId: null });
-    } catch (error) {
-      console.error("Error kicking user:", error);
-    }
-  };
-
   const handleBan = async () => {
     if (!serverId || !userId) return;
     if (!window.confirm(t('modals.userContextMenu.banConfirm', { username }))) return;
@@ -321,7 +305,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   };
 
   let isOwner = false;
-  let canKick = false;
   let canBan = false;
   let canMove = false;
   let canMute = false;
@@ -344,7 +327,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
         currentUserHasMod = true;
       }
       if (r.permissions?.includes('KICK_MEMBERS')) {
-        canKick = true;
         currentUserHasMod = true;
       }
       if (r.permissions?.includes('BAN_MEMBERS')) {
@@ -356,7 +338,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     });
 
     if (isOwner || currentUserHasAdmin) {
-      canKick = true;
       canBan = true;
       canMove = true;
       canMute = true;
@@ -376,16 +357,14 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
       });
     }
 
-    // Hierarchical check: cannot kick/ban/change someone with a higher or equal rank (lower order)
+    // Hierarchical check: cannot ban/change someone with a higher or equal rank (lower order)
     if (!isOwner && currentUserHighestOrder >= targetUserHighestOrder) {
-      canKick = false;
       canBan = false;
       canChangeUsername = false;
     }
 
-    // Never kick/ban/change owner
+    // Never ban/change owner
     if (targetIsOwner) {
-      canKick = false;
       canBan = false;
       canChangeUsername = false;
     }
@@ -396,7 +375,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   const isSelf = userId === user?.id;
   const targetVoiceState = Object.values(voiceParticipants).flat().find(p => p.id === userId);
   const { addNotification } = useAppStore();
-  const showAdminActions = serverId && !isSelf && (canKick || canBan || canMove || canMute || canChangeUsername);
+  const showAdminActions = serverId && !isSelf && (canBan || canMove || canMute || canChangeUsername);
   let menuHeight = 160;
   if (onViewProfile) menuHeight += 40;
   if (showAdminActions) menuHeight += 160;
@@ -551,15 +530,6 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
               >
                 <Edit2 className="w-4 h-4" />
                 {t('modals.userContextMenu.changeUsername', 'Modifier le username')}
-              </button>
-            )}
-            {canKick && (
-              <button 
-                onClick={handleKick}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-              >
-                <ShieldAlert className="w-4 h-4" />
-                {t('modals.userContextMenu.kick')}
               </button>
             )}
             {canBan && (
