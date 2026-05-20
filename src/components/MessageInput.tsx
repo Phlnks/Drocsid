@@ -560,9 +560,10 @@ export default function MessageInput({
       const eventName = isDM ? "new-dm-message" : "new-message";
       const currentProfile = users.find((u) => u.id === user.id);
       const authorName =
-        currentProfile?.display_name ||
         currentProfile?.username ||
+        currentProfile?.display_name ||
         user?.user_metadata?.username ||
+        user?.user_metadata?.display_name ||
         user?.email?.split("@")[0] ||
         "Utilisateur";
 
@@ -618,8 +619,8 @@ export default function MessageInput({
           if (mentionedUserIds.size > 0) {
             const currentProfile = users.find((u) => u.id === user.id);
             const currentUsername =
-              currentProfile?.display_name ||
               currentProfile?.username ||
+              currentProfile?.display_name ||
               user?.user_metadata?.username ||
               user?.user_metadata?.display_name ||
               user?.email?.split("@")[0] ||
@@ -674,8 +675,8 @@ export default function MessageInput({
         ) {
           const currentProfile = users.find((u) => u.id === user.id);
           const currentUsername =
-            currentProfile?.display_name ||
             currentProfile?.username ||
+            currentProfile?.display_name ||
             user?.user_metadata?.username ||
             user?.user_metadata?.display_name ||
             user?.email?.split("@")[0] ||
@@ -735,8 +736,8 @@ export default function MessageInput({
             if (recipients.length > 0) {
               const currentProfile = users.find((u) => u.id === user.id);
               const currentUsername =
-                currentProfile?.display_name ||
                 currentProfile?.username ||
+                currentProfile?.display_name ||
                 user?.user_metadata?.username ||
                 user?.user_metadata?.display_name ||
                 user?.email?.split("@")[0] ||

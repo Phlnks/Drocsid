@@ -262,10 +262,22 @@ CREATE POLICY "dm_messages_participant_access" ON public.dm_messages
     )
   );
 
--- 4. Notifications: SEULEMENT LE PROPRIÉTAIRE
-CREATE POLICY "notifications_owner_access" ON public.notifications
-  FOR ALL TO authenticated
+-- 4. Notifications: SELECTION AND UPDATES LE PROPRIÉTAIRE, INSERT POUR TOUS
+CREATE POLICY "notifications_owner_select" ON public.notifications
+  FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
+  
+CREATE POLICY "notifications_owner_update" ON public.notifications
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id);
+  
+CREATE POLICY "notifications_owner_delete" ON public.notifications
+  FOR DELETE TO authenticated
+  USING (auth.uid() = user_id);
+  
+CREATE POLICY "notifications_insert_all" ON public.notifications
+  FOR INSERT TO authenticated
+  WITH CHECK (true);
 
 -- 5. Messages (Channels): On laisse pour l'instant car ça nécessite des checks complexes sur server_members
 CREATE POLICY "Auth_All_messages" ON public.messages FOR ALL TO authenticated USING (true);

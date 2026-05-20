@@ -878,7 +878,7 @@ export default function ChannelList() {
 
   return (
     <>
-      <div className="flex-1 md:w-60 bg-zinc-900 flex-shrink-0 flex flex-col relative">
+      <div className="flex-1 min-h-0 md:w-60 bg-zinc-900 flex-shrink-0 flex flex-col relative">
         <div
           className="h-14 md:h-12 border-b border-zinc-800 flex items-center justify-between px-4 text-xl md:text-base font-semibold text-zinc-100 shadow-sm transition-colors cursor-pointer hover:bg-zinc-800/50"
           onClick={() => setIsServerMenuOpen(!isServerMenuOpen)}
