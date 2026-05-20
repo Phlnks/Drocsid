@@ -25,13 +25,13 @@ export default function MobileBottomNav() {
     const checkNotifications = async () => {
       const { data: notifs } = await supabase
         .from('notifications')
-        .select('type')
+        .select('type, data')
         .eq('user_id', user.id)
         .eq('read', false);
         
       if (notifs) {
-        setHasUnreadMentions(notifs.some(n => n.type === 'mention' || n.type === 'reply'));
-        setUnreadDMsCount(notifs.filter(n => n.type === 'dm').length);
+        setHasUnreadMentions(notifs.some(n => n.type === 'mention' || n.type === 'reply' || (!n.type && !n.data?.is_dm)));
+        setUnreadDMsCount(notifs.filter(n => n.type === 'dm' || n.data?.is_dm === true).length);
       }
     };
     

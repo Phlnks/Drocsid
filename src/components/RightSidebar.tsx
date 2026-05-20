@@ -617,7 +617,9 @@ export default function RightSidebar({
                                   {t("notifications.mentionedBy")}
                                   <span className="font-medium text-zinc-300">
                                     {" "}
-                                    {notif.data?.author_name ||
+                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
+                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
+                                      notif.data?.author_name ||
                                       notif.author_name ||
                                       t("common.user")}
                                   </span>
@@ -632,7 +634,9 @@ export default function RightSidebar({
                               {isReply && (
                                 <>
                                   <span className="font-medium text-emerald-400">
-                                    {notif.data?.author_name ||
+                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
+                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
+                                      notif.data?.author_name ||
                                       notif.author_name ||
                                       t("common.user")}
                                   </span>{" "}
@@ -648,7 +652,9 @@ export default function RightSidebar({
                               {isReaction && (
                                 <>
                                   <span className="font-medium text-amber-400">
-                                    {notif.data?.author_name ||
+                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
+                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
+                                      notif.data?.author_name ||
                                       notif.author_name ||
                                       t("common.user")}
                                   </span>{" "}
@@ -662,7 +668,9 @@ export default function RightSidebar({
                                   }).trim()}
                                   <span className="font-medium text-zinc-300">
                                     {" "}
-                                    {notif.data?.author_name ||
+                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
+                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
+                                      notif.data?.author_name ||
                                       notif.author_name ||
                                       t("common.user")}
                                   </span>
@@ -671,7 +679,9 @@ export default function RightSidebar({
                               {isFriendRequest && (
                                 <>
                                   <span className="font-medium text-zinc-300">
-                                    {notif.data?.author_name ||
+                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
+                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
+                                      notif.data?.author_name ||
                                       notif.author_name ||
                                       t("common.user")}{" "}
                                   </span>
@@ -681,7 +691,9 @@ export default function RightSidebar({
                               {isFriendAccept && (
                                 <>
                                   <span className="font-medium text-zinc-300">
-                                    {notif.data?.author_name ||
+                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
+                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
+                                      notif.data?.author_name ||
                                       notif.author_name ||
                                       t("common.user")}{" "}
                                   </span>
