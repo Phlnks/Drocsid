@@ -1021,7 +1021,7 @@ export default function ChatArea() {
                         ref={editInputRef}
                         value={editContent}
                         onChange={handleEditContentChange}
-                        className="w-full bg-zinc-900 text-zinc-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none overflow-hidden"
+                        className="w-full bg-zinc-900 text-zinc-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none max-h-[300px] overflow-y-auto leading-snug"
                         maxLength={2000}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {

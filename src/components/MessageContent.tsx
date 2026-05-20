@@ -257,7 +257,7 @@ export default function MessageContent({
         className={`text-zinc-100 markdown-body break-words ${
           emojiOnly
             ? "text-[45px] leading-tight"
-            : "text-[15px] leading-relaxed"
+            : "text-[15px] leading-snug"
         }`}
       >
         <ReactMarkdown

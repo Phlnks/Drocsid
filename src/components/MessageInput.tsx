@@ -1041,7 +1041,7 @@ export default function MessageInput({
                 ? `Répondre à @${replyingTo.author_name}...`
                 : "Message..."
             }
-            className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-zinc-100 placeholder-zinc-400 resize-none custom-scrollbar py-1"
+            className="flex-1 min-w-0 bg-transparent border-none focus:outline-none text-zinc-100 placeholder-zinc-400 resize-none custom-scrollbar py-1 leading-snug"
             disabled={isUploading}
             rows={1}
             maxLength={2000}
