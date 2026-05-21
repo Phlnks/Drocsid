@@ -658,6 +658,37 @@ export default function ChatArea() {
     }
   }
 
+  let canSendMessages = true;
+  if (!isServerOwner) {
+    let isAdmin = false;
+    let isWriteDenied = false;
+    let isWriteAllowed = false;
+    const isWriteRestricted = serverRoles.some((r) => r.permissions?.includes(`RESTRICT_WRITE_CHANNEL_${selectedChannelId}`));
+
+    if (currentUserMember && Array.isArray(currentUserMember.roles)) {
+      if (currentUserMember.roles.includes("owner")) {
+        isAdmin = true;
+      } else {
+        const userRoles = serverRoles.filter((r) => currentUserMember.roles.includes(r.id));
+        for (const role of userRoles) {
+          if (role.permissions?.includes("ADMINISTRATOR")) isAdmin = true;
+          if (role.permissions?.includes(`DENY_WRITE_CHANNEL_${selectedChannelId}`)) isWriteDenied = true;
+          if (role.permissions?.includes(`ALLOW_WRITE_CHANNEL_${selectedChannelId}`)) isWriteAllowed = true;
+        }
+      }
+    }
+    
+    if (isAdmin) {
+      canSendMessages = true;
+    } else if (isWriteAllowed) {
+      canSendMessages = true;
+    } else if (isWriteRestricted) {
+      canSendMessages = false;
+    } else if (isWriteDenied) {
+      canSendMessages = false;
+    }
+  }
+
   const getUserData = (userId: string, fallbackName: string, fallbackAvatar: string) => {
     const u = usersMap[userId];
     const member = serverMembers.find(m => m.user_id === userId);
@@ -1301,13 +1332,19 @@ export default function ChatArea() {
             </span>
           </div>
         )}
-        <MessageInput 
-          channelId={selectedChannelId} 
-          serverId={selectedServerId!} 
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          onEditLastMessage={handleEditLastMessage}
-        />
+        {canSendMessages ? (
+          <MessageInput 
+            channelId={selectedChannelId} 
+            serverId={selectedServerId!} 
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            onEditLastMessage={handleEditLastMessage}
+          />
+        ) : (
+          <div className="h-14 mb-4 mx-4 flex items-center justify-center bg-zinc-800 rounded text-zinc-500 font-medium">
+            {t('chatArea.readOnly', "Vous n'avez pas la permission d'écrire dans ce salon.")}
+          </div>
+        )}
       </div>
     </div>
   )}

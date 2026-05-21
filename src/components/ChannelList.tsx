@@ -132,6 +132,7 @@ export default function ChannelList() {
         const isOwner = serverData?.owner_id === user?.id;
         const visibleChannels = sorted.filter((c) => {
           if (isOwner) return true;
+          const isRestricted = (rolesData || []).some((r: any) => r.permissions?.includes(`RESTRICT_CHANNEL_${c.id}`));
           let isAdmin = false;
           let isDenied = false;
           let isAllowed = false;
@@ -151,7 +152,9 @@ export default function ChannelList() {
             }
           }
           if (isAdmin) return true;
-          if (isDenied && !isAllowed) return false;
+          if (isAllowed) return true;
+          if (isRestricted) return false;
+          if (isDenied) return false;
           return true;
         });
 
@@ -713,6 +716,10 @@ export default function ChannelList() {
 
   const canViewChannel = (channelId: string) => {
     if (isOwner) return true;
+    
+    // Check if channel is restricted (private)
+    const isRestricted = serverRoles.some((r) => r.permissions?.includes(`RESTRICT_CHANNEL_${channelId}`));
+    
     let isAdmin = false;
     let isDenied = false;
     let isAllowed = false;
@@ -731,7 +738,9 @@ export default function ChannelList() {
       }
     }
     if (isAdmin) return true;
-    if (isDenied && !isAllowed) return false;
+    if (isAllowed) return true;
+    if (isRestricted) return false;
+    if (isDenied) return false;
     return true;
   };
 

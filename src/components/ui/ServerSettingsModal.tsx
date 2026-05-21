@@ -551,13 +551,54 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
     });
   };
 
+
+
+  const openEditChannelModal = (channel: any, isAfk: boolean, displayName: string) => {
+    const isPrivate = roles.some(r => r.permissions?.includes(`RESTRICT_CHANNEL_${channel.id}`));
+    const isReadOnly = roles.some(r => r.permissions?.includes(`RESTRICT_WRITE_CHANNEL_${channel.id}`));
+    
+    setEditingChannel({
+      ...channel,
+      name: displayName,
+      displayType: isAfk ? 'AFK' : channel.type,
+      isPrivate,
+      isReadOnly,
+      rolePermissions: roles.map(r => {
+        const p = r.permissions || [];
+        return {
+          roleId: r.id,
+          name: r.name,
+          color: r.color,
+          canView: !p.includes(`DENY_CHANNEL_${channel.id}`), // It's allowed by default unless denied, or if restricted we expect ALLOW check
+          canWrite: !p.includes(`DENY_WRITE_CHANNEL_${channel.id}`)
+        };
+      })
+    });
+    
+    // adjust initial states for a restrictive channel logic in the UI
+    setEditingChannel(prev => {
+       return {
+         ...prev,
+         rolePermissions: prev.rolePermissions.map((rp: any) => {
+            const p = roles.find(r => r.id === rp.roleId)?.permissions || [];
+            if (isPrivate) {
+              rp.canView = p.includes(`ALLOW_CHANNEL_${channel.id}`);
+            }
+            if (isReadOnly) {
+              rp.canWrite = p.includes(`ALLOW_WRITE_CHANNEL_${channel.id}`);
+            }
+            return rp;
+         })
+       }
+    });
+  };
+
   const handleUpdateChannel = async () => {
     if (!editingChannel || !editingChannel.name.trim()) return;
     try {
       const isAfk = editingChannel.displayType === 'AFK';
       const dbType = isAfk ? 'VOICE' : editingChannel.displayType || editingChannel.type;
       
-      // Clean name from any potentially typed [AFK] to avoid double suffix
       const cleanName = editingChannel.name.replace(' [AFK]', '');
       const dbName = isAfk ? `${cleanName} [AFK]` : cleanName;
 
@@ -566,6 +607,53 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
         type: dbType,
         category_id: editingChannel.category_id || null
       }).eq('id', editingChannel.id);
+      
+      // Update role permissions if edited
+      if (editingChannel.rolePermissions) {
+        for (const roleDef of editingChannel.rolePermissions) {
+           const dbRole = roles.find(r => r.id === roleDef.roleId);
+           if (!dbRole) continue;
+           
+           let newPerms = [...(dbRole.permissions || [])];
+           
+           // Cleanup old flags for this channel
+           newPerms = newPerms.filter(p => !p.includes(`_CHANNEL_${editingChannel.id}`));
+           
+           // Apply new flags based on roleDef
+           if (editingChannel.isPrivate) {
+             newPerms.push(`RESTRICT_CHANNEL_${editingChannel.id}`);
+             if (roleDef.canView) {
+               newPerms.push(`ALLOW_CHANNEL_${editingChannel.id}`);
+             } else {
+               newPerms.push(`DENY_CHANNEL_${editingChannel.id}`);
+             }
+           } else {
+             if (!roleDef.canView) {
+               newPerms.push(`DENY_CHANNEL_${editingChannel.id}`);
+             }
+           }
+           
+           if (editingChannel.isReadOnly) {
+             newPerms.push(`RESTRICT_WRITE_CHANNEL_${editingChannel.id}`);
+             if (roleDef.canWrite) {
+               newPerms.push(`ALLOW_WRITE_CHANNEL_${editingChannel.id}`);
+             } else {
+               newPerms.push(`DENY_WRITE_CHANNEL_${editingChannel.id}`);
+             }
+           } else {
+             if (!roleDef.canWrite) {
+               newPerms.push(`DENY_WRITE_CHANNEL_${editingChannel.id}`);
+             }
+           }
+           
+           // Remove duplicates just in case
+           newPerms = [...new Set(newPerms)];
+           
+           if (JSON.stringify(newPerms.sort()) !== JSON.stringify([...(dbRole.permissions || [])].sort())) {
+             await supabase.from('roles').update({ permissions: newPerms }).eq('id', roleDef.roleId);
+           }
+        }
+      }
       
       logAction('channel_update', t('serverSettings.channelUpdatedLog', { name: dbName }));
       setEditingChannel(null);
@@ -1040,40 +1128,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t border-zinc-700/50">
-                        <h3 className="text-lg font-bold text-zinc-100 mb-4">{t('serverSettings.channelExceptions')}</h3>
-                        <div className="space-y-2">
-                          {channels.map((channel: any) => {
-                            const isDenied = editingRole.permissions.includes(`DENY_CHANNEL_${channel.id}`);
-                            return (
-                              <div key={channel.id} className="flex items-center justify-between p-3 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
-                                <div className="flex items-center gap-2 text-zinc-300">
-                                  <span className="text-zinc-500">#</span>
-                                  {channel.name}
-                                  <span className="text-xs text-zinc-500 ml-2">({channel.type === 'TEXT' ? t('serverSettings.text') : t('serverSettings.voice')})</span>
-                                </div>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                  <span className="text-xs text-zinc-500">{t('serverSettings.deny')}</span>
-                                  <input 
-                                    type="checkbox" 
-                                    className="rounded border-zinc-700 text-red-500 focus:ring-red-500 bg-zinc-900"
-                                    checked={isDenied}
-                                    onChange={(e) => {
-                                      const permId = `DENY_CHANNEL_${channel.id}`;
-                                      if (e.target.checked) {
-                                        setEditingRole({...editingRole, permissions: [...editingRole.permissions, permId]});
-                                      } else {
-                                        setEditingRole({...editingRole, permissions: editingRole.permissions.filter((p: string) => p !== permId)});
-                                      }
-                                    }}
-                                  />
-                                </label>
-                              </div>
-                            );
-                          })}
-                          {channels.length === 0 && <div className="text-sm text-zinc-500">{t('serverSettings.noChannels')}</div>}
-                        </div>
-                      </div>
+
 
                       <div className="pt-6 flex justify-end">
                         <button
@@ -1213,6 +1268,101 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                         </select>
                       </div>
 
+                      <div className="pt-4 border-t border-zinc-700/50">
+                        <h3 className="text-lg font-bold text-zinc-100 mb-4">{t('serverSettings.permissions', 'Permissions du salon')}</h3>
+                        
+                        <div className="space-y-4 mb-6">
+                            <label className="flex items-center gap-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-700/50 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 rounded border-zinc-700 text-indigo-500 focus:ring-indigo-500 bg-zinc-800"
+                                checked={editingChannel.isPrivate}
+                                onChange={(e) => {
+                                  const priv = e.target.checked;
+                                  setEditingChannel({ 
+                                    ...editingChannel, 
+                                    isPrivate: priv,
+                                    rolePermissions: editingChannel.rolePermissions?.map((rp: any) => ({ ...rp, canView: !priv }))
+                                  });
+                                }}
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-zinc-200">Salon Privé</div>
+                                <div className="text-xs text-zinc-400">Rend le salon visible uniquement pour certains rôles spécifiques.</div>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center gap-3 p-3 bg-zinc-900/50 rounded-lg border border-zinc-700/50 cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 rounded border-zinc-700 text-indigo-500 focus:ring-indigo-500 bg-zinc-800"
+                                checked={editingChannel.isReadOnly}
+                                onChange={(e) => {
+                                  const readOnly = e.target.checked;
+                                  setEditingChannel({ 
+                                    ...editingChannel, 
+                                    isReadOnly: readOnly,
+                                    rolePermissions: editingChannel.rolePermissions?.map((rp: any) => ({ ...rp, canWrite: !readOnly }))
+                                  });
+                                }}
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-zinc-200">Lecture Seule</div>
+                                <div className="text-xs text-zinc-400">Empêche les membres d'envoyer des messages, sauf pour certains rôles spécifiques.</div>
+                              </div>
+                            </label>
+                        </div>
+                        
+                        {(editingChannel.isPrivate || editingChannel.isReadOnly) && roles.length > 0 && (
+                          <div className="space-y-2 mt-4">
+                            <div className="text-xs font-bold text-zinc-400 uppercase mb-2">Exceptions par rôle</div>
+                            {editingChannel.rolePermissions?.map((rp: any, idx: number) => (
+                              <div key={rp.roleId} className="flex items-center justify-between p-3 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
+                                <div className="flex items-center gap-2">
+                                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: rp.color || '#99aab5' }} />
+                                   <span className="text-sm text-zinc-300 font-medium">{rp.name}</span>
+                                </div>
+                                <div className="flex gap-4">
+                                  {editingChannel.isPrivate && (
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={rp.canView}
+                                        onChange={(e) => {
+                                          const next = [...editingChannel.rolePermissions];
+                                          next[idx].canView = e.target.checked;
+                                          setEditingChannel({...editingChannel, rolePermissions: next});
+                                        }}
+                                        className="rounded border-zinc-700 text-indigo-500 focus:ring-indigo-500 bg-zinc-800"
+                                      />
+                                      <span className="text-xs text-zinc-400">Voir</span>
+                                    </label>
+                                  )}
+                                  {editingChannel.isReadOnly && (
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={rp.canWrite}
+                                        onChange={(e) => {
+                                          const next = [...editingChannel.rolePermissions];
+                                          next[idx].canWrite = e.target.checked;
+                                          setEditingChannel({...editingChannel, rolePermissions: next});
+                                        }}
+                                        className="rounded border-zinc-700 text-indigo-500 focus:ring-indigo-500 bg-zinc-800"
+                                      />
+                                      <span className="text-xs text-zinc-400">Écrire</span>
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {roles.length === 0 && (editingChannel.isPrivate || editingChannel.isReadOnly) && (
+                          <div className="text-sm text-zinc-500 mt-2">Aucun rôle personnalisé disponible.</div>
+                        )}
+                      </div>
+
                       <div className="pt-6 flex justify-end">
                         <button
                           onClick={handleUpdateChannel}
@@ -1253,13 +1403,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
-                                  onClick={() => {
-                                    setEditingChannel({
-                                      ...channel,
-                                      name: displayName,
-                                      displayType: isAfk ? 'AFK' : channel.type
-                                    });
-                                  }}
+                                  onClick={() => openEditChannelModal(channel, isAfk, displayName)}
                                   className="p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
                                 >
                                   <Settings className="w-4 h-4" />
@@ -1305,13 +1449,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                                 </div>
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button 
-                                    onClick={() => {
-                                      setEditingChannel({
-                                        ...channel,
-                                        name: displayName,
-                                        displayType: isAfk ? 'AFK' : channel.type
-                                      });
-                                    }}
+                                    onClick={() => openEditChannelModal(channel, isAfk, displayName)}
                                     className="p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors"
                                   >
                                     <Settings className="w-4 h-4" />
