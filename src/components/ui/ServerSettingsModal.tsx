@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Settings, Users, Shield, Link as LinkIcon, Trash2, Plus, Hash, Folder, UserMinus, Ban, Check, Copy, Smile, Volume2, Moon, Play } from 'lucide-react';
+import { X, Settings, Users, Shield, Link as LinkIcon, Trash2, Plus, Hash, Folder, UserMinus, Ban, Check, Copy, Smile, Volume2, Moon, Play, Lock, EyeOff } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -116,7 +116,13 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
 
     // Fetch channels
     const { data: chsData } = await supabase.from('channels').select('*').eq('server_id', server.id);
-    if (chsData) setChannels(chsData);
+    if (chsData) {
+      setChannels(chsData.sort((a, b) => {
+        if ((a.order || 0) !== (b.order || 0))
+          return (a.order || 0) - (b.order || 0);
+        return a.id.localeCompare(b.id);
+      }));
+    }
 
     // Fetch members
     const { data: membersData } = await supabase.from('server_members').select('*').eq('server_id', server.id);
@@ -1392,14 +1398,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                         <div className="bg-zinc-800/50 px-4 py-2 border-b border-zinc-700/50 font-semibold text-zinc-300 text-sm uppercase tracking-wider">
                           {t('serverSettings.uncategorized')}
                         </div>
-                        {channels.filter(c => !c.category_id).map(channel => {
+                        {channels.filter((c: any) => !c.category_id).map((channel: any) => {
                           const isAfk = channel.name.endsWith(' [AFK]');
                           const displayName = isAfk ? channel.name.replace(' [AFK]', '') : channel.name;
+                          const isPrivate = roles.some(r => r.permissions?.includes(`RESTRICT_CHANNEL_${channel.id}`));
+                          const isReadOnly = roles.some(r => r.permissions?.includes(`RESTRICT_WRITE_CHANNEL_${channel.id}`));
                           return (
                             <div key={channel.id} className="p-3 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
                               <div className="flex items-center gap-2 text-zinc-300">
                                 {channel.type === 'TEXT' ? <Hash className="w-4 h-4 text-zinc-500" /> : isAfk ? <Moon className="w-4 h-4 text-zinc-500" /> : <Volume2 className="w-4 h-4 text-zinc-500" />}
                                 <span>{displayName}</span>
+                                <div className="flex items-center gap-1 ml-2">
+                                  {isPrivate && <span title="Salon privé"><EyeOff className="w-3.5 h-3.5 text-red-400" /></span>}
+                                  {isReadOnly && <span title="Lecture seule"><Lock className="w-3.5 h-3.5 text-amber-400" /></span>}
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
@@ -1438,14 +1450,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          {channels.filter(c => c.category_id === category.id).map(channel => {
+                          {channels.filter((c: any) => c.category_id === category.id).map((channel: any) => {
                             const isAfk = channel.name.endsWith(' [AFK]');
                             const displayName = isAfk ? channel.name.replace(' [AFK]', '') : channel.name;
+                            const isPrivate = roles.some(r => r.permissions?.includes(`RESTRICT_CHANNEL_${channel.id}`));
+                            const isReadOnly = roles.some(r => r.permissions?.includes(`RESTRICT_WRITE_CHANNEL_${channel.id}`));
                             return (
                               <div key={channel.id} className="p-3 border-b border-zinc-700/50 last:border-0 flex items-center justify-between group">
                                 <div className="flex items-center gap-2 text-zinc-300 pl-4">
                                   {channel.type === 'TEXT' ? <Hash className="w-4 h-4 text-zinc-500" /> : isAfk ? <Moon className="w-4 h-4 text-zinc-500" /> : <Volume2 className="w-4 h-4 text-zinc-500" />}
                                   <span>{displayName}</span>
+                                  <div className="flex items-center gap-1 ml-2">
+                                    {isPrivate && <span title="Salon privé"><EyeOff className="w-3.5 h-3.5 text-red-400" /></span>}
+                                    {isReadOnly && <span title="Lecture seule"><Lock className="w-3.5 h-3.5 text-amber-400" /></span>}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button 

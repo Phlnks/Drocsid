@@ -258,6 +258,26 @@ export default function ChannelList() {
       .on(
         "postgres_changes",
         {
+          event: "*",
+          schema: "public",
+          table: "roles",
+          filter: `server_id=eq.${selectedServerId}`,
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "server_members",
+          filter: `server_id=eq.${selectedServerId}`,
+        },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        {
           event: "INSERT",
           schema: "public",
           table: "messages",

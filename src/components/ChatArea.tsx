@@ -328,20 +328,18 @@ export default function ChatArea() {
         setMessages(sortedMessages);
         if (messagesData.length < 50) setHasMore(false);
 
-        if (isInitialLoading) {
-          if (messagesData.length > 0) {
-            // Increase delay to ensure DOM is ready
-            setTimeout(() => {
-              virtuosoRef.current?.scrollToIndex({ 
-                index: sortedMessages.length - 1, 
-                align: 'end',
-                behavior: 'auto'
-              });
-              setIsInitialLoading(false);
-            }, 200);
-          } else {
+        if (messagesData.length > 0) {
+          // Increase delay to ensure DOM is ready
+          setTimeout(() => {
+            virtuosoRef.current?.scrollToIndex({ 
+              index: sortedMessages.length - 1, 
+              align: 'end',
+              behavior: 'auto'
+            });
             setIsInitialLoading(false);
-          }
+          }, 200);
+        } else {
+          setIsInitialLoading(false);
         }
       }
 
@@ -442,6 +440,23 @@ export default function ChatArea() {
     const serverSub = supabase.channel(channelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'servers', filter: `id=eq.${selectedServerId}` }, (payload) => {
         setServer(payload.new);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles', filter: `server_id=eq.${selectedServerId}` }, () => {
+         supabase.from('roles').select('*').eq('server_id', selectedServerId).then(({data}) => {
+           if(data) setServerRoles(data);
+         });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter: `id=eq.${selectedChannelId}` }, (payload) => {
+         if (payload.new && Object.keys(payload.new).length > 0) setChannel(payload.new);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members', filter: `server_id=eq.${selectedServerId}` }, () => {
+         supabase.from('server_members').select('*').eq('server_id', selectedServerId).then(({data}) => {
+           if(data) {
+             setServerMembers(data);
+             const cu = data.find(m => m.user_id === user.id);
+             if (cu) setCurrentUserMember(cu);
+           }
+         });
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload: any) => {
         setUsersMap(prev => {
