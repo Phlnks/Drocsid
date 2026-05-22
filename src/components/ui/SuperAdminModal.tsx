@@ -55,12 +55,10 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
 
       if (activeTab === 'users') {
-        const res = await fetch(`${cleanBaseUrl}/api/admin/users`, {
+        const res = await fetch(`${baseUrl}/api/admin/users`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (!res.ok) throw new Error(await res.text());
@@ -92,30 +90,30 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
           setServers([]);
         }
       } else if (activeTab === 'dashboard') {
-        const resStats = await fetch(`${cleanBaseUrl}/api/admin/dashboard`, {
+        const resStats = await fetch(`${baseUrl}/api/admin/dashboard`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (!resStats.ok) throw new Error(await resStats.text());
         setStats(await resStats.json());
 
-        const resChart = await fetch(`${cleanBaseUrl}/api/admin/dashboard/chart`, {
+        const resChart = await fetch(`${baseUrl}/api/admin/dashboard/chart`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (resChart.ok) setChartData(await resChart.json());
 
-        const resStorage = await fetch(`${cleanBaseUrl}/api/admin/storage`, {
+        const resStorage = await fetch(`${baseUrl}/api/admin/storage`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (resStorage.ok) setStorageStats(await resStorage.json());
 
       } else if (activeTab === 'audit') {
-        const res = await fetch(`${cleanBaseUrl}/api/admin/audit`, {
+        const res = await fetch(`${baseUrl}/api/admin/audit`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (!res.ok) throw new Error(await res.text());
         setAuditLogs(await res.json() || []);
       } else if (activeTab === 'reports') {
-        const res = await fetch(`${cleanBaseUrl}/api/admin/reports`, {
+        const res = await fetch(`${baseUrl}/api/admin/reports`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (!res.ok) throw new Error(await res.text());
@@ -136,10 +134,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/announce`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/announce`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -186,10 +182,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/user/${u.id}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/user/${u.id}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -217,10 +211,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/server/${s.id}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/server/${s.id}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -247,10 +239,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       if (!res.ok) throw new Error(await res.text());
@@ -268,10 +258,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/messages/${msgId}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/messages/${msgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -287,10 +275,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/reports/${reportId}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/reports/${reportId}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -329,10 +315,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/ban`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -356,10 +340,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const isElectron = !!(window as any).electron;
-      const baseUrl = (isElectron ? getCurrentInstance()?.supabaseUrl : window.location.origin) || window.location.origin;
-      const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-      const res = await fetch(`${cleanBaseUrl}/api/admin/ban`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
