@@ -4,6 +4,7 @@ import { supabase } from '../../supabase';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
+import { useInstanceStore } from '../../store/instanceStore';
 import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
@@ -25,6 +26,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   const { t } = useTranslation();
   const { user: currentUser, currentUserProfile, startImpersonation } = useAuthStore();
   const { addNotification, setSelectedServerId } = useAppStore();
+  const { getCurrentInstance } = useInstanceStore();
   
   const [activeTab, setActiveTab] = useState<'users' | 'servers' | 'dashboard' | 'messages' | 'audit' | 'reports'>('users');
   const [users, setUsers] = useState<any[]>([]);
@@ -53,7 +55,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = window.location.origin;
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
 
       if (activeTab === 'users') {
         const res = await fetch(`${baseUrl}/api/admin/users`, {
@@ -132,7 +134,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const baseUrl = window.location.origin;
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/announce`, {
         method: 'POST',
         headers: { 
@@ -180,7 +182,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`${window.location.origin}/api/admin/user/${u.id}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/user/${u.id}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -208,7 +211,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`${window.location.origin}/api/admin/server/${s.id}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/server/${s.id}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -235,7 +239,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`${window.location.origin}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       if (!res.ok) throw new Error(await res.text());
@@ -253,7 +258,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`${window.location.origin}/api/admin/messages/${msgId}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/messages/${msgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -269,7 +275,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch(`${window.location.origin}/api/admin/reports/${reportId}`, {
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/reports/${reportId}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -308,7 +315,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const baseUrl = window.location.origin;
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
@@ -333,7 +340,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const baseUrl = window.location.origin;
+      const baseUrl = getCurrentInstance()?.url || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 

@@ -54,22 +54,24 @@ export default function UserControlPanel() {
               <Shield className="w-4 h-4" />
             </button>
           )}
-          <button 
-            onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} 
-            className={clsx(
-              "p-2 rounded-md transition-colors",
-              isCurrentInstanceValid() 
-                ? "text-emerald-500 hover:bg-emerald-500/10" 
-                : "text-red-500 hover:bg-red-500/10"
-            )} 
-            title={
-              isCurrentInstanceValid()
-                ? t('instances.connectedTo', { name: getCurrentInstance()?.name })
-                : t('instances.notConnected')
-            }
-          >
-            <Database className="w-4 h-4" />
-          </button>
+          {!!(window as any).electron && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsInstanceSettingsOpen(true); }} 
+              className={clsx(
+                "p-2 rounded-md transition-colors",
+                isCurrentInstanceValid() 
+                  ? "text-emerald-500 hover:bg-emerald-500/10" 
+                  : "text-red-500 hover:bg-red-500/10"
+              )} 
+              title={
+                isCurrentInstanceValid()
+                  ? t('instances.connectedTo', { name: getCurrentInstance()?.name })
+                  : t('instances.notConnected')
+              }
+            >
+              <Database className="w-4 h-4" />
+            </button>
+          )}
           <button 
             onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} 
             className="p-2 hover:bg-zinc-700/50 rounded-md text-zinc-400 hover:text-zinc-100 transition-colors"
