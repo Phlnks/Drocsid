@@ -312,7 +312,7 @@ export default function DMSidebar() {
               <Pin className={clsx("w-3.5 h-3.5", isPinned && "rotate-45")} />
             </button>
             {isUnread && (
-              <div className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-900 shadow-sm animate-in zoom-in duration-300">
+              <div className="bg-red-500 text-white text-[11px] font-bold min-w-[20px] h-[20px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-900 shadow-[0_0_10px_rgba(239,68,68,0.5)] ring-1 ring-white/10 animate-in zoom-in duration-300">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}
@@ -356,7 +356,7 @@ export default function DMSidebar() {
                   <span className="font-medium">{t('friends.title')}</span>
                 </div>
                 {pendingCount > 0 && (
-                  <span className="bg-red-500 text-white text-[12px] md:text-[10px] font-bold px-2 py-0.5 md:px-1.5 md:py-0.5 rounded-full">
+                  <span className="bg-red-500 text-white text-[13px] md:text-[11px] font-bold px-2 py-0.5 md:px-1.5 md:py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)] border border-white/10">
                     {pendingCount}
                   </span>
                 )}

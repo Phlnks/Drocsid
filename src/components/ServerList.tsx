@@ -435,7 +435,7 @@ export default function ServerList() {
               <DrocsidLogo className="w-16 h-16 md:w-12 md:h-12" />
             </div>
             {unreadDMsCount > 0 && (
-              <div className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] md:text-[9px] font-bold min-w-[20px] md:min-w-[16px] h-[20px] md:h-[16px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-sm animate-in zoom-in duration-300">
+              <div className="absolute -top-1.5 -left-1.5 bg-red-500 text-white text-[11px] md:text-[10px] font-bold min-w-[22px] md:min-w-[18px] h-[22px] md:h-[18px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-[0_0_12px_rgba(239,68,68,0.6)] ring-1 ring-white/10 animate-in zoom-in duration-300">
                 {unreadDMsCount > 99 ? "99+" : unreadDMsCount}
               </div>
             )}
@@ -478,7 +478,7 @@ export default function ServerList() {
                   selectedServerId === server.id
                     ? "h-12 md:h-10 w-1.5 md:w-1 rounded-r-full bg-white"
                     : serverMentions[server.id] > 0
-                    ? "h-10 md:h-8 w-2 md:w-1.5 opacity-100 rounded-r-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                    ? "h-10 md:h-8 w-2 md:w-1.5 opacity-100 rounded-r-full bg-red-400 shadow-[0_0_12px_rgba(239,68,68,0.8)]"
                     : unreadServers.has(server.id)
                     ? "h-2 md:h-2 w-1.5 md:w-1 opacity-100 rounded-r-full bg-white group-hover:h-5 md:group-hover:h-5 group-hover:rounded-r-md"
                     : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md bg-white"
@@ -514,7 +514,7 @@ export default function ServerList() {
 
               {/* Mention Badge */}
               {serverMentions[server.id] > 0 && (
-                <div className="absolute -top-1 -left-1 bg-red-500 text-white text-[10px] md:text-[9px] font-bold min-w-[20px] md:min-w-[16px] h-[20px] md:h-[16px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-sm animate-in zoom-in duration-300">
+                <div className="absolute -top-1.5 -left-1.5 bg-red-500 text-white text-[11px] md:text-[10px] font-bold min-w-[22px] md:min-w-[18px] h-[22px] md:h-[18px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-[0_0_15px_rgba(239,68,68,0.8)] ring-1 ring-white/20 animate-in zoom-in duration-300">
                   {serverMentions[server.id] > 99
                     ? "99+"
                     : serverMentions[server.id]}
