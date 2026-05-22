@@ -11,7 +11,7 @@ import socket from './lib/socket';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import ThemeManager from './components/ThemeManager';
-import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from './lib/sounds';
+import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playPTTActivateSound, playPTTDeactivateSound } from './lib/sounds';
 import { Routes, Route } from 'react-router-dom';
 import DownloadPage from './pages/DownloadPage';
 import { getAudioUrl } from './lib/audioCache';
@@ -307,6 +307,7 @@ export default function App() {
          if (inInput && isPrintableSingleChar) return;
          const currentState = useAppStore.getState();
          if (!currentState.isPTTActive && currentState.connectedVoiceChannelId) {
+             playPTTActivateSound();
              currentState.setIsPTTActive(true);
          }
       }
@@ -316,6 +317,7 @@ export default function App() {
       const { keybinds, isPTTActive, setIsPTTActive } = useAppStore.getState();
       if (checkShortcut(e, keybinds.pushToTalk)) {
          if (isPTTActive) {
+            playPTTDeactivateSound();
             setIsPTTActive(false);
          }
       }

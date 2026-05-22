@@ -605,6 +605,48 @@ export default function UserSettingsModal({
                           ? 'Le micro s\'active uniquement lorsque la touche définie dans les raccourcis est maintenue enfoncée.' 
                           : 'Le micro s\'ouvre automatiquement quand vous parlez (ou est toujours ouvert).'}
                       </p>
+
+                      {voiceSettings.inputMode === 'push_to_talk' && (
+                        <div className="mt-4 space-y-2">
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                            Raccourci clavier PTT
+                          </label>
+                          <input
+                            type="text"
+                            readOnly
+                            placeholder="Cliquez ici et appuyez sur une touche..."
+                            value={keybinds.pushToTalk || ""}
+                            className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded p-2 text-sm text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                            onKeyDown={(e) => {
+                              e.preventDefault();
+                              if (e.key === 'Escape' || e.key === 'Backspace') {
+                                setKeybinds({ pushToTalk: "" });
+                                return;
+                              }
+                              const keys = [];
+                              if (e.ctrlKey || e.metaKey)
+                                keys.push("CommandOrControl");
+                              if (e.altKey) keys.push("Alt");
+                              if (e.shiftKey) keys.push("Shift");
+
+                              let key = e.key;
+                              if (
+                                key === "Control" ||
+                                key === "Shift" ||
+                                key === "Alt" ||
+                                key === "Meta"
+                              )
+                                return;
+                              if (key === " ") key = "Space";
+                              if (key.length === 1) key = key.toUpperCase();
+
+                              keys.push(key);
+                              const finalShortcut = keys.join("+");
+                              setKeybinds({ pushToTalk: finalShortcut });
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
