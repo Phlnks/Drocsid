@@ -880,7 +880,7 @@ export default function ChannelList() {
         />
         <span className="truncate flex-1">{channel.name}</span>
         {channelMentions[channel.id] > 0 && (
-          <div className="bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] flex items-center justify-center px-1 rounded-full ml-auto mr-1 shadow-sm">
+          <div className="bg-red-500 text-white text-[10px] font-bold min-w-[17px] h-[17px] flex items-center justify-center px-1 rounded-full ml-auto mr-1 shadow-[0_0_8px_rgba(239,68,68,0.65)] ring-1 ring-red-400/30">
             {channelMentions[channel.id] > 99
               ? "99+"
               : channelMentions[channel.id]}

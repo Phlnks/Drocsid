@@ -55,7 +55,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
 
       if (activeTab === 'users') {
         const res = await fetch(`${baseUrl}/api/admin/users`, {
@@ -134,7 +134,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/announce`, {
         method: 'POST',
         headers: { 
@@ -182,7 +182,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/user/${u.id}`, {
         method: 'PUT',
         headers: { 
@@ -211,7 +211,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/server/${s.id}`, {
         method: 'PUT',
         headers: { 
@@ -239,7 +239,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -258,7 +258,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/messages/${msgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
@@ -275,7 +275,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/reports/${reportId}`, {
         method: 'PUT',
         headers: { 
@@ -315,7 +315,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
@@ -340,7 +340,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const baseUrl = getCurrentInstance()?.url || window.location.origin;
+      const baseUrl = getCurrentInstance()?.supabaseUrl || window.location.origin;
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
