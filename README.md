@@ -2,25 +2,34 @@
 
 ![Drocsid Logo](public/logo.png)
 
-**Drocsid** is a modern communication platform, designed to provide a fluid, secure, and highly customizable experience. Whether for gaming communities, work teams, or groups of friends, Drocsid offers a robust infrastructure built on React, Supabase, and LiveKit.
+**Drocsid** is a modern communication platform, designed to provide a fluid, secure, and highly customizable experience. Whether for gaming communities, work teams, or groups of friends, Drocsid offers a robust infrastructure built on React, Supabase, and Socket.io.
 
 ## ✨ Key Features
 
-- **💬 Real-Time Messaging**: Instant chat with Markdown support, emojis, and file sharing.
+- **💬 Real-Time Messaging**: Instant chat with Markdown support, syntax highlighting, emojis, GIFs, and file sharing.
 - **🔊 Voice Channels & Video**: Connect instantly via voice and video with your friends, powered by LiveKit WebRTC.
 - **🖥️ Screen Sharing**: Share your screen or a specific window directly in voice channels or DMs.
+- **🛡️ Granular Permissions**:
+    - **Private Channels**: Make any channel invisible to everyone except specific roles.
+    - **Read-Only Channels**: Create announcement-only channels where only specific roles can write.
+    - **Visual Indicators**: Clear "Lock" (Read-only) and "Eye-Off" (Private) icons in settings for easy management.
 - **📊 Interactive Polls**: Create and participate in polls within text channels and DMs.
 - **🎵 Soundboard**: Express yourself with sounds in voice channels (curated and server-specific).
-- **🎬 GIF Picker**: Integrated GIF search to express yourself.
-- **🛡️ Role Hierarchy**: Advanced role system with priority ordering (Position). A member with a lower-ranked role cannot perform administrative actions on a higher-ranked member.
-- **🔒 Per-Channel Permissions**: Total granular control. Authorize or deny access to any specific channel for each role.
+- **🛡️ Role Hierarchy**: Advanced role system with priority ordering. A member with a lower-ranked role cannot perform administrative actions on a higher-ranked member.
 - **🔗 Invite System**: Generate unique invitation codes to grow your community.
 - **🔔 Smart Notifications**: Web Push Notifications, desktop notifications, and sound alerts.
 - **🎨 Custom Themes**: Multiple themes (Dark, Indigo, Nature, Matrix, etc.) to adapt the application to your preferences.
-- **📱 Responsive**: Works perfectly on mobile, tablet, or desktop via your browser.
-- **🖼️ Media Gallery**: Advanced media preview with full-screen gallery support, keyboard navigation, and direct download.
-- **👁️ Read Receipts (DM)**: Real-time read indicators showing your friends' avatars on the last message they've read.
+- **📱 Cross-Platform**: Works in your browser, and includes support for **Electron** (Desktop) and **Capacitor** (Android).
 - **📝 Personal Notes**: A dedicated space in your DMs to keep track of your own thoughts.
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React 19, Vite 6, Tailwind CSS 4, Motion, Zustand.
+- **Backend**: Node.js, Express, Socket.io (Presence & Signaling).
+- **Database & Auth**: Supabase (PostgreSQL, Realtime, Storage).
+- **Communication**: LiveKit (WebRTC for Audio/Video/Screen Share).
+- **Notifications**: Web-Push (VAPID).
+- **Multi-Platform**: Electron, Capacitor.
 
 ## ⌨️ Keyboard Shortcuts
 

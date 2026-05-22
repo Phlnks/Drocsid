@@ -69,6 +69,7 @@ export default function WebRTCManager() {
     isDeafened,
     setIsDeafened,
     voiceSettings,
+    isPTTActive,
     setConnectedVoiceChannelId,
     isScreenSharing,
     setIsScreenSharing,
@@ -343,7 +344,8 @@ export default function WebRTCManager() {
     const run = async () => {
       try {
         if (roomRef.current?.localParticipant) {
-          await roomRef.current.localParticipant.setMicrophoneEnabled(!(isVoiceMuted || isDeafened));
+          const micShouldBeEnabled = !(isVoiceMuted || isDeafened) && (voiceSettings.inputMode === 'push_to_talk' ? isPTTActive : true);
+          await roomRef.current.localParticipant.setMicrophoneEnabled(micShouldBeEnabled);
         }
       } catch (e) {
         console.warn('[LK MIC] setMicrophoneEnabled ignoré pendant reconnexion transitoire', e);
@@ -359,7 +361,7 @@ export default function WebRTCManager() {
     };
 
     run();
-  }, [isVoiceMuted, isDeafened, connectedVoiceChannelId, currentUser]);
+  }, [isVoiceMuted, isDeafened, isPTTActive, voiceSettings.inputMode, connectedVoiceChannelId, currentUser]);
 
 
   // ─── AFK ───────────────────────────────────────────────────────────────────

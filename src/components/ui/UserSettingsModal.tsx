@@ -418,7 +418,7 @@ export default function UserSettingsModal({
 
           <button
             onClick={() => setActiveTab("application")}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
+            className={`hidden md:flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
               activeTab === "application"
                 ? "bg-zinc-700/50 text-zinc-100"
                 : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
@@ -444,7 +444,7 @@ export default function UserSettingsModal({
 
           <button
             onClick={() => setActiveTab("keybinds")}
-            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
+            className={`hidden md:flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
               activeTab === "keybinds"
                 ? "bg-zinc-700/50 text-zinc-100"
                 : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
@@ -570,6 +570,41 @@ export default function UserSettingsModal({
                           {t("settings.voiceVideo.audioOutputChangeNote")}
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
+                      Mode de saisie (Mode vocal)
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex bg-zinc-800 rounded-md p-1">
+                        <button
+                          onClick={() => setVoiceSettings({ inputMode: 'voice_activity' })}
+                          className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                            voiceSettings.inputMode === 'voice_activity' || !voiceSettings.inputMode
+                              ? 'bg-zinc-700 text-white'
+                              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50'
+                          }`}
+                        >
+                          Détection de la voix
+                        </button>
+                        <button
+                           onClick={() => setVoiceSettings({ inputMode: 'push_to_talk' })}
+                           className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                             voiceSettings.inputMode === 'push_to_talk'
+                               ? 'bg-zinc-700 text-white'
+                               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50'
+                           }`}
+                        >
+                          Appuyer pour parler
+                        </button>
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        {voiceSettings.inputMode === 'push_to_talk' 
+                          ? 'Le micro s\'active uniquement lorsque la touche définie dans les raccourcis est maintenue enfoncée.' 
+                          : 'Le micro s\'ouvre automatiquement quand vous parlez (ou est toujours ouvert).'}
+                      </p>
                     </div>
                   </div>
 
@@ -1425,7 +1460,7 @@ export default function UserSettingsModal({
 
                 <div className="space-y-6">
                   {/* Startup - Only show if Electron */}
-                  {((window as any).electron || true) && (
+                  {!!(window as any).electron && (
                     <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
                       <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
                         {t("settings.applicationSettings.windowStartup")}
@@ -1824,6 +1859,54 @@ export default function UserSettingsModal({
                           keys.push(key);
                           const finalShortcut = keys.join("+");
                           setKeybinds({ deafen: finalShortcut });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Push To Talk Keybind */}
+                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
+                      Appuyer pour Parler (Push-to-Talk)
+                    </h3>
+                    <div className="group">
+                      <div className="text-xs text-zinc-400 mb-2">
+                        Maintenez cette touche pour ouvrir votre micro en mode "Appuyer pour parler".
+                      </div>
+                      <input
+                        type="text"
+                        readOnly
+                        placeholder="Cliquez ici et appuyez sur une touche..."
+                        value={keybinds.pushToTalk || ""}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                        onKeyDown={(e) => {
+                          e.preventDefault();
+                          if (e.key === 'Escape' || e.key === 'Backspace') {
+                            setKeybinds({ pushToTalk: "" });
+                            return;
+                          }
+                          const keys = [];
+                          if (e.ctrlKey || e.metaKey)
+                            keys.push("CommandOrControl");
+                          if (e.altKey) keys.push("Alt");
+                          if (e.shiftKey) keys.push("Shift");
+
+                          let key = e.key;
+                          if (
+                            key === "Control" ||
+                            key === "Shift" ||
+                            key === "Alt" ||
+                            key === "Meta"
+                          )
+                            // We can actually allow raw Control/Shift/Alt for PTT if we want, but Electron globalShortcut requires an actual key.
+                            // Let's just use regular keys combined, or single keys.
+                            return;
+                          if (key === " ") key = "Space";
+                          if (key.length === 1) key = key.toUpperCase();
+
+                          keys.push(key);
+                          const finalShortcut = keys.join("+");
+                          setKeybinds({ pushToTalk: finalShortcut });
                         }}
                       />
                     </div>

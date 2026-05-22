@@ -25,6 +25,7 @@ interface VoiceSettings {
   micSensitivity: number;
   selectedMicrophoneId?: string;
   selectedSpeakerId?: string;
+  inputMode?: 'voice_activity' | 'push_to_talk';
 }
 
 interface ScreenShareQuality {
@@ -43,6 +44,7 @@ interface NotificationSettings {
 interface Keybinds {
   mute: string;
   deafen: string;
+  pushToTalk: string;
 }
 
 export interface Notification {
@@ -68,6 +70,8 @@ interface AppState {
   isVoiceMuted: boolean;
   isDeafened: boolean;
   voiceSettings: VoiceSettings;
+  isPTTActive: boolean;
+  setIsPTTActive: (active: boolean) => void;
   notificationSettings: NotificationSettings;
   mutedServers: string[];
   mutedDms: string[];
@@ -166,7 +170,9 @@ export const useAppStore = create<AppState>((set) => ({
   connectedVoiceServerId: null,
   isVoiceMuted: false,
   isDeafened: false,
-  voiceSettings: safeParse('drocsid-voice-settings', { echoCancellation: true, noiseSuppression: true, autoGainControl: true, micSensitivity: 25 }),
+  isPTTActive: false,
+  setIsPTTActive: (active) => set({ isPTTActive: active }),
+  voiceSettings: safeParse('drocsid-voice-settings', { echoCancellation: true, noiseSuppression: true, autoGainControl: true, micSensitivity: 25, inputMode: 'voice_activity' }),
   notificationSettings: safeParse('drocsid-notification-settings', { desktop: true, sounds: true, everyone: true, preference: 'all' }),
   mutedServers: safeParse('drocsid-muted-servers', []),
   mutedDms: safeParse('drocsid-muted-dms', []),
@@ -198,7 +204,7 @@ export const useAppStore = create<AppState>((set) => ({
     serverId: null,
     initialTab: null
   },
-  keybinds: safeParse('drocsid-keybinds', { mute: 'CommandOrControl+Shift+M', deafen: 'CommandOrControl+Shift+D' }),
+  keybinds: safeParse('drocsid-keybinds', { mute: 'CommandOrControl+Shift+M', deafen: 'CommandOrControl+Shift+D', pushToTalk: '' }),
   appSettings: safeParse('drocsid-app-settings', { launchAtStartup: false, dateFormat: 'dd/MM/yyyy', timeFormat: 'HH:mm' }),
   serverOrder: safeParse('drocsid-server-order', []),
   

@@ -222,49 +222,116 @@ export default function App() {
       window.history.replaceState(null, '', '/');
     }
 
-    // Electron Global Shortcuts (Push-to-Talk alternative)
+    // Global Shortcuts (Browser + Electron Push-to-Talk alternative)
+    const handleToggleMute = () => {
+      const currentState = useAppStore.getState();
+      if (!currentState.isDeafened && currentState.connectedVoiceChannelId) {
+        const newState = !currentState.isVoiceMuted;
+        if (newState) {
+          playMuteSound();
+        } else {
+          playUnmuteSound();
+        }
+        currentState.setIsVoiceMuted(newState);
+      }
+    };
+
+    const handleToggleDeafen = () => {
+      const currentState = useAppStore.getState();
+      if (currentState.connectedVoiceChannelId) {
+        const newState = !currentState.isDeafened;
+        if (newState) {
+          playDeafenSound();
+        } else {
+          playUndeafenSound();
+        }
+        currentState.setIsDeafened(newState);
+        if (newState && !currentState.isVoiceMuted) {
+           currentState.setIsVoiceMuted(true); // Deafening also mutes
+        }
+      }
+    };
+
     if ((window as any).electron) {
       // Send initial keybinds to Electron background
       const initialKeybinds = useAppStore.getState().keybinds;
       (window as any).electron.updateShortcuts(initialKeybinds);
-
-      const handleToggleMute = () => {
-        const currentState = useAppStore.getState();
-        if (!currentState.isDeafened && currentState.connectedVoiceChannelId) {
-          const newState = !currentState.isVoiceMuted;
-          if (newState) {
-            playMuteSound();
-          } else {
-            playUnmuteSound();
-          }
-          currentState.setIsVoiceMuted(newState);
-        }
-      };
-
-      const handleToggleDeafen = () => {
-        const currentState = useAppStore.getState();
-        if (currentState.connectedVoiceChannelId) {
-          const newState = !currentState.isDeafened;
-          if (newState) {
-            playDeafenSound();
-          } else {
-            playUndeafenSound();
-          }
-          currentState.setIsDeafened(newState);
-          if (newState && !currentState.isVoiceMuted) {
-             currentState.setIsVoiceMuted(true); // Deafening also mutes
-          }
-        }
-      };
-
       (window as any).electron.onToggleMute(handleToggleMute);
       (window as any).electron.onToggleDeafen(handleToggleDeafen);
+    }
+
+    const checkShortcut = (e: KeyboardEvent, shortcut: string) => {
+      if (!shortcut) return false;
+      const parts = shortcut.split('+');
+      const requiresCtrl = parts.includes('CommandOrControl');
+      const requiresAlt = parts.includes('Alt');
+      const requiresShift = parts.includes('Shift');
+      const key = parts[parts.length - 1];
       
-      return () => {
+      if (requiresCtrl && !e.ctrlKey && !e.metaKey) return false;
+      if (requiresAlt && !e.altKey) return false;
+      if (requiresShift && !e.shiftKey) return false;
+      
+      let pressedKey = e.key;
+      if (pressedKey === ' ') pressedKey = 'Space';
+      if (pressedKey.length === 1) pressedKey = pressedKey.toUpperCase();
+      
+      return pressedKey === key;
+    };
+
+    const isInputFocusedMode = () => {
+      const activeEl = document.activeElement as HTMLElement;
+      if (!activeEl) return false;
+      return ['INPUT', 'TEXTAREA'].includes(activeEl.tagName) || activeEl.isContentEditable;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isModifierOnly = e.key === 'Control' || e.key === 'Alt' || e.key === 'Shift' || e.key === 'Meta';
+      if (isModifierOnly) return; 
+      
+      const { keybinds } = useAppStore.getState();
+      const inInput = isInputFocusedMode();
+      // Allow function keys or combo with modifiers even if input is focused. 
+      // Do not block single character shortcuts (like V) if we are typing.
+      const isPrintableSingleChar = !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1;
+
+      if (checkShortcut(e, keybinds.mute)) {
+         if (inInput && isPrintableSingleChar) return;
+         e.preventDefault();
+         handleToggleMute();
+      } else if (checkShortcut(e, keybinds.deafen)) {
+         if (inInput && isPrintableSingleChar) return;
+         e.preventDefault();
+         handleToggleDeafen();
+      } else if (checkShortcut(e, keybinds.pushToTalk)) {
+         if (inInput && isPrintableSingleChar) return;
+         const currentState = useAppStore.getState();
+         if (!currentState.isPTTActive && currentState.connectedVoiceChannelId) {
+             currentState.setIsPTTActive(true);
+         }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const { keybinds, isPTTActive, setIsPTTActive } = useAppStore.getState();
+      if (checkShortcut(e, keybinds.pushToTalk)) {
+         if (isPTTActive) {
+            setIsPTTActive(false);
+         }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      if ((window as any).electron) {
         (window as any).electron.removeToggleMute(handleToggleMute);
         (window as any).electron.removeToggleDeafen(handleToggleDeafen);
-      };
-    }
+      }
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, []);
 
   // ─── Tray sync — mute / deafen / déconnexion ──────────────────────────────
