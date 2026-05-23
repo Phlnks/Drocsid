@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense, useCallback } from 'react';
+import React, { useEffect, useState, useRef, lazy, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
 import { supabase } from '../supabase';
