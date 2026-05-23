@@ -110,6 +110,7 @@ export default function VoiceChannelItem({
         if (!isActiveFocus) {
           // It's floating, just focus it
           useAppStore.getState().setActiveStreamFocus(uid);
+          useAppStore.getState().setIsRightSidebarOpen(false);
         } else {
           // It's focused, close it
           playScreenShareLeaveSound();
@@ -120,6 +121,7 @@ export default function VoiceChannelItem({
         playScreenShareJoinSound();
         next.add(uid);
         useAppStore.getState().setActiveStreamFocus(uid);
+        useAppStore.getState().setIsRightSidebarOpen(false);
       }
       return next;
     });

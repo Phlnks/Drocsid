@@ -52,7 +52,10 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
       setViewingScreenShares(prev => {
         const next = new Set(prev);
         if (next.has(uid)) next.delete(uid);
-        else next.add(uid);
+        else {
+          next.add(uid);
+          useAppStore.getState().setIsRightSidebarOpen(false);
+        }
         return next;
       });
     }

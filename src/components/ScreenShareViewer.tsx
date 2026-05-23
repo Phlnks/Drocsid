@@ -82,7 +82,10 @@ export default function ScreenShareViewer() {
             <div 
               key={uid} 
               className="bg-zinc-900 rounded-lg shadow-xl overflow-hidden pointer-events-auto border border-zinc-700 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
-              onClick={() => useAppStore.getState().setActiveStreamFocus(uid)}
+              onClick={() => {
+                useAppStore.getState().setActiveStreamFocus(uid);
+                useAppStore.getState().setIsRightSidebarOpen(false);
+              }}
             >
               <div className="bg-zinc-800 px-3 py-2 flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-200">
