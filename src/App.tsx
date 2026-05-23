@@ -252,12 +252,22 @@ export default function App() {
       }
     };
 
+    const handleDisconnectVoice = () => {
+      const currentState = useAppStore.getState();
+      if (currentState.connectedVoiceChannelId) {
+        currentState.setConnectedVoiceChannelId(null);
+      }
+    };
+
     if ((window as any).electron) {
       // Send initial keybinds to Electron background
       const initialKeybinds = useAppStore.getState().keybinds;
       (window as any).electron.updateShortcuts(initialKeybinds);
       (window as any).electron.onToggleMute(handleToggleMute);
       (window as any).electron.onToggleDeafen(handleToggleDeafen);
+      if ((window as any).electron.onDisconnectVoice) {
+         (window as any).electron.onDisconnectVoice(handleDisconnectVoice);
+      }
     }
 
     const checkShortcut = (e: KeyboardEvent, shortcut: string) => {
@@ -330,6 +340,9 @@ export default function App() {
       if ((window as any).electron) {
         (window as any).electron.removeToggleMute(handleToggleMute);
         (window as any).electron.removeToggleDeafen(handleToggleDeafen);
+        if ((window as any).electron.removeDisconnectVoice) {
+           (window as any).electron.removeDisconnectVoice(handleDisconnectVoice);
+        }
       }
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);

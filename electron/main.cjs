@@ -125,7 +125,9 @@ function createTray() {
     tray = new Tray(nativeImage.createEmpty());
   } else {
     console.log("Found tray icon at:", iconPath);
-    tray = new Tray(iconPath);
+    let img = nativeImage.createFromPath(iconPath);
+    if (img.getSize().width > 32) img = img.resize({ width: 24, height: 24 });
+    tray = new Tray(img);
   }
 
   const contextMenu = Menu.buildFromTemplate([
@@ -160,7 +162,11 @@ function loadTrayIcons() {
       if (fs.existsSync(base)) {
         for (const name of names) {
           const p = path.join(base, name);
-          if (fs.existsSync(p)) return nativeImage.createFromPath(p);
+          if (fs.existsSync(p)) {
+             let img = nativeImage.createFromPath(p);
+             if (img.getSize().width > 32) img = img.resize({ width: 24, height: 24 });
+             return img;
+          }
         }
       }
     }
@@ -170,7 +176,11 @@ function loadTrayIcons() {
       if (fs.existsSync(base)) {
         for (const name of ['favicon.ico', 'favicon.png', 'logo.png']) {
           const p = path.join(base, name);
-          if (fs.existsSync(p)) return nativeImage.createFromPath(p);
+          if (fs.existsSync(p)) {
+             let img = nativeImage.createFromPath(p);
+             if (img.getSize().width > 32) img = img.resize({ width: 24, height: 24 });
+             return img;
+          }
         }
       }
     }
@@ -209,6 +219,38 @@ ipcMain.on('tray-update', (_event, state) => {
     tray.setImage(isSpeaking ? trayIcons.speaking : trayIcons.silent);
     tray.setToolTip(isSpeaking ? 'Drocsid — En train de parler' : 'Drocsid — En communication');
   }
+
+  // Build context menu based on state
+  const menuTemplate = [
+    { label: 'Ouvrir Drocsid', click: () => { if (mainWindow) mainWindow.show(); } },
+    { type: 'separator' }
+  ];
+
+  if (inVoice) {
+    menuTemplate.push({
+      label: isMuted ? 'Activer le micro' : 'Rendre muet',
+      click: () => { if (mainWindow) mainWindow.webContents.send('toggle-mute-global'); }
+    });
+    menuTemplate.push({
+      label: isDeafened ? 'Désactiver la sourdine' : 'Mettre en sourdine',
+      click: () => { if (mainWindow) mainWindow.webContents.send('toggle-deafen-global'); }
+    });
+    menuTemplate.push({
+      label: 'Déconnexion',
+      click: () => { if (mainWindow) mainWindow.webContents.send('disconnect-voice-global'); }
+    });
+    menuTemplate.push({ type: 'separator' });
+  }
+
+  menuTemplate.push({
+    label: 'Quitter',
+    click: () => {
+      isQuitting = true;
+      app.quit();
+    }
+  });
+
+  tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
 });
 
 // Global Shortcuts dynamic configuration

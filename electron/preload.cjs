@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('electron', {
   removeToggleMute: (callback) => ipcRenderer.removeListener('toggle-mute-global', callback),
   onToggleDeafen: (callback) => ipcRenderer.on('toggle-deafen-global', callback),
   removeToggleDeafen: (callback) => ipcRenderer.removeListener('toggle-deafen-global', callback),
+  onDisconnectVoice: (callback) => ipcRenderer.on('disconnect-voice-global', callback),
+  removeDisconnectVoice: (callback) => ipcRenderer.removeListener('disconnect-voice-global', callback),
   updateShortcuts: (shortcuts) => ipcRenderer.send('update-shortcuts', shortcuts),
   updateTray: (state) => ipcRenderer.send('tray-update', state),
   setLaunchAtStartup: (enabled) => ipcRenderer.send('set-launch-at-startup', enabled)
