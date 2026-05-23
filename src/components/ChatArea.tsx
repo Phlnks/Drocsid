@@ -362,6 +362,23 @@ export default function ChatArea() {
         
         // Update local store immediately for UI responsiveness
         setLocalProfile((prev: any) => ({ ...prev, last_read: newLastRead }));
+
+        // Mark mentions for this channel as read
+        await supabase.rpc('mark_channel_notifications_read', { 
+           p_user_id: user.id, 
+           p_channel_id: selectedChannelId 
+        }).then(res => {
+           if (res.error) {
+             // Fallback if RPC doesn't exist (e.g. if we don't have custom function)
+             supabase.from('notifications')
+                .update({ read: true })
+                .eq('user_id', user.id)
+                .eq('read', false)
+                .contains('data', { channel_id: selectedChannelId })
+                .then();
+           }
+        });
+
       } catch (e) {
         console.error("Error updating last read", e);
       }
