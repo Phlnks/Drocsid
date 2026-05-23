@@ -1,6 +1,5 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -164,6 +163,18 @@ export default function MessageContent({
   };
 
   const components = useMemo(() => ({
+    ol: ({ node, children, ...props }: any) => (
+      <ol className="list-decimal pl-5 my-1 space-y-1" {...props}>{children}</ol>
+    ),
+    ul: ({ node, children, ...props }: any) => (
+      <ul className="list-disc pl-5 my-1 space-y-1" {...props}>{children}</ul>
+    ),
+    li: ({ node, children, ...props }: any) => (
+      <li className="" {...props}>{children}</li>
+    ),
+    p: ({ node, children, ...props }: any) => (
+      <p className="my-1 whitespace-pre-wrap" {...props}>{children}</p>
+    ),
     span: ({ node, className, children, ...props }: any) => {
       if (className === "spoiler-tag") {
         return <Spoiler>{children}</Spoiler>;
@@ -261,7 +272,7 @@ export default function MessageContent({
         }`}
       >
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkBreaks]}
+          remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
           components={components as any}
         >

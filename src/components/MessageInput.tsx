@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, lazy, Suspense } from "react";
+import React, { useState, useRef, useEffect, lazy, Suspense } from "react";
 import { supabase } from "../supabase";
 import { useAuthStore } from "../store/authStore";
 import { useAppStore } from "../store/appStore";
@@ -208,10 +208,17 @@ export default function MessageInput({
 
   useEffect(() => {
     setContent(drafts[channelId] || "");
+  }, [channelId]);
+
+  React.useLayoutEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
+      inputRef.current.style.height = `${Math.min(
+        inputRef.current.scrollHeight,
+        120
+      )}px`;
     }
-  }, [channelId, drafts]);
+  }, [content]);
 
   // ✅ FIX: chargement filtré — avant: select('*') chargeait TOUTE la table profiles
   useEffect(() => {
@@ -339,15 +346,6 @@ export default function MessageInput({
     const val = e.target.value;
     setContent(val);
     setDraft(channelId, val);
-
-    // Auto-resize textarea
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-      inputRef.current.style.height = `${Math.min(
-        inputRef.current.scrollHeight,
-        120
-      )}px`;
-    }
 
     const cursorPosition = e.target.selectionStart || 0;
     const textBeforeCursor = val.slice(0, cursorPosition);

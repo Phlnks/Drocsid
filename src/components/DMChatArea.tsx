@@ -79,11 +79,14 @@ export default function DMChatArea() {
 
   const handleEditContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditContent(e.target.value);
-    if (editInputRef.current) {
+  };
+
+  React.useLayoutEffect(() => {
+    if (editingMessageId && editInputRef.current) {
       editInputRef.current.style.height = "auto";
       editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
     }
-  };
+  }, [editContent, editingMessageId]);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState<string | null>(null);
   const [emojiPickerDirection, setEmojiPickerDirection] = useState<'up' | 'down'>('up');
