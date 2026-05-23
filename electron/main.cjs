@@ -152,10 +152,14 @@ function loadTrayIcons() {
     const bases = [
       path.join(__dirname, '../public'),
       path.join(__dirname, '../public/tray'),
+      path.join(__dirname, '../dist'),
+      path.join(__dirname, '../dist/tray'),
+      path.join(__dirname, '..'), // For some electron builder setups
+      path.join(process.resourcesPath, 'app.asar/dist'),
+      path.join(process.resourcesPath, 'app.asar/public'),
+      path.join(process.resourcesPath, 'app/dist'),
       path.join(process.resourcesPath, 'app/public'),
-      path.join(process.resourcesPath, 'app/public/tray'),
-      path.join(process.resourcesPath, 'public'),
-      path.join(process.resourcesPath, 'public/tray'),
+      path.join(process.resourcesPath, 'app'),
     ];
     
     for (const base of bases) {
@@ -163,9 +167,18 @@ function loadTrayIcons() {
         for (const name of names) {
           const p = path.join(base, name);
           if (fs.existsSync(p)) {
-             let img = nativeImage.createFromPath(p);
-             if (img.getSize().width > 32) img = img.resize({ width: 24, height: 24 });
-             return img;
+             try {
+               let img = nativeImage.createFromPath(p);
+               if (!img.isEmpty()) {
+                 const size = img.getSize();
+                 if (size.width > 64 || size.width === 0) {
+                   img = img.resize({ width: 24, height: 24 });
+                 }
+                 return img;
+               }
+             } catch (e) {
+               console.error("Error loading image:", e);
+             }
           }
         }
       }
@@ -174,12 +187,21 @@ function loadTrayIcons() {
     // Fallback to basic app icons if specific state icon not found
     for (const base of bases) {
       if (fs.existsSync(base)) {
-        for (const name of ['favicon.ico', 'favicon.png', 'logo.png']) {
+        for (const name of ['favicon.ico', 'favicon.png', 'logo.png', 'logo-bg.png']) {
           const p = path.join(base, name);
           if (fs.existsSync(p)) {
-             let img = nativeImage.createFromPath(p);
-             if (img.getSize().width > 32) img = img.resize({ width: 24, height: 24 });
-             return img;
+             try {
+               let img = nativeImage.createFromPath(p);
+               if (!img.isEmpty()) {
+                 const size = img.getSize();
+                 if (size.width > 64 || size.width === 0) {
+                   img = img.resize({ width: 24, height: 24 });
+                 }
+                 return img;
+               }
+             } catch (e) {
+               console.error("Error loading fallback image:", e);
+             }
           }
         }
       }
@@ -189,11 +211,11 @@ function loadTrayIcons() {
   };
 
   return {
-    default:   load(['tray-default.png']),
-    muted:     load(['tray-muted.png']),
-    deafened:  load(['tray-deafened.png']),
-    speaking:  load(['tray-speaking-on.png', 'tray-speaking.png']),
-    silent:    load(['tray-speaking-off.png', 'tray-silent.png']),
+    default:   load(['tray-default.png', 'favicon.png', 'logo.png']),
+    muted:     load(['tray-muted.png', 'favicon.png', 'logo.png']),
+    deafened:  load(['tray-deafened.png', 'favicon.png', 'logo.png']),
+    speaking:  load(['tray-speaking-on.png', 'tray-speaking.png', 'favicon.png', 'logo.png']),
+    silent:    load(['tray-speaking-off.png', 'tray-silent.png', 'favicon.png', 'logo.png']),
   };
 }
 

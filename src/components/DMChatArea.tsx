@@ -270,20 +270,12 @@ export default function DMChatArea() {
       });
 
       // Also mark notifications for this DM as read
-      await supabase.rpc('mark_channel_notifications_read', { 
-         p_user_id: user.id, 
-         p_channel_id: selectedDmId 
-      }).then(res => {
-         if (res.error) {
-           supabase
-            .from('notifications')
-            .update({ read: true })
-            .eq('user_id', user.id)
-            .eq('read', false)
-            .contains('data', { channel_id: selectedDmId })
-            .then();
-         }
-      });
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .contains('data', { channel_id: selectedDmId });
     } catch (error) {
       console.error("Error updating last_read:", error);
     }

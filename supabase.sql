@@ -400,3 +400,12 @@ CREATE TRIGGER on_profile_update_protect_rights
 UPDATE public.profiles
 SET is_super_admin = true, can_create_servers = true, max_servers = 100
 WHERE email = '***@gmail.com';
+
+CREATE OR REPLACE FUNCTION public.mark_channel_notifications_read(p_user_id uuid, p_channel_id uuid)
+RETURNS void AS $$
+BEGIN
+  UPDATE public.notifications
+  SET read = true
+  WHERE user_id = p_user_id AND read = false AND data->>'channel_id' = p_channel_id::text;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
