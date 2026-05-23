@@ -146,24 +146,44 @@ function createTray() {
 
 // ─── Tray Icons Cache ──────────────────────────────────────────────────────
 function loadTrayIcons() {
-  const bases = [
-    path.join(__dirname, '../public/tray'),
-    path.join(process.resourcesPath, 'app/public/tray'),
-    path.join(process.resourcesPath, 'public/tray'),
-  ];
-  const base = bases.find(p => fs.existsSync(p)) || bases[0];
-
-  const load = (name) => {
-    const p = path.join(base, name);
-    return fs.existsSync(p) ? nativeImage.createFromPath(p) : nativeImage.createEmpty();
+  const load = (names) => {
+    const bases = [
+      path.join(__dirname, '../public'),
+      path.join(__dirname, '../public/tray'),
+      path.join(process.resourcesPath, 'app/public'),
+      path.join(process.resourcesPath, 'app/public/tray'),
+      path.join(process.resourcesPath, 'public'),
+      path.join(process.resourcesPath, 'public/tray'),
+    ];
+    
+    for (const base of bases) {
+      if (fs.existsSync(base)) {
+        for (const name of names) {
+          const p = path.join(base, name);
+          if (fs.existsSync(p)) return nativeImage.createFromPath(p);
+        }
+      }
+    }
+    
+    // Fallback to basic app icons if specific state icon not found
+    for (const base of bases) {
+      if (fs.existsSync(base)) {
+        for (const name of ['favicon.ico', 'favicon.png', 'logo.png']) {
+          const p = path.join(base, name);
+          if (fs.existsSync(p)) return nativeImage.createFromPath(p);
+        }
+      }
+    }
+    
+    return nativeImage.createEmpty();
   };
 
   return {
-    default:   load('tray-default.png'),
-    muted:     load('tray-muted.png'),
-    deafened:  load('tray-deafened.png'),
-    speaking:  load('tray-speaking.png'),
-    silent:    load('tray-silent.png'),
+    default:   load(['tray-default.png']),
+    muted:     load(['tray-muted.png']),
+    deafened:  load(['tray-deafened.png']),
+    speaking:  load(['tray-speaking-on.png', 'tray-speaking.png']),
+    silent:    load(['tray-speaking-off.png', 'tray-silent.png']),
   };
 }
 
