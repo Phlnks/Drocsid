@@ -1,3 +1,5 @@
+import { useInstanceStore } from '../store/instanceStore';
+
 export async function subscribeToPush(userId: string): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.warn('[Push] Non supporté');
@@ -31,8 +33,14 @@ export async function subscribeToPush(userId: string): Promise<void> {
     applicationServerKey: urlBase64ToUint8Array(vapidKey),
   });
 
+  let baseUrl = useInstanceStore.getState().getCurrentInstance()?.socketUrl || window.location.origin;
+  if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
+    baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+  }
+  baseUrl = baseUrl.replace(/\/+$/, '');
+
   // Toujours envoyer au serveur (même si souscription existante)
-  const res = await fetch('/api/push/subscribe', {
+  const res = await fetch(`${baseUrl}/api/push/subscribe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ subscription: subscription.toJSON(), userId }),
@@ -47,7 +55,13 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
   const subscription = await sw.pushManager.getSubscription();
   if (subscription) await subscription.unsubscribe();
 
-  await fetch('/api/push/unsubscribe', {
+  let baseUrl = useInstanceStore.getState().getCurrentInstance()?.socketUrl || window.location.origin;
+  if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
+    baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+  }
+  baseUrl = baseUrl.replace(/\/+$/, '');
+
+  await fetch(`${baseUrl}/api/push/unsubscribe`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),

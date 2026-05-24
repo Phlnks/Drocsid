@@ -4,6 +4,7 @@ import { MessageSquare, Phone, UserPlus, UserMinus, ShieldAlert, UserX, Loader2,
 import { supabase } from '../../supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
+import { useInstanceStore } from '../../store/instanceStore';
 import socket from '../../lib/socket';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
@@ -33,6 +34,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
   
   const { user } = useAuthStore();
   const { setSelectedDmId, setSelectedServerId, setConnectedVoiceChannelId, setIsMobileNavOpen, mutedDms, toggleMuteDm, voiceParticipants, peerVolumes, setPeerVolume } = useAppStore();
+  const { getCurrentInstance } = useInstanceStore();
 
   const [localVolume, setLocalVolume] = useState<number>(peerVolumes[userId] ?? 1.0);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -265,7 +267,13 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     if (!serverId || !userId || !newUsername) return;
     setIsUpdatingUsername(true);
     try {
-      const response = await fetch('/api/server/update-member-username', {
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin;
+      if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
+        baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+      }
+      baseUrl = baseUrl.replace(/\/+$/, '');
+
+      const response = await fetch(`${baseUrl}/api/server/update-member-username`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

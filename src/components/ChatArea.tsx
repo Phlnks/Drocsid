@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
+import { useInstanceStore } from '../store/instanceStore';
 import { Hash, Volume2, Volume1, VolumeX, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, ArrowDown, Users, ArrowLeft, Check, Loader2, Pin, Bell, Plus, Flag } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -755,7 +756,10 @@ export default function ChatArea() {
       
       const authorData = getUserData(msg.author_id, msg.profiles?.username, msg.profiles?.avatar_url);
 
-      const res = await fetch(`${window.location.origin}/api/reports`, {
+      let baseUrl = useInstanceStore.getState().getCurrentInstance()?.socketUrl || window.location.origin;
+      if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+      baseUrl = baseUrl.replace(/\/+$/, '');
+      const res = await fetch(`${baseUrl}/api/reports`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,

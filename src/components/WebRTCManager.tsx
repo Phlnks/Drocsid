@@ -619,7 +619,17 @@ export default function WebRTCManager() {
         if (!livekitUrl) { console.warn("VITE_LIVEKIT_URL is not set."); return; }
         console.warn('[LK 0] 🔑 Demande token | channel:', connectedVoiceChannelId, '| user:', currentUser.id);
         const tokenEndpoint = currentInstance?.livekitTokenEndpoint || import.meta.env.VITE_LIVEKIT_TOKEN_ENDPOINT || '/api/livekit/token';
-        const res = await fetch(tokenEndpoint, {
+        let finalTokenEndpoint = tokenEndpoint;
+        if (finalTokenEndpoint.startsWith('/')) {
+          let baseUrl = currentInstance?.socketUrl || window.location.origin;
+          if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
+            baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+          }
+          baseUrl = baseUrl.replace(/\/+$/, '');
+          finalTokenEndpoint = baseUrl + tokenEndpoint;
+        }
+
+        const res = await fetch(finalTokenEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

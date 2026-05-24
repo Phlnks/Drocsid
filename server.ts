@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { AccessToken } from "livekit-server-sdk";
 import webpush from "web-push";
+import cors from "cors";
 
 dotenv.config();
 
@@ -129,8 +130,9 @@ async function startServer() {
 
   const io = new Server(httpServer, {
     cors: {
-      origin: CORS_ORIGINS,
+      origin: true,
       methods: ["GET", "POST"],
+      credentials: true,
     },
     pingInterval: 60000,
     pingTimeout: 120000,
@@ -138,16 +140,12 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin && CORS_ORIGINS.includes(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-    }
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    if (req.method === "OPTIONS") return res.sendStatus(204);
-    next();
-  });
+  app.use(cors({
+    origin: function(origin, callback) {
+      return callback(null, true);
+    },
+    credentials: true,
+  }));
 
   app.use((req, res, next) => {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -162,19 +160,8 @@ async function startServer() {
     next();
   });
 
-  const ALLOWED_HOSTS = [
-    APP_HOST,
-    ...(NODE_ENV !== "production"
-      ? ["localhost:3000", "localhost:5173", "127.0.0.1:3000", "127.0.0.1:5173"]
-      : []),
-    ...ALLOWED_HOSTS_EXTRA,
-  ].filter(Boolean);
-
+  // Host validation removed to simplify self-hosting.
   app.use((req, res, next) => {
-    const host = req.headers.host || "";
-    if (!ALLOWED_HOSTS.includes(host)) {
-      return res.status(400).json({ error: "Invalid host" });
-    }
     next();
   });
 
