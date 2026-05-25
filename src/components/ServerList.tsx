@@ -524,12 +524,10 @@ export default function ServerList() {
                   )}
 
                   {/* Voice participants overlay on hover */}
-                  {voiceCount > 0 && (
-                    <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                      <Volume2 className="w-5 h-5 md:w-4 md:h-4 text-emerald-400 mb-0.5" />
-                      <span className="text-[12px] md:text-[10px] font-bold text-emerald-400 leading-none">{voiceCount}</span>
-                    </div>
-                  )}
+                  <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+                    <Volume2 className={clsx("w-5 h-5 md:w-4 md:h-4 mb-0.5 transition-colors", voiceCount > 0 ? "text-emerald-400" : "text-zinc-400")} />
+                    <span className={clsx("text-[12px] md:text-[10px] font-bold leading-none", voiceCount > 0 ? "text-emerald-400" : "text-zinc-400")}>{voiceCount}</span>
+                  </div>
                 </div>
                 
                 {mutedServers.includes(server.id) && (
