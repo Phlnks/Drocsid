@@ -3,7 +3,7 @@ import { motion, Reorder } from "motion/react";
 import { supabase } from "../supabase";
 import { useAuthStore } from "../store/authStore";
 import { useAppStore } from "../store/appStore";
-import { Plus, Compass, Volume2, BellOff } from "lucide-react";
+import { Plus, Compass, Users, Volume2, BellOff } from "lucide-react";
 import DrocsidLogo from "./ui/DrocsidLogo";
 import clsx from "clsx";
 import AddServerModal from "./ui/AddServerModal";
@@ -139,7 +139,7 @@ export default function ServerList() {
         .from("channels")
         .select("id, server_id")
         .in("server_id", serverIds)
-        .eq("type", "AUDIO");
+        .eq("type", "VOICE");
       if (aChannels) setAudioChannels(aChannels);
 
       const unreads = new Set<string>();
@@ -525,7 +525,7 @@ export default function ServerList() {
 
                   {/* Voice participants overlay on hover */}
                   <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                    <Volume2 className={clsx("w-5 h-5 md:w-4 md:h-4 mb-0.5 transition-colors", voiceCount > 0 ? "text-emerald-400" : "text-zinc-400")} />
+                    <Users className={clsx("w-5 h-5 md:w-4 md:h-4 mb-0.5 transition-colors", voiceCount > 0 ? "text-emerald-400" : "text-zinc-400")} />
                     <span className={clsx("text-[12px] md:text-[10px] font-bold leading-none", voiceCount > 0 ? "text-emerald-400" : "text-zinc-400")}>{voiceCount}</span>
                   </div>
                 </div>
