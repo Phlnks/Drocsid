@@ -22,6 +22,7 @@ export default function ServerList() {
     selectedChannelId,
     serverOrder,
     setServerOrder,
+    voiceParticipants,
   } = useAppStore();
   const [servers, setServers] = useState<any[]>([]);
   const [sortedServers, setSortedServers] = useState<any[]>([]);
@@ -29,6 +30,7 @@ export default function ServerList() {
   const [serverMentions, setServerMentions] = useState<Record<string, number>>(
     {}
   );
+  const [audioChannels, setAudioChannels] = useState<{id: string, server_id: string}[]>([]);
   const [unreadDMsCount, setUnreadDMsCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
@@ -132,6 +134,13 @@ export default function ServerList() {
         .in("server_id", serverIds)
         .eq("type", "TEXT")
         .not("last_message_at", "is", null);
+
+      const { data: aChannels } = await supabase
+        .from("channels")
+        .select("id, server_id")
+        .in("server_id", serverIds)
+        .eq("type", "AUDIO");
+      if (aChannels) setAudioChannels(aChannels);
 
       const unreads = new Set<string>();
       if (channels) {
@@ -455,7 +464,16 @@ export default function ServerList() {
           }}
           className="flex flex-col gap-3 md:gap-2 items-center w-full"
         >
-          {sortedServers.map((server) => (
+          {sortedServers.map((server) => {
+            const serverAudioChannels = audioChannels.filter(c => c.server_id === server.id);
+            let voiceCount = 0;
+            serverAudioChannels.forEach(c => {
+                if (voiceParticipants[c.id]) {
+                    voiceCount += voiceParticipants[c.id].length;
+                }
+            });
+
+            return (
             <Reorder.Item
               key={server.id}
               value={server}
@@ -521,6 +539,16 @@ export default function ServerList() {
                 </div>
               )}
 
+              {/* Voice participants badge */}
+              {voiceCount > 0 && (
+                <div className="absolute top-1/2 -translate-y-1/2 left-full ml-4 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-zinc-800/90 text-zinc-100 backdrop-blur-sm border border-zinc-700/50 rounded-md px-2 py-1 z-[100] flex items-center gap-1.5 whitespace-nowrap shadow-xl pointer-events-none translate-x-[-10px] group-hover:translate-x-0">
+                  <Volume2 className="w-3 h-3 text-emerald-400" />
+                  <span className="text-[11px] font-bold leading-none">{voiceCount} en vocal</span>
+                  {/* Petit triangle (caret) */}
+                  <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-r-[4px] border-r-zinc-700/50"></div>
+                </div>
+              )}
+
               {connectedVoiceServerId &&
                 servers.find((s) => s.id === server.id) &&
                 (() => {
@@ -541,7 +569,7 @@ export default function ServerList() {
                   );
                 })()}
             </Reorder.Item>
-          ))}
+          )})}
         </Reorder.Group>
 
         <motion.div
