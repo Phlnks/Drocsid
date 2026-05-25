@@ -502,72 +502,74 @@ export default function ServerList() {
                     : "h-2 w-1.5 md:w-1 opacity-0 group-hover:opacity-100 group-hover:h-5 rounded-r-md bg-white"
                 )}
               />
-              <div
-                className={clsx(
-                  "w-16 h-16 md:w-12 md:h-12 flex items-center justify-center text-xl md:text-lg font-semibold transition-all duration-200 overflow-hidden",
-                  selectedServerId === server.id
-                    ? "bg-indigo-500 text-white rounded-[20px] md:rounded-[16px]"
-                    : "bg-zinc-800 text-zinc-100 rounded-[32px] md:rounded-[24px] group-hover:rounded-[20px] md:group-hover:rounded-[16px] group-hover:bg-indigo-500 group-hover:text-white"
-                )}
-              >
-                {server.icon_url ? (
-                  <img
-                    src={server.icon_url}
-                    alt={server.name}
-                    className="w-full h-full object-cover pointer-events-none"
-                    loading="lazy"
-                  />
-                ) : (
-                  server.name.charAt(0).toUpperCase()
-                )}
-              </div>
-              {mutedServers.includes(server.id) && (
+              
+              <div className="relative">
                 <div
-                  className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 md:p-1 border border-zinc-800 z-10"
-                  title={t("app.serverList.muted")}
+                  className={clsx(
+                    "relative w-16 h-16 md:w-12 md:h-12 flex items-center justify-center text-xl md:text-lg font-semibold transition-all duration-200 overflow-hidden",
+                    selectedServerId === server.id
+                      ? "bg-indigo-500 text-white rounded-[20px] md:rounded-[16px]"
+                      : "bg-zinc-800 text-zinc-100 rounded-[32px] md:rounded-[24px] group-hover:rounded-[20px] md:group-hover:rounded-[16px] group-hover:bg-indigo-500 group-hover:text-white"
+                  )}
                 >
-                  <BellOff className="w-4 h-4 md:w-3 md:h-3 text-red-500" />
-                </div>
-              )}
+                  {server.icon_url ? (
+                    <img
+                      src={server.icon_url}
+                      alt={server.name}
+                      className="w-full h-full object-cover pointer-events-none"
+                      loading="lazy"
+                    />
+                  ) : (
+                    server.name.charAt(0).toUpperCase()
+                  )}
 
-              {/* Mention Badge */}
-              {serverMentions[server.id] > 0 && (
-                <div className="absolute -top-1.5 -left-1.5 bg-red-500 text-white text-[11px] md:text-[10px] font-bold min-w-[22px] md:min-w-[18px] h-[22px] md:h-[18px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-[0_0_15px_rgba(239,68,68,0.8)] ring-1 ring-white/20 animate-in zoom-in duration-300">
-                  {serverMentions[server.id] > 99
-                    ? "99+"
-                    : serverMentions[server.id]}
-                </div>
-              )}
-
-              {/* Voice participants badge */}
-              {voiceCount > 0 && (
-                <div className="absolute top-1/2 -translate-y-1/2 left-full ml-4 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-zinc-800/90 text-zinc-100 backdrop-blur-sm border border-zinc-700/50 rounded-md px-2 py-1 z-[100] flex items-center gap-1.5 whitespace-nowrap shadow-xl pointer-events-none translate-x-[-10px] group-hover:translate-x-0">
-                  <Volume2 className="w-3 h-3 text-emerald-400" />
-                  <span className="text-[11px] font-bold leading-none">{voiceCount} en vocal</span>
-                  {/* Petit triangle (caret) */}
-                  <div className="absolute top-1/2 -translate-y-1/2 -left-1 w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-r-[4px] border-r-zinc-700/50"></div>
-                </div>
-              )}
-
-              {connectedVoiceServerId &&
-                servers.find((s) => s.id === server.id) &&
-                (() => {
-                  const isVoiceInThisServer =
-                    connectedVoiceServerId === server.id;
-                  if (!isVoiceInThisServer) return null;
-                  return (
-                    <div
-                      className={clsx(
-                        "absolute bg-zinc-900 rounded-full p-1 border border-zinc-950 z-10 shadow-lg",
-                        serverMentions[server.id]
-                          ? "-bottom-1 -left-1"
-                          : "-bottom-1 -right-1"
-                      )}
-                    >
-                      <Volume2 className="w-4 h-4 md:w-3 md:h-3 text-emerald-500" />
+                  {/* Voice participants overlay on hover */}
+                  {voiceCount > 0 && (
+                    <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+                      <Volume2 className="w-5 h-5 md:w-4 md:h-4 text-emerald-400 mb-0.5" />
+                      <span className="text-[12px] md:text-[10px] font-bold text-emerald-400 leading-none">{voiceCount}</span>
                     </div>
-                  );
-                })()}
+                  )}
+                </div>
+                
+                {mutedServers.includes(server.id) && (
+                  <div
+                    className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-1 md:p-1 border border-zinc-800 z-10"
+                    title={t("app.serverList.muted")}
+                  >
+                    <BellOff className="w-4 h-4 md:w-3 md:h-3 text-red-500" />
+                  </div>
+                )}
+
+                {/* Mention Badge */}
+                {serverMentions[server.id] > 0 && (
+                  <div className="absolute -top-1.5 -left-1.5 bg-red-500 text-white text-[11px] md:text-[10px] font-bold min-w-[22px] md:min-w-[18px] h-[22px] md:h-[18px] flex items-center justify-center px-1 rounded-full border-2 border-zinc-950 z-20 shadow-[0_0_15px_rgba(239,68,68,0.8)] ring-1 ring-white/20 animate-in zoom-in duration-300">
+                    {serverMentions[server.id] > 99
+                      ? "99+"
+                      : serverMentions[server.id]}
+                  </div>
+                )}
+
+                {connectedVoiceServerId &&
+                  servers.find((s) => s.id === server.id) &&
+                  (() => {
+                    const isVoiceInThisServer =
+                      connectedVoiceServerId === server.id;
+                    if (!isVoiceInThisServer) return null;
+                    return (
+                      <div
+                        className={clsx(
+                          "absolute bg-zinc-900 rounded-full p-1 border border-zinc-950 z-10 shadow-lg",
+                          serverMentions[server.id]
+                            ? "-bottom-1 -left-1"
+                            : "-bottom-1 -right-1"
+                        )}
+                      >
+                        <Volume2 className="w-4 h-4 md:w-3 md:h-3 text-emerald-500" />
+                      </div>
+                    );
+                  })()}
+              </div>
             </Reorder.Item>
           )})}
         </Reorder.Group>
