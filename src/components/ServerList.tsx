@@ -128,27 +128,24 @@ export default function ServerList() {
     const fetchUnreads = async () => {
       const serverIds = servers.map((s) => s.id);
 
-      const { data: channels } = await supabase
+      const { data: allChannels } = await supabase
         .from("channels")
-        .select("id, server_id, last_message_at")
+        .select("id, server_id, type, last_message_at")
         .in("server_id", serverIds)
-        .eq("type", "TEXT")
-        .not("last_message_at", "is", null);
+        .in("type", ["TEXT", "VOICE"]);
 
-      const { data: aChannels } = await supabase
-        .from("channels")
-        .select("id, server_id")
-        .in("server_id", serverIds)
-        .eq("type", "VOICE");
-      if (aChannels) setAudioChannels(aChannels);
+      const aChannels = allChannels?.filter(c => c.type === "VOICE") || [];
+      setAudioChannels(aChannels);
 
       const unreads = new Set<string>();
-      if (channels) {
-        channels.forEach((ch) => {
-          const readAt = currentUserProfile?.last_read?.[ch.id] || 0;
-          const msgAt = new Date(ch.last_message_at).getTime();
-          if (msgAt > readAt && selectedChannelId !== ch.id) {
-            unreads.add(ch.server_id);
+      if (allChannels) {
+        allChannels.forEach((ch) => {
+          if (ch.type === "TEXT" && ch.last_message_at) {
+            const readAt = currentUserProfile?.last_read?.[ch.id] || 0;
+            const msgAt = new Date(ch.last_message_at).getTime();
+            if (msgAt > readAt && selectedChannelId !== ch.id) {
+              unreads.add(ch.server_id);
+            }
           }
         });
       }
