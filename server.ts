@@ -817,6 +817,7 @@ async function startServer() {
       }
 
       if (updated) {
+        console.log(`[LiveKit Webhook -> Socket] Émission de la mise à jour des participants pour le salon: ${roomName} (${voiceRooms.get(roomName)?.size || 0} participants)`);
         io.emit("voice-participants-update", {
           channelId: roomName,
           participants: Array.from(voiceRooms.get(roomName)?.values() || []),
