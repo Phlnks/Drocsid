@@ -802,8 +802,11 @@ async function startServer() {
         } catch(e) {}
         
         if (!voiceRooms.has(roomName)) voiceRooms.set(roomName, new Map());
+        
+        const existingData = voiceRooms.get(roomName)?.get(identity) || {};
         // Merge identity and metadata correctly to reconstruct the user profile
-        voiceRooms.get(roomName)?.set(identity, { id: identity, ...metadataObj });
+        // keep any existingData (like early voice-state-updates from the socket)
+        voiceRooms.get(roomName)?.set(identity, { id: identity, ...metadataObj, ...existingData });
         updated = true;
       } else if (event.event === "participant_left") {
         const identity = event.participant?.identity;
@@ -881,6 +884,19 @@ async function startServer() {
       }
 
       socketVoiceMap.set(socket.id, { userId: user.id, channelId });
+
+      let room = voiceRooms.get(channelId);
+      if (!room) {
+        room = new Map();
+        voiceRooms.set(channelId, room);
+      }
+      const existing = room.get(user.id) || {};
+      room.set(user.id, { ...existing, ...user });
+      
+      io.emit("voice-participants-update", {
+        channelId,
+        participants: Array.from(room.values()),
+      });
     });
 
     socket.on("leave-voice-channel", async (data) => {
@@ -894,15 +910,17 @@ async function startServer() {
 
     socket.on("voice-state-update", (data) => {
       const { channelId, userId, updates } = data;
-      const room = voiceRooms.get(channelId);
-      if (room && room.has(userId)) {
-        const user = room.get(userId);
-        room.set(userId, { ...user, ...updates });
-        io.emit("voice-participants-update", {
-          channelId,
-          participants: Array.from(room.values()),
-        });
+      let room = voiceRooms.get(channelId);
+      if (!room) {
+        room = new Map();
+        voiceRooms.set(channelId, room);
       }
+      const user = room.get(userId) || { id: userId };
+      room.set(userId, { ...user, ...updates });
+      io.emit("voice-participants-update", {
+        channelId,
+        participants: Array.from(room.values()),
+      });
     });
 
     socket.on("request-voice-states", () => {

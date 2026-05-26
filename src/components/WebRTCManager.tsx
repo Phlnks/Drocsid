@@ -630,6 +630,7 @@ export default function WebRTCManager() {
         }
 
         const { currentUserProfile } = useAuthStore.getState();
+        const { isVoiceMuted, isDeafened } = useAppStore.getState();
 
         const res = await fetch(finalTokenEndpoint, {
           method: 'POST',
@@ -638,7 +639,13 @@ export default function WebRTCManager() {
             roomName: connectedVoiceChannelId,
             participantIdentity: currentUser.id,
             participantName: (currentUser as any).user_metadata?.username || 'Utilisateur',
-            userProfile: currentUserProfile || {}
+            userProfile: {
+              ...currentUserProfile,
+              name: currentUserProfile?.username || (currentUser as any).user_metadata?.username || 'Utilisateur',
+              avatarUrl: currentUserProfile?.avatar_url,
+              isMuted: isVoiceMuted,
+              isDeafened: isDeafened
+            }
           })
         });
         console.warn('[LK 0b] 📡 Token status:', res.status, res.ok ? '✅' : '❌');
