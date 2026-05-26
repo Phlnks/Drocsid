@@ -6,7 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
 import webpush from "web-push";
 import cors from "cors";
 
@@ -166,7 +166,7 @@ async function startServer() {
   });
 
   app.post("/api/livekit/token", express.json(), async (req, res) => {
-    const { roomName, participantIdentity, participantName } = req.body;
+    const { roomName, participantIdentity, participantName, userProfile } = req.body;
 
     if (!roomName || !participantIdentity) {
       return res.status(400).json({ error: "roomName and participantIdentity are required" });
@@ -183,6 +183,7 @@ async function startServer() {
       const at = new AccessToken(apiKey, apiSecret, {
         identity: participantIdentity,
         name: participantName || participantIdentity,
+        metadata: userProfile ? JSON.stringify(userProfile) : undefined,
       });
 
       at.addGrant({
@@ -773,6 +774,68 @@ async function startServer() {
   const voiceRooms = new Map<string, Map<string, any>>();
   const socketVoiceMap = new Map<string, { userId: string; channelId: string }>();
 
+  const webhookReceiver = new WebhookReceiver(
+    process.env.LIVEKIT_API_KEY || "",
+    process.env.LIVEKIT_API_SECRET || ""
+  );
+
+  app.post("/api/livekit/webhook", express.raw({ type: "application/webhook+json" }), async (req, res) => {
+    try {
+      const event = webhookReceiver.receive(req.body.toString('utf8'), req.get('Authorization'));
+      const roomName = event.room?.name || event.room?.sid;
+      
+      if (!roomName) return res.status(200).send();
+
+      let updated = false;
+
+      if (event.event === "participant_joined") {
+        const identity = event.participant?.identity;
+        if (!identity) return res.status(200).send();
+        
+        let metadataObj = {};
+        try {
+          if (event.participant?.metadata) {
+            metadataObj = JSON.parse(event.participant.metadata);
+          }
+        } catch(e) {}
+        
+        if (!voiceRooms.has(roomName)) voiceRooms.set(roomName, new Map());
+        // Merge identity and metadata correctly to reconstruct the user profile
+        voiceRooms.get(roomName)?.set(identity, { id: identity, ...metadataObj });
+        updated = true;
+      } else if (event.event === "participant_left") {
+        const identity = event.participant?.identity;
+        if (identity) {
+          voiceRooms.get(roomName)?.delete(identity);
+          updated = true;
+        }
+      } else if (event.event === "room_finished") {
+        voiceRooms.delete(roomName);
+        updated = true;
+      }
+
+      if (updated) {
+        io.emit("voice-participants-update", {
+          channelId: roomName,
+          participants: Array.from(voiceRooms.get(roomName)?.values() || []),
+        });
+        
+        if (event.event === "room_finished" || (voiceRooms.has(roomName) && voiceRooms.get(roomName)?.size === 0)) {
+           // Basic cleanup of database call record
+           try {
+              await supabaseAdmin.from("calls").delete().eq("id", roomName);
+           } catch(e) {}
+           voiceRooms.delete(roomName);
+        }
+      }
+
+      res.status(200).send();
+    } catch (err: any) {
+      console.error("LiveKit Webhook error:", err.message);
+      res.status(400).send();
+    }
+  });
+
   io.on("connection", (socket) => {
     console.log("User connected", socket.id);
     let currentUserId: string | null = null;
@@ -811,39 +874,19 @@ async function startServer() {
 
       const existingVoice = socketVoiceMap.get(socket.id);
       if (existingVoice && existingVoice.channelId !== channelId) {
-        const oldChannelId = existingVoice.channelId;
-        voiceRooms.get(oldChannelId)?.delete(existingVoice.userId);
-        io.emit("voice-participants-update", {
-          channelId: oldChannelId,
-          participants: Array.from(voiceRooms.get(oldChannelId)?.values() || []),
-        });
-        cleanupVoiceRoom(oldChannelId);
+        // Clean up socket mapping only. LiveKit Webhook will handle actual room logic.
       }
 
-      if (!voiceRooms.has(channelId)) voiceRooms.set(channelId, new Map());
-      voiceRooms.get(channelId)?.set(user.id, user);
       socketVoiceMap.set(socket.id, { userId: user.id, channelId });
-
-      io.emit("voice-participants-update", {
-        channelId,
-        participants: Array.from(voiceRooms.get(channelId)?.values() || []),
-      });
     });
 
     socket.on("leave-voice-channel", async (data) => {
       const { channelId, userId } = data;
-      voiceRooms.get(channelId)?.delete(userId);
-
+      
       const existingVoice = socketVoiceMap.get(socket.id);
       if (existingVoice && existingVoice.channelId === channelId) {
         socketVoiceMap.delete(socket.id);
       }
-
-      io.emit("voice-participants-update", {
-        channelId,
-        participants: Array.from(voiceRooms.get(channelId)?.values() || []),
-      });
-      await cleanupVoiceRoom(channelId);
     });
 
     socket.on("voice-state-update", (data) => {
@@ -1016,24 +1059,8 @@ async function startServer() {
     socket.on("disconnect", async () => {
       const voiceInfo = socketVoiceMap.get(socket.id);
       if (voiceInfo) {
-        const { channelId, userId } = voiceInfo;
         socketVoiceMap.delete(socket.id);
-
-        let userHasAnotherSocket = false;
-        socketVoiceMap.forEach((info) => {
-          if (info.userId === userId && info.channelId === channelId) {
-            userHasAnotherSocket = true;
-          }
-        });
-
-        if (!userHasAnotherSocket) {
-          voiceRooms.get(channelId)?.delete(userId);
-          io.emit("voice-participants-update", {
-            channelId,
-            participants: Array.from(voiceRooms.get(channelId)?.values() || []),
-          });
-          await cleanupVoiceRoom(channelId);
-        }
+        // We do not manage voiceRooms here anymore; LiveKit Webhook handles true presence.
       }
 
       if (currentUserId && onlineUsers.has(currentUserId)) {

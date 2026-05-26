@@ -629,13 +629,16 @@ export default function WebRTCManager() {
           finalTokenEndpoint = baseUrl + tokenEndpoint;
         }
 
+        const { currentUserProfile } = useAuthStore.getState();
+
         const res = await fetch(finalTokenEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             roomName: connectedVoiceChannelId,
             participantIdentity: currentUser.id,
-            participantName: (currentUser as any).user_metadata?.username || 'Utilisateur'
+            participantName: (currentUser as any).user_metadata?.username || 'Utilisateur',
+            userProfile: currentUserProfile || {}
           })
         });
         console.warn('[LK 0b] 📡 Token status:', res.status, res.ok ? '✅' : '❌');
