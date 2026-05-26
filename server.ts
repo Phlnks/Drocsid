@@ -781,7 +781,7 @@ async function startServer() {
 
   app.post("/api/livekit/webhook", express.raw({ type: "application/webhook+json" }), async (req, res) => {
     try {
-      const event = webhookReceiver.receive(req.body.toString('utf8'), req.get('Authorization'));
+      const event = await webhookReceiver.receive(req.body.toString('utf8'), req.get('Authorization'));
       const roomName = event.room?.name || event.room?.sid;
       
       if (!roomName) return res.status(200).send();
