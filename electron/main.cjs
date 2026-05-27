@@ -83,6 +83,22 @@ function createWindow() {
   });
 
   mainWindow.loadURL(startUrl);
+
+  // Gérer automatiquement les requêtes getDisplayMedia() avec la capture de l'audio du système
+  mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+      // Pour l'instant on se limite au premier écran et on active le loopback audio (son système).
+      // L'API native de Chromium gèrera l'acheminement de l'audio "loopback".
+      const selectedSource = sources[0];
+      callback({
+        video: selectedSource,
+        audio: 'loopback'
+      });
+    }).catch(err => {
+      console.error('Erreur setDisplayMediaRequestHandler:', err);
+      callback(); // Annule la demande en cas d'erreur
+    });
+  });
 }
 
 function createTray() {
