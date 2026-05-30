@@ -159,25 +159,27 @@ export default function ScreenShareViewer() {
       viewingScreenShares.has(uid)
     ),
   ].filter(([uid]) => uid !== useAppStore.getState().activeStreamFocus);
+  
+	const audibleStreamIds = Array.from(viewingScreenShares).filter((uid) => uid !== currentUser?.id && !!remoteScreenShareAudioTracks[uid]);
 
-  if (allStreams.length === 0) return null;
+  if (allStreams.length === 0 && audibleStreamIds.length === 0) return null;
 
   return (
     <>
-		{allStreams.filter(([uid]) => uid !== currentUser?.id && viewingScreenShares.has(uid)).map(([uid]) => {
-			const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
-			if (!audioTrack) return null;
+		{audibleStreamIds.map((uid) => {
+		  const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
+		  if (!audioTrack) return null;
 
-			return (
-			  <StreamAudioPlayer
-				key={`stream-audio-${uid}`}
-				ownerId={uid}
-				track={audioTrack}
-				volume={streamVolume}
-				muted={isDeafened || isStreamVolumeMuted}
-				selectedSpeakerId={voiceSettings.selectedSpeakerId}
-			  />
-			);
+		  return (
+			<StreamAudioPlayer
+			  key={`stream-audio-${uid}`}
+			  ownerId={uid}
+			  track={audioTrack}
+			  volume={streamVolume}
+			  muted={isDeafened || isStreamVolumeMuted}
+			  selectedSpeakerId={voiceSettings.selectedSpeakerId}
+			/>
+		  );
 		})}
 
       <div className="absolute top-14 md:top-4 right-4 z-50 flex flex-col gap-4 max-w-[200px] md:max-w-sm w-full pointer-events-none">
