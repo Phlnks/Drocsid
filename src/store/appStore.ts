@@ -410,29 +410,10 @@ export const useAppStore = create<AppState>((set) => ({
     
     // ✅ PROTECTION : Si c'est le channel LiveKit actuel, on fusionne avec la "vérité" LiveKit
     // pour éviter les disparitions si le Socket est instable (Render timeout).
-    let finalParticipants = sanitized;
-    if (state.connectedVoiceChannelId === channelId) {
-      const socketIds = new Set(sanitized.map(p => p.id));
-      const missingLiveKitUsers = Array.from(state.livekitParticipantIdentities).filter(id => !socketIds.has(id));
-      
-      if (missingLiveKitUsers.length > 0) {
-        console.warn('[Sync] Socket missed users still in LiveKit, protecting:', missingLiveKitUsers);
-        const restored = missingLiveKitUsers.map(id => {
-          const profile = state.globalProfiles[id];
-          const existing = current?.find(p => p.id === id);
-          return existing || {
-            id,
-            name: profile?.username || profile?.display_name || 'Utilisateur',
-            avatarUrl: profile?.avatar_url,
-            isMuted: false,
-            isStreaming: false,
-            joinedAt: new Date().toISOString()
-          };
-        });
-        finalParticipants = [...sanitized, ...restored];
-      }
-    }
-
+    const finalParticipants = sanitized;
+    const socketIds = new Set(sanitized.map(p => p.id));
+    const missingLiveKitUsers = Array.from(state.livekitParticipantIdentities).filter(id => !socketIds.has(id));
+	
     if (participantsSig(current) === participantsSig(finalParticipants)) return state;
     return {
       voiceParticipants: {
