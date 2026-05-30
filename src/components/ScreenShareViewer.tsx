@@ -93,15 +93,15 @@ function StreamAudioPlayer({
 export default function ScreenShareViewer() {
   const { user: currentUser } = useAuthStore();
   const {
-    remoteScreenShares,
-    remoteScreenShareAudioTracks,
-    localScreenShareStream,
-    viewingScreenShares,
-    voiceVolume,
-    isDeafened,
-    isVoiceVolumeMuted,
-    voiceSettings
-  } = useAppStore();
+	  remoteScreenShares,
+	  remoteScreenShareAudioTracks,
+	  localScreenShareStream,
+	  viewingScreenShares,
+	  streamVolume,
+	  isStreamVolumeMuted,
+	  isDeafened,
+	  voiceSettings
+	} = useAppStore();
 
   const [poppedOutStreams, setPoppedOutStreams] = useState<Set<string>>(new Set());
 
@@ -164,23 +164,21 @@ export default function ScreenShareViewer() {
 
   return (
     <>
-      {allStreams.map(([uid]) => {
-        if (uid === currentUser?.id) return null;
+		{allStreams.filter(([uid]) => uid !== currentUser?.id && viewingScreenShares.has(uid)).map(([uid]) => {
+			const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
+			if (!audioTrack) return null;
 
-        const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
-        if (!audioTrack) return null;
-
-        return (
-          <StreamAudioPlayer
-            key={`stream-audio-${uid}`}
-            ownerId={uid}
-            track={audioTrack}
-            volume={voiceVolume}
-            muted={isDeafened || isVoiceVolumeMuted}
-            selectedSpeakerId={voiceSettings.selectedSpeakerId}
-          />
-        );
-      })}
+			return (
+			  <StreamAudioPlayer
+				key={`stream-audio-${uid}`}
+				ownerId={uid}
+				track={audioTrack}
+				volume={streamVolume}
+				muted={isDeafened || isStreamVolumeMuted}
+				selectedSpeakerId={voiceSettings.selectedSpeakerId}
+			  />
+			);
+		})}
 
       <div className="absolute top-14 md:top-4 right-4 z-50 flex flex-col gap-4 max-w-[200px] md:max-w-sm w-full pointer-events-none">
         {allStreams.map(([uid, stream]) => {

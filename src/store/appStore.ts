@@ -123,8 +123,12 @@ interface AppState {
   isSoundboardMuted: boolean;
   voiceVolume: number;
   isVoiceVolumeMuted: boolean;
-  peerVolumes: Record<string, number>;
+  streamVolume: number;
+  isStreamVolumeMuted: boolean;
+  peerVolumes: Record;
   setPeerVolume: (peerId: string, volume: number) => void;
+  setStreamVolume: (volume: number) => void;
+  setIsStreamVolumeMuted: (muted: boolean) => void;
   serverSettingsModal: {
     isOpen: boolean;
     serverId: string | null;
@@ -233,6 +237,8 @@ export const useAppStore = create<AppState>((set) => ({
   isSoundboardMuted: safeParse('drocsid-soundboard-muted', false),
   voiceVolume: safeParse('drocsid-voice-volume', 1.0),
   isVoiceVolumeMuted: safeParse('drocsid-voice-volume-muted', false),
+  streamVolume: safeParse('drocsid-stream-volume', 1.0),
+  isStreamVolumeMuted: safeParse('drocsid-stream-volume-muted', false),
   peerVolumes: safeParse('drocsid-peer-volumes', {}),
   serverSettingsModal: {
     isOpen: false,
@@ -380,6 +386,14 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem('drocsid-peer-volumes', JSON.stringify(newPeerVolumes));
     return { peerVolumes: newPeerVolumes };
   }),
+	setStreamVolume: (volume) => set(() => {
+	  localStorage.setItem('drocsid-stream-volume', JSON.stringify(volume));
+	  return { streamVolume: volume };
+	}),
+	setIsStreamVolumeMuted: (muted) => set(() => {
+	  localStorage.setItem('drocsid-stream-volume-muted', JSON.stringify(muted));
+	  return { isStreamVolumeMuted: muted };
+	}),
   setTheme: (theme) => {
     localStorage.setItem('drocsid-theme', theme);
     set({ theme });

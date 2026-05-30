@@ -85,8 +85,7 @@ export default function WebRTCManager() {
 	  screenShareQuality,
 	  localScreenShareStream,
 	  setLocalScreenShareStream,
-	  setRemoteScreenShares,
-	  remoteScreenShareAudioTracks,
+	  setRemoteScreenShares,	  
 	  viewingScreenShares,
 	  setViewingScreenShares,
 	  setActiveStreamFocus,
@@ -1072,15 +1071,6 @@ export default function WebRTCManager() {
 		{/* Micros distants normaux */}
 		{Array.from(remoteTracks.entries()).map(([uid, track]) => (
 		  <AudioPlayer key={`mic-${uid}`} userId={uid} track={track} />
-		))}
-
-		{/* Audio applicatif des screen shares */}
-		{Object.entries(remoteScreenShareAudioTracks).map(([uid, track]) => (
-		  <AudioPlayer
-			key={`stream-audio-${uid}`}
-			userId={uid}
-			track={track as RemoteAudioTrack}
-		  />
 		))}
 	  </>
 	);
