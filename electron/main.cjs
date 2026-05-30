@@ -1,6 +1,35 @@
 const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalShortcut, Notification, nativeImage, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
+const {
+  Room,
+  AudioSource,
+  AudioFrame,
+  LocalAudioTrack,
+  TrackPublishOptions,
+  TrackSource,
+  dispose,
+} = require('@livekit/rtc-node');
+console.log('[main] loaded');
+
+let livekitAppAudioConfig = {
+  url: process.env.LIVEKIT_URL || null,
+  token: null,
+};
+
+let livekitAudioRoom = null;
+let livekitAppAudioSource = null;
+let livekitAppAudioTrack = null;
+let livekitAppAudioPublication = null;
+let livekitAppAudioConnected = false;
+
+const debugLogPath = path.join(app.getPath('temp'), 'drocsid-main.log');
+const debugLog = (msg) => {
+  try {
+    fs.appendFileSync(debugLogPath, `[${new Date().toISOString()}] ${msg}\n`);
+  } catch {}
+};
 
 // Force app name early
 app.name = 'Drocsid';
@@ -83,22 +112,6 @@ function createWindow() {
   });
 
   mainWindow.loadURL(startUrl);
-
-  // Gérer automatiquement les requêtes getDisplayMedia() avec la capture de l'audio du système
-  mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
-    desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-      // Pour l'instant on se limite au premier écran et on active le loopback audio (son système).
-      // L'API native de Chromium gèrera l'acheminement de l'audio "loopback".
-      const selectedSource = sources[0];
-      callback({
-        video: selectedSource,
-        audio: 'loopback'
-      });
-    }).catch(err => {
-      console.error('Erreur setDisplayMediaRequestHandler:', err);
-      callback(); // Annule la demande en cas d'erreur
-    });
-  });
 }
 
 function createTray() {
@@ -333,13 +346,450 @@ ipcMain.on('set-launch-at-startup', (event, enabled) => {
   });
 });
 
+//-------ajout livekit
+
+ipcMain.handle('configure-livekit-app-audio', async (_event, payload) => {
+  try {
+    const url = payload?.url || process.env.LIVEKIT_URL || null;
+    const token = payload?.token || null;
+
+    if (!url) {
+      return { ok: false, error: 'LIVEKIT_URL manquant' };
+    }
+
+    if (!token) {
+      return { ok: false, error: 'Token LiveKit manquant' };
+    }
+
+    livekitAppAudioConfig = { url, token };
+    debugLog('[LiveKitAppAudio] config updated');
+    return { ok: true };
+  } catch (error) {
+    debugLog(`[LiveKitAppAudio] config error: ${error?.message || error}`);
+    return { ok: false, error: error?.message || 'config error' };
+  }
+});
+
+async function ensureLivekitAppAudioPublisher() {
+  if (
+    livekitAudioRoom &&
+    livekitAppAudioConnected &&
+    livekitAppAudioSource &&
+    livekitAppAudioTrack
+  ) {
+    return;
+  }
+
+  const { url, token } = livekitAppAudioConfig || {};
+
+  if (!url) {
+    throw new Error('LIVEKIT_URL non configuré');
+  }
+
+  if (!token) {
+    throw new Error('Token LiveKit non configuré');
+  }
+
+  livekitAudioRoom = new Room();
+
+  await livekitAudioRoom.connect(url, token, {
+    autoSubscribe: true,
+    dynacast: true,
+  });
+
+  livekitAppAudioSource = new AudioSource(48000, 2);
+  livekitAppAudioTrack = LocalAudioTrack.createAudioTrack('app-audio', livekitAppAudioSource);
+
+  const options = new TrackPublishOptions();
+  options.source = TrackSource.SOURCE_MICROPHONE;
+
+  livekitAppAudioPublication = await livekitAudioRoom.localParticipant.publishTrack(
+    livekitAppAudioTrack,
+    options
+  );
+
+  livekitAppAudioConnected = true;
+  debugLog('[LiveKitAppAudio] connected and track published');
+}
+
+async function pushPcmChunkToLivekit(chunk) {
+  if (!livekitAppAudioSource) return;
+  if (!Buffer.isBuffer(chunk)) chunk = Buffer.from(chunk);
+
+  const aligned = chunk.length - (chunk.length % 2);
+  if (aligned <= 0) return;
+
+  const view = chunk.subarray(0, aligned);
+  const pcm = new Int16Array(
+    view.buffer,
+    view.byteOffset,
+    view.byteLength / 2
+  );
+
+  const samplesPerChannel = pcm.length / 2;
+  if (!Number.isInteger(samplesPerChannel) || samplesPerChannel <= 0) return;
+
+  const frame = new AudioFrame(pcm, 48000, 2, samplesPerChannel);
+  await livekitAppAudioSource.captureFrame(frame);
+}
+
+async function teardownLivekitAppAudioPublisher() {
+  try {
+    if (livekitAppAudioTrack) {
+      await livekitAppAudioTrack.close();
+    }
+  } catch {}
+
+  try {
+    if (livekitAudioRoom) {
+      await livekitAudioRoom.disconnect();
+    }
+  } catch {}
+
+  livekitAudioRoom = null;
+  livekitAppAudioSource = null;
+  livekitAppAudioTrack = null;
+  livekitAppAudioPublication = null;
+  livekitAppAudioConnected = false;
+
+  debugLog('[LiveKitAppAudio] publisher disposed');
+}
+
+// ─── IPC — Capture audio applicative (Préparation) ──────────────────────────
+let appAudioStatus = 'idle'; // idle | starting | running | stopping | error
+
+ipcMain.handle('start-app-audio', async (event, pid) => {
+  if (process.platform !== 'win32') {
+    return { ok: false, status: appAudioStatus, error: 'App audio capture is only supported on Windows' };
+  }
+
+  if (typeof pid !== 'number' || pid <= 0 || isNaN(pid)) {
+    return { ok: false, status: appAudioStatus, error: 'Invalid PID provided' };
+  }
+
+  console.log(`[AppAudio] Demande de capture pour le PID: ${pid}`);
+
+  // Retour honnête : pas encore implémenté
+  return { 
+    ok: false, 
+    status: appAudioStatus, 
+    error: 'App audio capture not implemented yet' 
+  };
+});
+
+ipcMain.handle('stop-app-audio', async (event) => {
+  // Rien n'est lancé pour l'instant, on retourne donc l'état actuel (idle)
+  return { ok: true, status: appAudioStatus };
+});
+
+ipcMain.handle('get-app-audio-status', async (event) => {
+  return { ok: true, status: appAudioStatus };
+});
+
+// ─── IPC — Backend Externe Windows (ApplicationLoopback piloté par stop-file) ─────
+let loopbackTestState = 'idle'; // idle | launching | process_running | stopping | error
+let loopbackProcess = null;
+let loopbackStopFilePath = null;
+let loopbackOutputPath = null;
+let loopbackTargetPid = null;
+let loopbackPcmBytesReceived = 0;
+let loopbackPcmChunksReceived = 0;
+
+// 1. Variable d'environnement prioritaire pour les tests locaux.
+// 2. Fallback resources/bin en mode packagé.
+// 3. Fallback ./bin en mode développement.
+const getLoopbackExePath = () => {
+  if (process.env.LOOPBACK_EXE_PATH) return process.env.LOOPBACK_EXE_PATH;
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'bin', 'ApplicationLoopback.exe')
+    : path.join(__dirname, '..', 'bin', 'ApplicationLoopback.exe');
+};
+
+const ensureParentDir = (filePath) => {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+};
+
+const safeUnlink = (filePath) => {
+  if (!filePath) return;
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.rmSync(filePath, { force: true });
+    }
+  } catch (err) {
+    console.warn('[LoopbackTest] Impossible de supprimer le fichier:', filePath, err);
+  }
+};
+
+const buildDefaultLoopbackPaths = (pid) => {
+  const baseDir = path.join(app.getPath('temp'), 'Drocsid', 'loopback');
+  fs.mkdirSync(baseDir, { recursive: true });
+
+	const stamp = `${Date.now()}-${process.pid}-${pid}`;
+	  return {
+	  outputPath: path.join(baseDir, `loopback-${stamp}.unused`),
+	  stopFilePath: path.join(baseDir, `loopback-${stamp}.stop`)
+	};
+};
+
+ipcMain.handle('launch-loopback-test', async (event, pid, outputPath) => {
+  if (process.platform !== 'win32') {
+    return {
+      ok: false,
+      status: loopbackTestState,
+      error: "La capture audio par application n'est supportée que sur Windows."
+    };
+  }
+
+  if (typeof pid !== 'number' || pid <= 0 || Number.isNaN(pid)) {
+    return {
+      ok: false,
+      status: loopbackTestState,
+      error: 'PID invalide fourni.'
+    };
+  }
+
+  if (loopbackTestState === 'process_running' || loopbackTestState === 'launching' || loopbackTestState === 'stopping') {
+    return {
+      ok: false,
+      status: loopbackTestState,
+      error: 'Une capture loopback est déjà en cours.'
+    };
+  }
+
+  const exePath = getLoopbackExePath();
+  if (!fs.existsSync(exePath)) {
+    return {
+      ok: false,
+      status: loopbackTestState,
+      error: `Binaire introuvable: ${exePath}. Spécifiez LOOPBACK_EXE_PATH pour forcer le chemin local.`
+    };
+  }
+
+  const defaults = buildDefaultLoopbackPaths(pid);
+  const finalOutputPath = (typeof outputPath === 'string' && outputPath.trim())
+    ? outputPath
+    : defaults.outputPath;
+  const finalStopFilePath = defaults.stopFilePath;
+
+  try {
+    ensureParentDir(finalOutputPath);
+    ensureParentDir(finalStopFilePath);
+
+    safeUnlink(finalStopFilePath);
+
+    loopbackTestState = 'launching';
+    loopbackOutputPath = finalOutputPath;
+    loopbackStopFilePath = finalStopFilePath;
+    loopbackTargetPid = pid;
+
+	debugLog(`[LoopbackTest] launch requested`);
+	debugLog(`[LoopbackTest] exePath=${exePath}`);
+	debugLog(`[LoopbackTest] pid=${pid}`);
+	debugLog(`[LoopbackTest] outputPath=${loopbackOutputPath}`);
+	debugLog(`[LoopbackTest] stopFilePath=${loopbackStopFilePath}`);
+	debugLog(`[LoopbackTest] args=${JSON.stringify([pid.toString(), 'includetree', loopbackOutputPath, loopbackStopFilePath])}`);
+
+    console.log(`[LoopbackTest] Lancement binaire : ${exePath}`);
+    console.log(`[LoopbackTest] PID cible : ${pid}`);
+    debugLog("PID cible: "+pid);
+    
+	console.log(`[LoopbackTest] PCM stdout activé, arg compatibilité : ${loopbackOutputPath}`);
+    console.log(`[LoopbackTest] Stop file : ${loopbackStopFilePath}`);    
+	
+
+	debugLog(`[LoopbackTest] spawning process now`);
+	
+	loopbackPcmBytesReceived = 0;
+	loopbackPcmChunksReceived = 0;
+	
+	await ensureLivekitAppAudioPublisher();
+	
+    loopbackProcess = spawn(
+      exePath,
+      [pid.toString(), 'includetree', loopbackOutputPath, loopbackStopFilePath],
+      {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+      }
+    );
+
+	loopbackProcess.stdout.on('data', async (chunk) => {
+		try{
+		  if (!Buffer.isBuffer(chunk)) {
+			chunk = Buffer.from(chunk);
+		  }
+
+		  loopbackPcmBytesReceived += chunk.length;
+		  loopbackPcmChunksReceived += 1;
+
+		  debugLog(
+			`[LoopbackTest][pcm] chunk=${chunk.length} totalBytes=${loopbackPcmBytesReceived} totalChunks=${loopbackPcmChunksReceived}`
+		  );
+		  await pushPcmChunkToLivekit(chunk);
+
+		  if (mainWindow && !mainWindow.isDestroyed()) {
+			mainWindow.webContents.send('loopback-pcm-chunk', {
+			  byteLength: chunk.length,
+			  totalBytes: loopbackPcmBytesReceived,
+			  totalChunks: loopbackPcmChunksReceived,
+			});
+		  }
+		}catch (err) {
+		  console.error('[LiveKitAppAudio] push chunk failed:', err);
+		  debugLog(`[LiveKitAppAudio] push chunk failed: ${err?.message || err}`);
+		}
+	});
+
+    loopbackProcess.stderr.on('data', (data) => {
+	  const text = data.toString().trim();
+	  console.error(`[LoopbackTest][stderr] ${text}`);
+	  debugLog(`[LoopbackTest][stderr] ${text}`);
+	});
+
+    loopbackProcess.on('spawn', () => {
+	  loopbackTestState = 'process_running';
+	  console.log('[LoopbackTest] Processus OS démarré avec succès.');
+	  debugLog('[LoopbackTest] spawn event received, state=process_running');
+	});
+
+    loopbackProcess.on('error', (err) => {
+	  console.error('[LoopbackTest] Erreur critique process:', err);
+	  debugLog(`[LoopbackTest] process error: ${err?.message || err}`);
+	  loopbackTestState = 'error';
+	  loopbackProcess = null;
+	});
+
+    loopbackProcess.on('exit', async (code, signal) => {
+	  console.log(`[LoopbackTest] Processus externe terminé (code: ${code}, signal: ${signal ?? 'none'}).`);
+	  debugLog(`[LoopbackTest] exit event code=${code} signal=${signal ?? 'none'} state_before_cleanup=${loopbackTestState}`);
+
+	  if (code === 0 || loopbackTestState === 'stopping') {
+		loopbackTestState = 'idle';
+	  } else {
+		loopbackTestState = 'error';
+	  }
+
+	  debugLog(`[LoopbackTest] cleanup start`);
+
+	  loopbackProcess = null;
+	  safeUnlink(loopbackStopFilePath);
+	  loopbackStopFilePath = null;
+	  loopbackTargetPid = null;
+	  loopbackOutputPath = null;
+	  loopbackPcmBytesReceived = 0;
+	  loopbackPcmChunksReceived = 0;
+
+	  await teardownLivekitAppAudioPublisher();
+
+	  debugLog(`[LoopbackTest] cleanup done, state=${loopbackTestState}`);
+	});
+
+	debugLog(`[LoopbackTest] handler returning ok=true status=launching`);
+
+    return {
+      ok: true,
+      status: 'launching',
+      outputPath: loopbackOutputPath,
+      stopFilePath: loopbackStopFilePath
+    };
+  } catch (error) {
+    loopbackTestState = 'error';
+    loopbackProcess = null;
+    console.error('[LoopbackTest] Exception de lancement:', error);
+	debugLog(`[LoopbackTest] launch exception: ${error?.message || error}`);
+
+    return {
+      ok: false,
+      status: loopbackTestState,
+      error: error.message
+    };
+  }
+  
+});
+
+ipcMain.handle('stop-loopback-test', async () => {
+	debugLog(`[LoopbackTest] stop requested state=${loopbackTestState} hasProcess=${!!loopbackProcess} stopFile=${loopbackStopFilePath || 'null'}`);
+  if (loopbackTestState === 'idle' || !loopbackProcess || !loopbackStopFilePath) {
+	debugLog('[LoopbackTest] stop ignored because process is not running');
+    loopbackTestState = 'idle';	
+    return { ok: true, status: loopbackTestState };
+  }
+
+  loopbackTestState = 'stopping';
+  console.log("[LoopbackTest] Création du stop-file pour arrêt propre...");
+
+  try {
+    ensureParentDir(loopbackStopFilePath);
+    fs.writeFileSync(loopbackStopFilePath, 'stop', 'utf8');
+	debugLog(`[LoopbackTest] stop file written: ${loopbackStopFilePath}`);
+    return {
+      ok: true,
+      status: loopbackTestState,
+      stopFilePath: loopbackStopFilePath
+    };
+  } catch (error) {
+    console.error('[LoopbackTest] Impossible de créer le stop-file:', error);
+	debugLog(`[LoopbackTest] stop failed: ${error?.message || error}`);
+
+    return {
+      ok: false,
+      status: 'error',
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('get-loopback-test-status', async () => {
+  return {
+    ok: true,
+    status: loopbackTestState,
+    pid: loopbackTargetPid,
+    outputPath: loopbackOutputPath,
+    stopFilePath: loopbackStopFilePath,
+    pcmBytesReceived: loopbackPcmBytesReceived,
+    pcmChunksReceived: loopbackPcmChunksReceived
+  };
+});
+
 ipcMain.handle('get-desktop-sources', async () => {
-  const sources = await desktopCapturer.getSources({ types: ['window', 'screen'], thumbnailSize: { width: 320, height: 180 } });
-  return sources.map(source => ({
-    id: source.id,
-    name: source.name,
-    thumbnail: source.thumbnail.toDataURL(),
-  }));
+  debugLog('[main] get-desktop-sources invoked');	
+  console.log('[main] get-desktop-sources invoked');
+  const sources = await desktopCapturer.getSources({
+    types: ['window', 'screen'],
+    thumbnailSize: { width: 320, height: 180 }
+  });
+
+  const mapped = await Promise.all(
+    sources.map(async (source) => {
+      const isScreen = source.id.startsWith('screen');
+      const hwnd = isScreen ? null : extractHwndFromSourceId(source.id);
+      const pid = hwnd ? await resolvePidFromHwnd(hwnd) : null;
+
+      console.log('[DesktopSource]', {
+        name: source.name,
+        id: source.id,
+        type: isScreen ? 'screen' : 'window',
+        hwnd,
+        pid
+      });
+	  
+	  debugLog(`DesktopSource pid=${pid} hwnd=${hwnd} name=${source.name} id=${source.id}`);
+	  
+      return {
+        id: source.id,
+        name: source.name,
+        thumbnail: source.thumbnail.toDataURL(),
+        type: isScreen ? 'screen' : 'window',
+        hwnd,
+        pid,
+        processName: null,
+        canShareAppAudio: !!pid
+      };
+    })
+  );
+
+  return mapped;
 });
 
 app.on('before-quit', () => {
@@ -399,4 +849,74 @@ app.on('window-all-closed', function () {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+
+  try {
+    if (loopbackProcess && loopbackStopFilePath) {
+      ensureParentDir(loopbackStopFilePath);
+      fs.writeFileSync(loopbackStopFilePath, 'stop', 'utf8');
+    }
+  } catch (e) {
+    console.error('[LoopbackTest] Erreur cleanup will-quit:', e);
+  }
+
+  dispose().catch((e) => {
+    console.error('[LiveKitAppAudio] dispose error:', e);
+  });
 });
+
+const getWindowPidResolverPath = () => {
+  if (process.env.WINDOW_PID_RESOLVER_EXE_PATH) return process.env.WINDOW_PID_RESOLVER_EXE_PATH;
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'bin', 'WindowPidResolver.exe')
+    : path.join(__dirname, '..', 'bin', 'WindowPidResolver.exe');
+};
+
+const extractHwndFromSourceId = (sourceId) => {
+  if (!sourceId || typeof sourceId !== 'string') return null;
+  const match = /^window:(\d+):\d+$/.exec(sourceId);
+  return match ? match[1] : null;
+};
+
+const resolvePidFromHwnd = (hwndString) => {
+  return new Promise((resolve) => {
+    const resolverPath = getWindowPidResolverPath();
+
+    if (!fs.existsSync(resolverPath)) {
+      console.warn('[WindowPidResolver] Binaire introuvable:', resolverPath);
+      return resolve(null);
+    }
+
+    const child = spawn(resolverPath, [hwndString], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('error', (err) => {
+      console.error('[WindowPidResolver] Erreur process:', err);
+      resolve(null);
+    });
+
+    child.on('exit', (code) => {
+      if (code !== 0) {
+        if (stderr.trim()) {
+          console.warn('[WindowPidResolver] stderr:', stderr.trim());
+        }
+        return resolve(null);
+      }
+
+      const pid = parseInt(stdout.trim(), 10);
+      resolve(Number.isFinite(pid) && pid > 0 ? pid : null);
+    });
+  });
+};

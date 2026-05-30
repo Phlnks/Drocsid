@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { type DesktopSourceInfo } from '../vite-env';
 
 function safeParse<T>(key: string, fallback: T): T {
   try {
@@ -17,6 +18,8 @@ function participantsSig(arr: any[] | undefined): string {
     .sort()
     .join('|');
 }
+
+const isTechnicalParticipant = (id?: string) => !!id && id.endsWith('-appaudio');
 
 interface VoiceSettings {
   echoCancellation: boolean;
@@ -53,6 +56,16 @@ export interface Notification {
   message: string;
 }
 
+interface VoiceParticipant {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  isMuted: boolean;
+  isDeafened?: boolean;
+  isStreaming: boolean;
+  joinedAt: string;
+}
+
 interface AppState {
   isSoundsLoading: boolean;
   setSoundsLoading: (loading: boolean) => void;
@@ -79,7 +92,15 @@ interface AppState {
   isScreenSharing: boolean;
   screenShareQuality: ScreenShareQuality | null;
   localScreenShareStream: MediaStream | null;
+  
+  activeShareSource: DesktopSourceInfo | null;
+  loopbackStatus: 'idle' | 'launching' | 'process_running' | 'stopping' | 'error';
+  loopbackOutputPath: string | null;
+  loopbackError: string | null;
+  screenShareHasAudio: boolean;
+  
   remoteScreenShares: Record<string, MediaStream>;
+  remoteScreenShareAudioTracks: Record<string, any>;
   viewingScreenShares: Set<string>;
   activeStreamFocus: string | null;
   isRightSidebarOpen: boolean;
@@ -92,7 +113,7 @@ interface AppState {
     appearance: 'dark' | 'light';
   };
   onlineUserIds: string[];
-  voiceParticipants: Record<string, any[]>;
+  voiceParticipants: Record<string, VoiceParticipant[]>;
   livekitParticipantIdentities: Set<string>; // ✅ Truth from LiveKit
   globalProfiles: Record<string, any>;
   highlightedMessageId: string | null;
@@ -138,14 +159,20 @@ interface AppState {
   setScreenShareQuality: (quality: ScreenShareQuality | null) => void;
   setLocalScreenShareStream: (stream: MediaStream | null) => void;
   setRemoteScreenShares: (shares: Record<string, MediaStream> | ((prev: Record<string, MediaStream>) => Record<string, MediaStream>)) => void;
+  setRemoteScreenShareAudioTracks: (tracks: Record<string, any> | ((prev: Record<string, any>) => Record<string, any>)) => void;
   setViewingScreenShares: (shares: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
   setActiveStreamFocus: (uid: string | null) => void;
+  setActiveShareSource: (source: DesktopSourceInfo | null) => void;
+  setLoopbackStatus: (status: 'idle' | 'launching' | 'process_running' | 'stopping' | 'error') => void;
+  setLoopbackOutputPath: (path: string | null) => void;
+  setLoopbackError: (error: string | null) => void;
+  setScreenShareHasAudio: (hasAudio: boolean) => void;
   setIsRightSidebarOpen: (isOpen: boolean | ((prev: boolean) => boolean)) => void;
   setIsMobileNavOpen: (isOpen: boolean | ((prev: boolean) => boolean)) => void;
   setTheme: (theme: 'classic' | 'neon' | 'ocean' | 'forest' | 'sunset' | 'dracula' | 'synthwave' | 'nord' | 'monokai' | 'cyberpunk' | 'custom') => void;
   setCustomTheme: (theme: Partial<AppState['customTheme']>) => void;
   setOnlineUserIds: (ids: string[]) => void;
-  setVoiceParticipants: (channelId: string, participants: any[]) => void;
+  setVoiceParticipants: (channelId: string, participants: VoiceParticipant[]) => void;
   setGlobalProfile: (profile: any) => void;
   setGlobalProfiles: (profiles: any[]) => void;
   syncVoiceParticipantsWithLiveKit: (channelId: string, identities: string[]) => void;
@@ -153,7 +180,7 @@ interface AppState {
   setDraft: (id: string, content: string) => void;
   addNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeNotification: (id: string) => void;
-  setMobileTab: (tab: 'messages' | 'servers' | 'notifications' | 'profile') => void;
+  setMobileTab: (tab: 'messages' | 'servers' | 'channels' | 'notifications' | 'profile') => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -179,7 +206,15 @@ export const useAppStore = create<AppState>((set) => ({
   isScreenSharing: false,
   screenShareQuality: null,
   localScreenShareStream: null,
+
+  activeShareSource: null,
+  loopbackStatus: 'idle',
+  loopbackOutputPath: null,
+  loopbackError: null,
+  screenShareHasAudio: false,
+
   remoteScreenShares: {},
+  remoteScreenShareAudioTracks: {},
   viewingScreenShares: new Set(),
   activeStreamFocus: null,
   isRightSidebarOpen: false,
@@ -304,6 +339,10 @@ export const useAppStore = create<AppState>((set) => ({
     });
     return { remoteScreenShares: newShares };
   }),
+  setRemoteScreenShareAudioTracks: (tracks) => set((state) => ({
+    remoteScreenShareAudioTracks:
+      typeof tracks === 'function' ? tracks(state.remoteScreenShareAudioTracks) : tracks
+  })),
   setViewingScreenShares: (shares) => set((state) => ({
     viewingScreenShares: typeof shares === 'function' ? shares(state.viewingScreenShares) : shares
   })),
@@ -311,6 +350,11 @@ export const useAppStore = create<AppState>((set) => ({
   setIsRightSidebarOpen: (isOpen) => set((state) => ({
     isRightSidebarOpen: typeof isOpen === 'function' ? isOpen(state.isRightSidebarOpen) : isOpen
   })),
+  setActiveShareSource: (source) => set({ activeShareSource: source }),
+  setLoopbackStatus: (status) => set({ loopbackStatus: status }),
+  setLoopbackOutputPath: (path) => set({ loopbackOutputPath: path }),
+  setLoopbackError: (error) => set({ loopbackError: error }),
+  setScreenShareHasAudio: (hasAudio) => set({ screenShareHasAudio: hasAudio }),
   setIsMobileNavOpen: (isOpen) => set((state) => ({
     isMobileNavOpen: typeof isOpen === 'function' ? isOpen(state.isMobileNavOpen) : isOpen
   })),
@@ -347,13 +391,14 @@ export const useAppStore = create<AppState>((set) => ({
   }),
   setOnlineUserIds: (ids: string[]) => set({ onlineUserIds: ids }),
   setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
+	const sanitized = participants.filter(p => !isTechnicalParticipant(p.id));
     const current = state.voiceParticipants[channelId];
     
     // ✅ PROTECTION : Si c'est le channel LiveKit actuel, on fusionne avec la "vérité" LiveKit
     // pour éviter les disparitions si le Socket est instable (Render timeout).
-    let finalParticipants = participants;
+    let finalParticipants = sanitized;
     if (state.connectedVoiceChannelId === channelId) {
-      const socketIds = new Set(participants.map(p => p.id));
+      const socketIds = new Set(sanitized.map(p => p.id));
       const missingLiveKitUsers = Array.from(state.livekitParticipantIdentities).filter(id => !socketIds.has(id));
       
       if (missingLiveKitUsers.length > 0) {
@@ -370,7 +415,7 @@ export const useAppStore = create<AppState>((set) => ({
             joinedAt: new Date().toISOString()
           };
         });
-        finalParticipants = [...participants, ...restored];
+        finalParticipants = [...sanitized, ...restored];
       }
     }
 
@@ -393,22 +438,23 @@ export const useAppStore = create<AppState>((set) => ({
     return { globalProfiles: newProfiles };
   }),
   syncVoiceParticipantsWithLiveKit: (channelId, identities) => set((state) => {
-    const current = state.voiceParticipants[channelId] || [];
-    const activeIds = new Set(identities);
+    const cleanIdentities = identities.filter(id => !isTechnicalParticipant(id));
+	const current = state.voiceParticipants[channelId] || [];
+    const activeIds = new Set(cleanIdentities);
     
     // 1. Filter out participants who are definitely not in LiveKit anymore
     const filtered = current.filter(p => activeIds.has(p.id));
     
     // 2. Identify missing participants
     const existingIds = new Set(filtered.map(p => p.id));
-    const missingIds = identities.filter(id => !existingIds.has(id));
+    const missingIds = cleanIdentities.filter(id => !existingIds.has(id));
     
     // Update the "Truth" set
-    const nextIdentities = new Set(identities);
+    const nextIdentities = new Set(cleanIdentities);
 
     if (missingIds.length === 0 && filtered.length === current.length && 
-        identities.length === state.livekitParticipantIdentities.size &&
-        identities.every(id => state.livekitParticipantIdentities.has(id))) {
+        cleanIdentities.length === state.livekitParticipantIdentities.size &&
+        cleanIdentities.every(id => state.livekitParticipantIdentities.has(id))) {
       return state;
     }
     

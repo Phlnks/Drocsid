@@ -63,25 +63,28 @@ export default function WebRTCManager() {
   const { getCurrentInstance } = useInstanceStore();
   const { user: currentUser } = useAuthStore();
   const {
-    connectedVoiceChannelId,
-    isVoiceMuted,
-    setIsVoiceMuted,
-    isDeafened,
-    setIsDeafened,
-    voiceSettings,
-    isPTTActive,
-    setConnectedVoiceChannelId,
-    isScreenSharing,
-    setIsScreenSharing,
-    screenShareQuality,
-    localScreenShareStream,
-    setLocalScreenShareStream,
-    setRemoteScreenShares,
-    viewingScreenShares,
-    setViewingScreenShares,
-    setActiveStreamFocus,
-    syncVoiceParticipantsWithLiveKit
-  } = useAppStore();
+	  connectedVoiceChannelId,
+	  isVoiceMuted,
+	  setIsVoiceMuted,
+	  isDeafened,
+	  setIsDeafened,
+	  voiceSettings,
+	  isPTTActive,
+	  setConnectedVoiceChannelId,
+	  isScreenSharing,
+	  setIsScreenSharing,
+	  screenShareQuality,
+	  localScreenShareStream,
+	  setLocalScreenShareStream,
+	  setRemoteScreenShares,
+	  viewingScreenShares,
+	  setViewingScreenShares,
+	  setActiveStreamFocus,
+	  syncVoiceParticipantsWithLiveKit,
+	  activeShareSource,
+	  screenShareHasAudio,
+	  setRemoteScreenShareAudioTracks,
+	} = useAppStore();
 
   const roomRef = useRef<Room | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -89,6 +92,7 @@ export default function WebRTCManager() {
   // Refs pour les tracks publiées — vidéo ET audio du screen share
   const publishedScreenTrackRef = useRef<LocalVideoTrack | null>(null);
   const publishedScreenAudioTrackRef = useRef<LocalAudioTrack | null>(null);
+  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 
   const noiseGateCtxRef = useRef<AudioContext | null>(null);
   const rawMicStreamRef = useRef<MediaStream | null>(null);
@@ -309,10 +313,7 @@ export default function WebRTCManager() {
     const sync = () => {
       if (!roomRef.current || !connectedVoiceChannelId) return;
       const room = roomRef.current;
-      const identities = [
-        currentUser.id,
-        ...Array.from(room.remoteParticipants.values()).map(p => p.identity)
-      ].filter(Boolean);
+      const identities = Array.from(room.remoteParticipants.values()).map(p => p.identity).filter((id): id is string => !!id && !id.endsWith('-appaudio'));
       syncVoiceParticipantsWithLiveKit(connectedVoiceChannelId, identities);
     };
 
@@ -378,7 +379,7 @@ export default function WebRTCManager() {
   }, [connectedVoiceChannelId, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened]);
 
 
-  // ─── Screen share publish — vidéo + audio système ─────────────────────────
+  // Screen share publish vidéo / audio
   useEffect(() => {
     if (!connectedVoiceChannelId || !currentUser || !roomRef.current) return;
 
@@ -389,31 +390,39 @@ export default function WebRTCManager() {
 
         if (localScreenShareStream) {
           const videoTrack = localScreenShareStream.getVideoTracks()[0];
-          const audioTrack = localScreenShareStream.getAudioTracks()[0];
+          const browserScreenAudioTrack = localScreenShareStream.getAudioTracks()[0];
 
-          // ── Vidéo ──
+          const isNativeWindowAppAudio =
+            activeShareSource?.type === 'window';
+
+          const shouldPublishBrowserScreenAudio =
+            !isNativeWindowAppAudio &&
+            !!screenShareHasAudio &&
+            !!browserScreenAudioTrack;
+
+          // Vidéo
           if (videoTrack) {
             if (publishedScreenTrackRef.current) {
               try {
                 await publishedScreenTrackRef.current.replaceTrack(videoTrack);
                 console.log('[WebRTC] Screen video track replaced (hot swap)');
               } catch (e) {
-                console.warn('[WebRTC] replaceTrack failed, republishing video:', e);
+                console.warn('[WebRTC] replaceTrack failed, republishing video', e);
                 await participant.unpublishTrack(publishedScreenTrackRef.current);
                 publishedScreenTrackRef.current = null;
+
                 const lvt = new LocalVideoTrack(videoTrack, undefined, false);
                 await participant.publishTrack(lvt, {
                   name: 'screen',
                   source: Track.Source.ScreenShare,
-                  // ✅ Piste 1 — pas de simulcast : un seul flux, pas 3 résolutions en parallèle
                   simulcast: false,
-                  // ✅ Piste 4 — encodage limité : pas besoin de plus pour un screen share
                   videoEncoding: {
-                    maxBitrate: 3_000_000,   // 3 Mbps — suffisant pour 1080p/1440p screen share
+                    maxBitrate: 3000000,
                     maxFramerate: 30,
-                    priority: 'high'
-                  }
+                    priority: 'high',
+                  },
                 });
+
                 publishedScreenTrackRef.current = lvt;
                 (useAppStore.getState() as any).publishedScreenTrack = lvt;
               }
@@ -422,67 +431,66 @@ export default function WebRTCManager() {
               await participant.publishTrack(lvt, {
                 name: 'screen',
                 source: Track.Source.ScreenShare,
-                // ✅ Piste 1 — désactiver le simulcast pour le screen share
-                // Le simulcast publie 2-3 résolutions en parallèle → RAM/CPU inutile à 2-3 personnes
                 simulcast: false,
-                // ✅ Piste 4 — limiter l'encodage
-                // Évite que LiveKit encode en 4K ou à 60fps sans limite
                 videoEncoding: {
-                  maxBitrate: 3_000_000,   // 3 Mbps
+                  maxBitrate: 3000000,
                   maxFramerate: 60,
-                  priority: 'high'
-                }
+                  priority: 'high',
+                },
               });
+
               publishedScreenTrackRef.current = lvt;
               (useAppStore.getState() as any).publishedScreenTrack = lvt;
-              console.log('[WebRTC] Screen video track published (no simulcast, H.264 preferred, 3Mbps max)');
+              console.log('[WebRTC] Screen video track published');
             }
           }
 
-          // ── Audio système ──
-          if (audioTrack) {
+          // Audio navigateur / desktop classique
+          if (shouldPublishBrowserScreenAudio && browserScreenAudioTrack) {
             if (!publishedScreenAudioTrackRef.current) {
               try {
-                const lat = new LocalAudioTrack(audioTrack, undefined, false);
+                const lat = new LocalAudioTrack(browserScreenAudioTrack, undefined, false);
                 await participant.publishTrack(lat, {
                   name: 'screen-audio',
-                  source: Track.Source.ScreenShareAudio
+                  source: Track.Source.ScreenShareAudio,
                 });
+
                 publishedScreenAudioTrackRef.current = lat;
                 console.log('[WebRTC] Screen audio track published');
               } catch (e) {
-                console.warn('[WebRTC] Screen audio publish failed:', e);
+                console.warn('[WebRTC] Screen audio publish failed', e);
               }
             }
-          } else {
-            if (publishedScreenAudioTrackRef.current) {
-              try {
-                await participant.unpublishTrack(publishedScreenAudioTrackRef.current);
-                publishedScreenAudioTrackRef.current = null;
-                console.log('[WebRTC] Screen audio unpublished (no audio in stream)');
-              } catch (e) {
-                console.warn('[WebRTC] Screen audio unpublish failed:', e);
-              }
+          } else if (publishedScreenAudioTrackRef.current) {
+            try {
+              await participant.unpublishTrack(publishedScreenAudioTrackRef.current);
+              publishedScreenAudioTrackRef.current = null;
+              console.log('[WebRTC] Screen audio unpublished');
+            } catch (e) {
+              console.warn('[WebRTC] Screen audio unpublish failed', e);
             }
           }
-
         } else {
-          // ── Arrêt du partage ──
+          // Arrêt du partage
           if (publishedScreenTrackRef.current) {
-            participant.getTrackPublications().forEach(pub => {
-              if (pub.source === Track.Source.ScreenShare) participant.unpublishTrack(pub.track as LocalTrack);
+            participant.getTrackPublications().forEach((pub) => {
+              if (pub.source === Track.Source.ScreenShare && pub.track) {
+                participant.unpublishTrack(pub.track as LocalTrack);
+              }
             });
+
             publishedScreenTrackRef.current = null;
             (useAppStore.getState() as any).publishedScreenTrack = null;
             console.log('[WebRTC] Screen video track unpublished');
           }
+
           if (publishedScreenAudioTrackRef.current) {
             try {
               await participant.unpublishTrack(publishedScreenAudioTrackRef.current);
               publishedScreenAudioTrackRef.current = null;
               console.log('[WebRTC] Screen audio track unpublished');
             } catch (e) {
-              console.warn('[WebRTC] Screen audio unpublish failed:', e);
+              console.warn('[WebRTC] Screen audio unpublish failed', e);
             }
           }
         }
@@ -492,7 +500,13 @@ export default function WebRTCManager() {
     };
 
     updateScreenshare();
-  }, [localScreenShareStream, connectedVoiceChannelId, currentUser]);
+  }, [
+    localScreenShareStream,
+    connectedVoiceChannelId,
+    currentUser,
+    activeShareSource,
+    screenShareHasAudio,
+  ]);
 
 
   // ─── Media Session API ─────────────────────────────────────────────────────
@@ -657,6 +671,37 @@ export default function WebRTCManager() {
         // ── Réception des tracks distantes ──
         room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
           
+		    // ─── Participant technique appaudio : jamais micro global, jamais participant UI ───
+		  if (participant.identity?.endsWith('-appaudio')) {
+			const ownerId = participant.identity.replace(/-appaudio$/, '');
+
+			if (track.kind === Track.Kind.Audio) {
+			  console.log('[StreamAudio:subscribe] app audio track received', {
+				appAudioParticipant: participant.identity,
+				ownerId,
+				trackSid: publication.trackSid,
+				source: track.source,
+				muted: publication.isMuted,
+				readyState: track.mediaStreamTrack.readyState,
+				enabled: track.mediaStreamTrack.enabled,
+			  });
+
+			  setRemoteScreenShareAudioTracks(prev => ({
+				...prev,
+				[ownerId]: track as RemoteAudioTrack,
+			  }));
+			} else {
+			  console.log('[StreamAudio:subscribe] non-audio track ignored for appaudio participant', {
+				appAudioParticipant: participant.identity,
+				ownerId,
+				kind: track.kind,
+				source: track.source,
+			  });
+			}
+
+			return;
+		  }
+		  
           if (track.kind === Track.Kind.Video && track.source === Track.Source.ScreenShare) {
             // ✅ Toujours créer un nouveau MediaStream pour forcer le re-render du VideoPlayer
             // Récupérer les éventuelles audio tracks déjà présentes dans l'ancien stream
@@ -689,6 +734,26 @@ export default function WebRTCManager() {
         });
 
         room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: Participant) => {
+			  if (participant.identity?.endsWith('-appaudio')) {
+				const ownerId = participant.identity.replace(/-appaudio$/, '');
+
+				console.log('[StreamAudio:unsubscribe] app audio track removed', {
+				  appAudioParticipant: participant.identity,
+				  ownerId,
+				  trackSid: publication.trackSid,
+				  source: track.source,
+				  kind: track.kind,
+				});
+
+				setRemoteScreenShareAudioTracks(prev => {
+				  const next = { ...prev };
+				  delete next[ownerId];
+				  return next;
+				});
+
+				return;
+			  }
+			
           if (track.kind === Track.Kind.Video) {
             setRemoteScreenShares(prev => { const map = { ...prev }; delete map[participant.identity]; return map; });
             useAppStore.getState().setViewingScreenShares(prev => { const next = new Set(prev); next.delete(participant.identity); return next; });
@@ -708,13 +773,29 @@ export default function WebRTCManager() {
           }
         });
 
-        room.on(RoomEvent.ParticipantConnected, (p) => {
-          console.warn('[LK 6] 👤 Participant rejoint:', p.identity, '| total:', room.remoteParticipants.size);
-        });
+        room.on(RoomEvent.ParticipantConnected, p => {
+		  if (p.identity?.endsWith('-appaudio')) {
+			console.log('[StreamAudio:room] appaudio publisher connected (hidden)', {
+			  identity: p.identity,
+			  ownerId: p.identity.replace(/-appaudio$/, ''),
+			});
+			return;
+		  }
 
-        room.on(RoomEvent.ParticipantDisconnected, (p) => {
-          console.warn('[LK 7] 👋 Participant parti:', p.identity);
-        });
+		  console.warn('[LK 6] Participant rejoint:', p.identity, '| total:', room.remoteParticipants.size);
+		});
+
+		room.on(RoomEvent.ParticipantDisconnected, p => {
+		  if (p.identity?.endsWith('-appaudio')) {
+			console.log('[StreamAudio:room] appaudio publisher disconnected', {
+			  identity: p.identity,
+			  ownerId: p.identity.replace(/-appaudio$/, ''),
+			});
+			return;
+		  }
+
+		  console.warn('[LK 7] Participant parti:', p.identity);
+		});
 
         room.on(RoomEvent.ConnectionStateChanged, (state) => {
           console.warn('[LK 8] 🔌 ConnectionState:', state);
@@ -937,22 +1018,29 @@ export default function WebRTCManager() {
         if ((roomRef.current as any)._onSocketConnect) {
           socket.off('connect', (roomRef.current as any)._onSocketConnect);
         }
+		window.electron?.stopLoopbackTest?.().catch((e: any) => {
+		  console.warn('[WebRTC] cleanup stopLoopbackTest failed', e);
+		});
         roomRef.current.disconnect(); 
         roomRef.current = null; 
       }
 
       if (isCompletelyDisconnecting || isLoggedOut) {
-        if (localScreenShareStream) {
-          localScreenShareStream.getTracks().forEach(t => t.stop());
-          setLocalScreenShareStream(null);
-          setIsScreenSharing(false);
-        }
-      }
+		if (localScreenShareStream) {
+			localScreenShareStream.getTracks().forEach(t => t.stop());
+		}
+		window.electron?.stopLoopbackTest?.().catch((e: any) => {
+		  console.warn('[WebRTC] cleanup stopLoopbackTest failed', e);
+		});
+		setLocalScreenShareStream(null);
+		setIsScreenSharing(false);
+	  }
 
-      setRemoteTracks(new Map());
-      setRemoteScreenShares({});
-      setViewingScreenShares(new Set());
-      setActiveStreamFocus(null);
+		setRemoteTracks(new Map());
+		setRemoteScreenShares({});
+		setRemoteScreenShareAudioTracks({});
+		setViewingScreenShares(new Set());
+		setActiveStreamFocus(null);
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
     };
   }, [connectedVoiceChannelId, currentUser]);

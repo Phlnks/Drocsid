@@ -1,21 +1,16 @@
 import { useState, useEffect } from 'react';
 import { X, Monitor, Layout as WindowIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-interface DesktopSource {
-  id: string;
-  name: string;
-  thumbnail: string;
-}
+import { type DesktopSourceInfo } from '../../vite-env';
 
 interface ScreenSharePickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (sourceId: string) => void;
+  onSelect: (source: DesktopSourceInfo) => void;
 }
 
 export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: ScreenSharePickerModalProps) {
-  const [sources, setSources] = useState<DesktopSource[]>([]);
+  const [sources, setSources] = useState<DesktopSourceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'screens' | 'windows'>('screens');
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
@@ -29,8 +24,7 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
 
   const fetchSources = async () => {
     setLoading(true);
-    try {
-      // @ts-ignore - electron is injected by preload script
+    try {      
       const results = await window.electron.getDesktopSources();
       setSources(results);
     } catch (error) {
@@ -42,13 +36,14 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
 
   const handleShare = () => {
     if (selectedSourceId) {
-      onSelect(selectedSourceId);
+      const source = sources.find(s => s.id === selectedSourceId);
+      if (source) onSelect(source);
     }
   };
 
   const filteredSources = sources.filter(source => {
-    if (activeTab === 'screens') return source.id.startsWith('screen:');
-    return source.id.startsWith('window:');
+    if (activeTab === 'screens') return source.type === 'screen';
+    return source.type === 'window';
   });
 
   if (!isOpen) return null;
@@ -124,7 +119,7 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
                   <button
                     key={source.id}
                     onClick={() => setSelectedSourceId(source.id)}
-                    onDoubleClick={() => onSelect(source.id)}
+                    onDoubleClick={() => onSelect(source)}
                     className={`group flex flex-col gap-2 p-2 rounded-lg transition-all border-2 ${
                       selectedSourceId === source.id 
                         ? 'bg-indigo-500/10 border-indigo-500' 

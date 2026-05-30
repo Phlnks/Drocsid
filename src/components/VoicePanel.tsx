@@ -9,11 +9,14 @@ import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
 import SoundboardPicker from './SoundboardPicker';
 import socket from '../lib/socket';
 import { useTranslation } from 'react-i18next';
+import { type DesktopSourceInfo } from '../vite-env';
+import { useInstanceStore } from '../store/instanceStore';
 
 export default function VoicePanel() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
-  const {
+  const { getCurrentInstance } = useInstanceStore();
+    const {
     connectedVoiceChannelId,
     setConnectedVoiceChannelId,
     isVoiceMuted,
@@ -30,6 +33,16 @@ export default function VoicePanel() {
     setSelectedDmId,
     setSelectedServerId,
     selectedServerId,
+
+    activeShareSource,
+    setActiveShareSource,
+    loopbackStatus,
+    setLoopbackStatus,
+    loopbackOutputPath,
+    setLoopbackOutputPath,
+    loopbackError,
+    setLoopbackError,
+    setScreenShareHasAudio,
   } = useAppStore();
 
   const [channelName, setChannelName] = useState('Voice Channel');
@@ -41,6 +54,8 @@ export default function VoicePanel() {
   const [pendingQuality, setPendingQuality] = useState<any>(null);
   const [streamViewers, setStreamViewers] = useState<any[]>([]);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
+  
+  
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const userStoppedRef = useRef(false);
@@ -173,6 +188,22 @@ export default function VoicePanel() {
     };
   }, [connectedVoiceChannelId]);
 
+	useEffect(() => {
+	  if (!isElectron || !isScreenSharing || activeShareSource?.type !== 'window') return;
+
+	  const interval = setInterval(async () => {
+		try {
+		  const status = await window.electron?.getLoopbackTestStatus?.();
+		  if (status?.ok) {
+			setLoopbackStatus(status.status ?? 'idle');
+			setLoopbackOutputPath((status as any).outputPath ?? null);
+		  }
+		} catch {}
+	  }, 1500);
+
+	  return () => clearInterval(interval);
+	}, [isElectron, isScreenSharing, activeShareSource]);
+
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -193,114 +224,256 @@ export default function VoicePanel() {
     else { playDeafenSound(); setIsDeafened(true); if (!isVoiceMuted) setIsVoiceMuted(true); }
   };
 
+
+	// Token livekit
+	const fetchLivekitAppAudioToken = async () => {
+	  const currentInstance = getCurrentInstance();
+	  const livekitUrl = currentInstance?.livekitUrl || import.meta.env.VITE_LIVEKIT_URL;
+	  if (!livekitUrl) {
+		throw new Error('VITE_LIVEKIT_URL is not set.');
+	  }
+
+	  const tokenEndpoint =
+		currentInstance?.livekitTokenEndpoint ||
+		import.meta.env.VITE_LIVEKIT_TOKEN_ENDPOINT ||
+		'/api/livekit/token';
+
+	  let finalTokenEndpoint = tokenEndpoint;
+
+	  if (finalTokenEndpoint.startsWith('/')) {
+		let baseUrl = currentInstance?.socketUrl || window.location.origin;
+		if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
+		  baseUrl =
+			import.meta.env.VITE_BACKEND_URL ||
+			'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+		}
+		baseUrl = baseUrl.replace(/\/+$/, '');
+		finalTokenEndpoint = baseUrl + tokenEndpoint;
+	  }
+
+	  const { currentUserProfile } = useAuthStore.getState();
+	  const { isVoiceMuted, isDeafened } = useAppStore.getState();
+
+	  const res = await fetch(finalTokenEndpoint, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+		  roomName: connectedVoiceChannelId,
+		  participantIdentity: `${currentUser.id}-appaudio`,
+		  participantName: `${(currentUser as any).user_metadata?.username || 'Utilisateur'} (App Audio)`,
+		  userProfile: {
+			...currentUserProfile,
+			name:
+			  currentUserProfile?.username ||
+			  (currentUser as any).user_metadata?.username ||
+			  'Utilisateur',
+			avatarUrl: currentUserProfile?.avatar_url,
+			isMuted: isVoiceMuted,
+			isDeafened: isDeafened,
+			isAppAudioPublisher: true,
+		  },
+		}),
+	  });
+
+	  if (!res.ok) {
+		throw new Error(await res.text());
+	  }
+
+	  const data = await res.json();
+	  const token = data.participantToken || data.token;
+
+	  if (!token) {
+		throw new Error('LiveKit app audio token missing in response');
+	  }
+
+	  return { livekitUrl, token };
+	};
+
   // ─── Lancement du partage d'écran ─────────────────────────────────────────
-  const handleScreenShare = async (quality: { width: number, height: number, frameRate: number }, sourceId?: string) => {
-    try {
-      let stream: MediaStream;
+  const handleScreenShare = async (quality: { width: number; height: number; frameRate: number },source?: DesktopSourceInfo) => {
+	  try {
+		let stream: MediaStream;
 
-      if (isElectron && sourceId) {
-        // ── Electron : capture desktop (écran entier ou fenêtre d'application) ──
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const isScreen = sourceId.startsWith('screen:');
-        try {
-          if (!isScreen) throw new Error('Audio loopback only available for full screen');
-          // Écran entier avec audio système
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: { mandatory: { chromeMediaSource: 'desktop' } },
-            video: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
-                chromeMediaSourceId: sourceId,
-                maxWidth: quality.width,
-                maxHeight: quality.height,
-                maxFrameRate: quality.frameRate
-              }
-            }
-          } as any);
-        } catch {
-          // Fenêtre d'application ou écran sans audio → sans audio
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-              mandatory: {
-                chromeMediaSource: 'desktop',
-                chromeMediaSourceId: sourceId,
-                maxWidth: quality.width,
-                maxHeight: quality.height,
-                maxFrameRate: quality.frameRate
-              }
-            }
-          } as any);
-        }
-      } else {
-        // ── Navigateur web : écran entier UNIQUEMENT ──
-        // displaySurface: 'monitor' force la sélection d'un écran entier.
-        // Les onglets et fenêtres d'applications sont exclus de la boîte de dialogue.
-        // L'audio système est proposé à l'utilisateur s'il coche "Partager l'audio du système".
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            width: { ideal: quality.width, max: 2560 },
-            height: { ideal: quality.height, max: 1440 },
-            frameRate: { ideal: quality.frameRate, max: 60 },
-            displaySurface: 'monitor'
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            suppressLocalAudioPlayback: false
-          }
-        } as any);
-      }
+		if (isElectron && source) {
+		  await new Promise(resolve => setTimeout(resolve, 300));
 
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack && 'contentHint' in videoTrack) (videoTrack as any).contentHint = 'motion';
+		  const sourceId = source.id;
+		  const isScreen = source.type === 'screen';
+		  const isWindow = source.type === 'window';
+		  const sourcePid = source.pid ?? null;
 
-      userStoppedRef.current = false;
-      setIsStreamPaused(false);
-	  
-      // Electron → pause (fenêtre minimisée, reprise possible via visibilitychange)
-      // Navigateur → arrêt propre immédiat (la reprise n'est pas fiable sur navigateur)
-      videoTrack.onended = () => {
-        if (userStoppedRef.current) return;
-        if (isElectron) {
-          console.log('[VoicePanel] track ended (Electron) → paused');
-          setIsStreamPaused(true);
-        } else {
-          console.log('[VoicePanel] track ended (browser) → stopping cleanly');
-          userStoppedRef.current = true;
-          setIsStreamPaused(false);
-          setIsScreenSharing(false);
-          setViewingScreenShares(new Set());
-          setActiveStreamFocus(null);
-          playScreenShareStopSound();
-          const s = useAppStore.getState().localScreenShareStream;
-          if (s) s.getTracks().forEach(t => t.stop());
-          useAppStore.getState().setLocalScreenShareStream(null);
-        }
-      };
+		  console.log('[VoicePanel] Source sélectionnée', {
+			id: source.id,
+			name: source.name,
+			type: source.type,
+			hwnd: source.hwnd,
+			pid: source.pid,
+			canShareAppAudio: source.canShareAppAudio
+		  });
 
-      const hasSystemAudio = stream.getAudioTracks().length > 0;
+		  setActiveShareSource(source);
+		  setLoopbackError(null);
+		  setLoopbackOutputPath(null);
+		  setLoopbackStatus('idle');
 
-      playScreenShareStartSound();
-      setScreenShareQuality(quality);
-      setShowQualityMenu(false);
-      setShowPicker(false);
+		  try {
+			if (!isScreen) throw new Error('System audio only available for full screen');
 
-      useAppStore.getState().setLocalScreenShareStream(stream);
-      useAppStore.getState().setIsScreenSharing(true);
-      // ✅ Stocker si le son système est actif
-      (useAppStore.getState() as any).screenShareHasAudio = hasSystemAudio;
+			stream = await navigator.mediaDevices.getUserMedia({
+			  audio: { mandatory: { chromeMediaSource: 'desktop' } },
+			  video: {
+				mandatory: {
+				  chromeMediaSource: 'desktop',
+				  chromeMediaSourceId: sourceId,
+				  maxWidth: quality.width,
+				  maxHeight: quality.height,
+				  maxFrameRate: quality.frameRate
+				}
+			  }
+			} as any);
+		  } catch {
+			stream = await navigator.mediaDevices.getUserMedia({
+			  audio: false,
+			  video: {
+				mandatory: {
+				  chromeMediaSource: 'desktop',
+				  chromeMediaSourceId: sourceId,
+				  maxWidth: quality.width,
+				  maxHeight: quality.height,
+				  maxFrameRate: quality.frameRate
+				}
+			  }
+			} as any);
+		  }
 
-    } catch (err: any) {
-      // L'utilisateur a annulé ou refusé → pas d'erreur visible
-      if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
-        console.error('Error sharing screen', err);
-      }
-      useAppStore.getState().setIsScreenSharing(false);
-      useAppStore.getState().setLocalScreenShareStream(null);
-    }
-  };
+			if (isWindow && sourcePid && sourcePid > 0) {
+			  try {
+				setLoopbackStatus('launching');
+				setLoopbackError(null);
+				setLoopbackOutputPath(null);
+
+				const { livekitUrl, token } = await fetchLivekitAppAudioToken();
+
+				const configResult = await window.electron?.configureLivekitAppAudio?.({
+				  url: livekitUrl,
+				  token,
+				});
+
+				console.log('[VoicePanel] configureLivekitAppAudio result', configResult);
+
+				if (!configResult?.ok) {
+				  setLoopbackStatus('error');
+				  setLoopbackError(configResult?.error ?? "Impossible de configurer LiveKit pour l'audio applicatif");
+				  throw new Error(configResult?.error ?? 'configureLivekitAppAudio failed');
+				}
+
+				const loopbackResult = await window.electron?.launchLoopbackTest?.(sourcePid);
+				console.log('[VoicePanel] launchLoopbackTest result', loopbackResult);
+
+				if (loopbackResult?.ok) {
+				  setLoopbackStatus(loopbackResult.status ?? 'launching');
+				  setLoopbackOutputPath((loopbackResult as any).outputPath ?? null);
+				  setLoopbackError(null);
+				} else {
+				  setLoopbackStatus(loopbackResult?.status ?? 'error');
+				  setLoopbackError(loopbackResult?.error ?? "Impossible de lancer l'audio applicatif");
+				}
+			  } catch (loopbackErr: any) {
+				console.error('[VoicePanel] app audio setup failed', loopbackErr);
+				setLoopbackStatus('error');
+				setLoopbackError(loopbackErr?.message ?? "Erreur inconnue lors du lancement du loopback");
+			  }
+			} else {
+			  setLoopbackStatus('idle');
+			  setLoopbackOutputPath(null);
+			  setLoopbackError(null);
+			}
+		} else {
+		  stream = await navigator.mediaDevices.getDisplayMedia({
+			video: {
+			  width: { ideal: quality.width, max: 2560 },
+			  height: { ideal: quality.height, max: 1440 },
+			  frameRate: { ideal: quality.frameRate, max: 60 },
+			  displaySurface: 'monitor'
+			},
+			audio: {
+			  echoCancellation: true,
+			  noiseSuppression: true,
+			  autoGainControl: true,
+			  suppressLocalAudioPlayback: false
+			}
+		  } as any);
+		}
+
+		const videoTrack = stream.getVideoTracks()[0];
+		if (videoTrack && 'contentHint' in videoTrack) {
+		  (videoTrack as any).contentHint = 'motion';
+		}
+
+		userStoppedRef.current = false;
+		setIsStreamPaused(false);
+
+		videoTrack.onended = async () => {
+		  if (userStoppedRef.current) return;
+
+		  if (isElectron) {
+			console.log('[VoicePanel] track ended (Electron) → paused');
+			setIsStreamPaused(true);
+		  } else {
+			console.log('[VoicePanel] track ended (browser) → stopping cleanly');
+			userStoppedRef.current = true;
+			setIsStreamPaused(false);
+			setIsScreenSharing(false);
+			setViewingScreenShares(new Set());
+			setActiveStreamFocus(null);
+			setActiveShareSource(null);
+			setLoopbackStatus('idle');
+			setLoopbackOutputPath(null);
+			setLoopbackError(null);
+			setScreenShareHasAudio(false);
+			playScreenShareStopSound();
+
+			const s = useAppStore.getState().localScreenShareStream;
+			if (s) s.getTracks().forEach(t => t.stop());
+			useAppStore.getState().setLocalScreenShareStream(null);
+		  }
+
+		  try {
+			await window.electron?.stopLoopbackTest?.();
+		  } catch (e) {
+			console.warn('[VoicePanel] stopLoopbackTest failed on track end', e);
+		  }
+		};
+
+		const hasSystemAudio = stream.getAudioTracks().length > 0;
+
+		playScreenShareStartSound();
+		setScreenShareQuality(quality);
+		setShowQualityMenu(false);
+		setShowPicker(false);
+
+		useAppStore.getState().setLocalScreenShareStream(stream);
+		useAppStore.getState().setIsScreenSharing(true);
+		setScreenShareHasAudio(hasSystemAudio);
+
+	  } catch (err: any) {
+		if (err?.name !== 'NotAllowedError' && err?.name !== 'AbortError') {
+		  console.error('Error sharing screen', err);
+		}
+
+		try {
+		  await window.electron?.stopLoopbackTest?.();
+		} catch {}
+
+		useAppStore.getState().setIsScreenSharing(false);
+		useAppStore.getState().setLocalScreenShareStream(null);
+		setActiveShareSource(null);
+		setLoopbackStatus('idle');
+		setLoopbackOutputPath(null);
+		setLoopbackError(null);
+		setScreenShareHasAudio(false);
+	  }
+	};
 
   const startScreenShareFlow = (quality: { width: number, height: number, frameRate: number }) => {
     if (isElectron) {
@@ -317,18 +490,28 @@ export default function VoicePanel() {
   const toggleScreenShare = () => {
   if (isMobile || (!isElectron && !supportsDisplayMedia)) return;
     if (isScreenSharing) {
-      userStoppedRef.current = true;
-      setIsStreamPaused(false);
-      setIsScreenSharing(false);
-      setViewingScreenShares(new Set());
-      setActiveStreamFocus(null);
-      playScreenShareStopSound();
-      const stream = useAppStore.getState().localScreenShareStream;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        useAppStore.getState().setLocalScreenShareStream(null);
-      }
-    } else {
+	  userStoppedRef.current = true;
+	  setIsStreamPaused(false);
+	  setIsScreenSharing(false);
+	  setViewingScreenShares(new Set());
+	  setActiveStreamFocus(null);
+	  setActiveShareSource(null);
+	  setLoopbackStatus('idle');
+	  setLoopbackOutputPath(null);
+	  setLoopbackError(null);
+	  setScreenShareHasAudio(false);
+	  playScreenShareStopSound();
+
+	  const stream = useAppStore.getState().localScreenShareStream;
+	  if (stream) {
+		stream.getTracks().forEach(track => track.stop());
+		useAppStore.getState().setLocalScreenShareStream(null);
+	  }
+
+	  window.electron?.stopLoopbackTest?.().catch((err: any) => {
+		console.warn('[VoicePanel] stopLoopbackTest failed', err);
+	  });
+	} else {
       setShowQualityMenu(!showQualityMenu);
     }
   };
@@ -389,6 +572,33 @@ export default function VoicePanel() {
           </button>
         </div>
       )}
+	  
+		{isElectron && isScreenSharing && activeShareSource?.type === 'window' && (
+		  <div className="px-2">
+			<div className="w-full rounded-md border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-xs">
+			  <div className="flex items-center justify-between gap-3">
+				<div className="min-w-0">
+				  <div className="font-semibold text-indigo-300 truncate">
+					Audio applicatif — {activeShareSource.name}
+				  </div>
+				  <div className="text-zinc-400 truncate">
+					PID: {activeShareSource.pid ?? 'inconnu'} · Statut: {loopbackStatus}
+				  </div>
+				  {loopbackOutputPath && (
+					<div className="text-zinc-500 truncate">
+					  WAV: {loopbackOutputPath}
+					</div>
+				  )}
+				  {loopbackError && (
+					<div className="text-red-400 truncate">
+					  Erreur: {loopbackError}
+					</div>
+				  )}
+				</div>
+			  </div>
+			</div>
+		  </div>
+		)}
 
       <div className="flex items-center gap-1 px-1">
         <div className="relative flex-1 hidden md:block">
@@ -470,10 +680,10 @@ export default function VoicePanel() {
 
       {/* Picker Electron — écrans ET fenêtres d'applications */}
       <ScreenSharePickerModal
-        isOpen={showPicker}
-        onClose={() => setShowPicker(false)}
-        onSelect={(sourceId) => handleScreenShare(pendingQuality, sourceId)}
-      />
+	    isOpen={showPicker}
+	    onClose={() => setShowPicker(false)}
+	    onSelect={(source) => handleScreenShare(pendingQuality, source)}
+	  />
     </div>
   );
 }

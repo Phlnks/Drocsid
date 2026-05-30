@@ -20,7 +20,8 @@
     "cap:sync": "npx cap sync",
     "cap:copy": "npx cap copy",
     "android:open": "npx cap open android",
-    "android:sync": "npm run build && npx cap sync android"
+    "android:sync": "npm run build && npx cap sync android",
+	"electron:rebuild": "electron-rebuild -f -w @livekit/rtc-node"
   },
   "build": {
     "appId": "com.drocsid.app",
@@ -33,6 +34,15 @@
       "electron/**/*",
       "public/logo-bg.png"
     ],
+	"extraResources": [
+		{
+		  "from": "bin",
+		  "to": "bin",
+		  "filter": [
+			"**/*"
+		  ]
+		}
+	  ],
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -91,7 +101,9 @@
     "vite": "^6.2.0",
     "vite-plugin-pwa": "^0.21.x",
     "web-push": "^3.6.7",
-    "zustand": "^5.0.12"
+    "zustand": "^5.0.12",
+	"@livekit/rtc-node": "^0.13.24"
+	
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
@@ -106,6 +118,7 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "wait-on": "^9.0.5"
+    "wait-on": "^9.0.5",
+	"electron-rebuild": "^3.2.9"
   }
 }
