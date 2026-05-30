@@ -16,19 +16,28 @@ function AudioPlayer({ userId, track }: { userId: string; track: RemoteAudioTrac
   const userPeerVolume = peerVolumes[userId] ?? 1.0;
 
   // Utilize LiveKit's built-in track attaching (safely handles Web Audio and autoplay policies)
-  useEffect(() => {
-    if (!audioRef.current || !track) return;
-    
-    console.warn('[AP 5] AudioPlayer mount | userId:', userId);
-    track.attach(audioRef.current);
-    
-    return () => {
-      console.warn('[AP 5b] AudioPlayer unmount | userId:', userId);
-      if (audioRef.current && track) {
-        track.detach(audioRef.current);
-      }
-    };
-  }, [track, userId]);
+	useEffect(() => {
+	  const el = audioRef.current;
+	  if (!el || !track) return;
+	  
+	  console.warn('[AP 5] AudioPlayer mount | userId:', userId);
+	  track.attach(el);
+
+	  el.play()
+		.then(() => {
+		  console.warn('[AP 6] playback started | userId:', userId);
+		})
+		.catch((e) => {
+		  console.error('[AP 6x] playback failed | userId:', userId, e);
+		});
+	  
+	  return () => {
+		console.warn('[AP 5b] AudioPlayer unmount | userId:', userId);
+		track.detach(el);
+		el.pause();
+		el.srcObject = null;
+	  };
+	}, [track, userId]);
 
   // Volume global (0.0 - 1.0)
   useEffect(() => {
@@ -77,6 +86,7 @@ export default function WebRTCManager() {
 	  localScreenShareStream,
 	  setLocalScreenShareStream,
 	  setRemoteScreenShares,
+	  remoteScreenShareAudioTracks,
 	  viewingScreenShares,
 	  setViewingScreenShares,
 	  setActiveStreamFocus,
@@ -1057,12 +1067,21 @@ export default function WebRTCManager() {
   }, [viewingScreenShares, isScreenSharing, connectedVoiceChannelId, currentUser]);
 
 
-  return (
-    <>
-      {/* Joue tous les flux audio : micros distants + audio système des screen shares */}
-      {Array.from(remoteTracks.entries()).map(([uid, track]) => (
-        <AudioPlayer key={uid} userId={uid} track={track} />
-      ))}
-    </>
-  );
+	return (
+	  <>
+		{/* Micros distants normaux */}
+		{Array.from(remoteTracks.entries()).map(([uid, track]) => (
+		  <AudioPlayer key={`mic-${uid}`} userId={uid} track={track} />
+		))}
+
+		{/* Audio applicatif des screen shares */}
+		{Object.entries(remoteScreenShareAudioTracks).map(([uid, track]) => (
+		  <AudioPlayer
+			key={`stream-audio-${uid}`}
+			userId={uid}
+			track={track as RemoteAudioTrack}
+		  />
+		))}
+	  </>
+	);
 }
