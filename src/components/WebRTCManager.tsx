@@ -993,12 +993,32 @@ export default function WebRTCManager() {
 
     connectToLiveKit();
 
-    const handleBeforeUnload = () => { socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id }); };
+    const handleBeforeUnload = () => {
+	  try {
+		socket.emit('voice-state-update', {
+		  channelId: connectedVoiceChannelId,
+		  userId: currentUser.id,
+		  updates: {
+			viewingStreams: [],
+			isStreaming: false,
+		  },
+		});
+	  } catch {}
+
+	  try {
+		socket.emit('leave-voice-channel', {
+		  channelId: connectedVoiceChannelId,
+		  userId: currentUser.id,
+		});
+	  } catch {}
+	};
     window.addEventListener('beforeunload', handleBeforeUnload);
+	window.addEventListener('pagehide', handleBeforeUnload);
 
     return () => {
       isMounted = false;
       window.removeEventListener('beforeunload', handleBeforeUnload);
+	  window.removeEventListener('pagehide', handleBeforeUnload);
 
       publishedScreenTrackRef.current = null;
       publishedScreenAudioTrackRef.current = null;
@@ -1050,6 +1070,14 @@ export default function WebRTCManager() {
 		setRemoteScreenShareAudioTracks({});
 		setViewingScreenShares(new Set());
 		setActiveStreamFocus(null);
+		socket.emit('voice-state-update', {
+		  channelId: connectedVoiceChannelId,
+		  userId: currentUser.id,
+		  updates: {
+			viewingStreams: [],
+			isStreaming: false,
+		  },
+		});
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
     };
   }, [connectedVoiceChannelId, currentUser]);
