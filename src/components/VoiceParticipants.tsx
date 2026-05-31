@@ -11,11 +11,11 @@ interface VoiceParticipantsProps {
 }
 
 export default function VoiceParticipants({ channelId }: VoiceParticipantsProps) {
-  const { 
-    selectedChannelId, 
-    connectedVoiceChannelId, 
-    remoteScreenShares, 
-    viewingScreenShares, 
+  const {
+    selectedChannelId,
+    connectedVoiceChannelId,
+    remoteScreenShares,
+    viewingScreenShares,
     setViewingScreenShares,
     activeStreamFocus,
     setActiveStreamFocus,
@@ -30,7 +30,16 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const canWatchStreamsInThisChannel =
-    !!connectedVoiceChannelId && connectedVoiceChannelId === activeChannelId;
+    !!connectedVoiceChannelId && !!activeChannelId && connectedVoiceChannelId === activeChannelId;
+
+  useEffect(() => {
+    if (!canWatchStreamsInThisChannel) {
+      setViewingScreenShares(new Set());
+      if (activeStreamFocus) {
+        setActiveStreamFocus(null);
+      }
+    }
+  }, [canWatchStreamsInThisChannel, setViewingScreenShares, setActiveStreamFocus, activeStreamFocus]);
 
   const toggleViewScreenShare = (e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
@@ -38,7 +47,13 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     if (!canWatchStreamsInThisChannel) {
       return;
     }
-    
+
+    const hasLiveRemoteStream = !!remoteScreenShares[uid];
+
+    if (!hasLiveRemoteStream) {
+      return;
+    }
+
     if (window.innerWidth < 768) {
       if (activeStreamFocus === uid) {
         setActiveStreamFocus(null);
@@ -59,8 +74,9 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     } else {
       setViewingScreenShares(prev => {
         const next = new Set(prev);
-        if (next.has(uid)) next.delete(uid);
-        else {
+        if (next.has(uid)) {
+          next.delete(uid);
+        } else {
           next.add(uid);
           useAppStore.getState().setIsRightSidebarOpen(false);
         }
@@ -91,8 +107,8 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
         const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
 
         return (
-          <div 
-            key={p.id} 
+          <div
+            key={p.id}
             className="relative flex flex-col items-center gap-2 group cursor-pointer"
             onClick={() => setSelectedUser(userProfile || p)}
             onContextMenu={(e) => handleContextMenu(e, { ...p, name: displayName, avatarUrl: displayAvatar })}
@@ -119,10 +135,10 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
               {(p.isStreaming || isSharingScreen) && (
                 <button
                   onClick={(e) => toggleViewScreenShare(e, p.id)}
-                  disabled={!canWatchStreamsInThisChannel}
+                  disabled={!canWatchStreamsInThisChannel || !isSharingScreen}
                   className={clsx(
                     "rounded-full p-1.5 border border-zinc-900 transition-colors shadow-lg",
-                    !canWatchStreamsInThisChannel
+                    (!canWatchStreamsInThisChannel || !isSharingScreen)
                       ? "bg-zinc-800 text-zinc-500 opacity-70 cursor-not-allowed"
                       : isViewing
                         ? "bg-emerald-500 text-white"
@@ -131,9 +147,11 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
                   title={
                     !canWatchStreamsInThisChannel
                       ? "Connectez-vous à ce salon vocal pour regarder le stream"
-                      : isViewing
-                        ? "Fermer le stream"
-                        : "Regarder le stream"
+                      : !isSharingScreen
+                        ? "Stream indisponible"
+                        : isViewing
+                          ? "Fermer le stream"
+                          : "Regarder le stream"
                   }
                 >
                   <MonitorUp className="w-4 h-4" />

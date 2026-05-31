@@ -76,13 +76,26 @@ export default function ScreenShareViewer() {
     isStreamVolumeMuted,
     isDeafened,
     voiceSettings,
+    connectedVoiceChannelId,
     setStreamVolume,
     setIsStreamVolumeMuted,
+    setViewingScreenShares,
+    setActiveStreamFocus,
   } = useAppStore();
 
   const [poppedOutStreams, setPoppedOutStreams] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (!connectedVoiceChannelId) {
+      setViewingScreenShares(new Set());
+      setActiveStreamFocus(null);
+      setPoppedOutStreams(new Set());
+    }
+  }, [connectedVoiceChannelId, setViewingScreenShares, setActiveStreamFocus]);
+
   const handlePopOut = async (uid: string, stream: MediaStream) => {
+    if (!connectedVoiceChannelId) return;
+
     if ('documentPictureInPicture' in window) {
       try {
         const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
@@ -131,6 +144,8 @@ export default function ScreenShareViewer() {
   };
 
   const fallbackPopOut = (uid: string) => {
+    if (!connectedVoiceChannelId) return;
+
     setPoppedOutStreams(prev => {
       const next = new Set(prev);
       if (next.has(uid)) next.delete(uid);
@@ -148,10 +163,13 @@ export default function ScreenShareViewer() {
     ),
   ].filter(([uid]) => uid !== useAppStore.getState().activeStreamFocus);
 
-  const audibleStreamIds = Array.from(viewingScreenShares).filter(
-    (uid) => uid !== currentUser?.id && !!remoteScreenShareAudioTracks[uid]
-  );
+  const audibleStreamIds = connectedVoiceChannelId
+    ? Array.from(viewingScreenShares).filter(
+        (uid) => uid !== currentUser?.id && !!remoteScreenShareAudioTracks[uid]
+      )
+    : [];
 
+  if (!connectedVoiceChannelId) return null;
   if (allStreams.length === 0 && audibleStreamIds.length === 0) return null;
 
   return (
@@ -178,12 +196,14 @@ export default function ScreenShareViewer() {
           if (poppedOutStreams.has(uid)) return null;
 
           const isOwnStream = uid === currentUser?.id;
+          const hasSeparateRemoteAudio = !isOwnStream && !!remoteScreenShareAudioTracks[uid];
 
           return (
             <div
               key={uid}
               className="bg-zinc-900 rounded-lg shadow-xl overflow-hidden pointer-events-auto border border-zinc-700 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
               onClick={() => {
+                if (!connectedVoiceChannelId) return;
                 useAppStore.getState().setActiveStreamFocus(uid);
                 useAppStore.getState().setIsRightSidebarOpen(false);
               }}
@@ -230,8 +250,9 @@ export default function ScreenShareViewer() {
                   stream={stream}
                   muted={isOwnStream}
                   showVolumeControls={!isOwnStream}
+                  forceHasAudio={hasSeparateRemoteAudio}
                   externalVolume={streamVolume}
-                  externalMuted={isStreamVolumeMuted}
+                  externalMuted={isStreamVolumeMuted || isDeafened}
                   onVolumeChange={setStreamVolume}
                   onToggleMuted={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
                 />
@@ -269,6 +290,7 @@ export default function ScreenShareViewer() {
               if (!poppedOutStreams.has(uid) || 'documentPictureInPicture' in window) return null;
 
               const isOwnStream = uid === currentUser?.id;
+              const hasSeparateRemoteAudio = !isOwnStream && !!remoteScreenShareAudioTracks[uid];
 
               return (
                 <div
@@ -289,8 +311,9 @@ export default function ScreenShareViewer() {
                     stream={stream}
                     muted={isOwnStream}
                     showVolumeControls={!isOwnStream}
+                    forceHasAudio={hasSeparateRemoteAudio}
                     externalVolume={streamVolume}
-                    externalMuted={isStreamVolumeMuted}
+                    externalMuted={isStreamVolumeMuted || isDeafened}
                     onVolumeChange={setStreamVolume}
                     onToggleMuted={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
                   />

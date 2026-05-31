@@ -6,6 +6,7 @@ export default function VideoPlayer({
   stream,
   muted = false,
   showVolumeControls = false,
+  forceHasAudio = false,
   externalVolume,
   externalMuted,
   onVolumeChange,
@@ -14,6 +15,7 @@ export default function VideoPlayer({
   stream: MediaStream;
   muted?: boolean;
   showVolumeControls?: boolean;
+  forceHasAudio?: boolean;
   externalVolume?: number;
   externalMuted?: boolean;
   onVolumeChange?: (value: number) => void;
@@ -30,6 +32,8 @@ export default function VideoPlayer({
 
   const effectiveVolume =
     typeof externalVolume === 'number' ? externalVolume : internalVolume;
+
+  const shouldShowAudioUi = showVolumeControls && !muted && (hasAudio || forceHasAudio);
 
   useEffect(() => {
     setInternalMuted(muted);
@@ -226,11 +230,11 @@ export default function VideoPlayer({
         className="w-full h-full object-contain"
       />
 
-      {hasAudio && !muted && showVolumeControls && (
+      {shouldShowAudioUi && (
         <div
           className={clsx(
-            'absolute top-4 right-4 bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg flex items-center gap-2 border border-zinc-700/50 transition-all duration-300 shadow-xl z-30',
-            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+            'absolute bottom-4 right-4 bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg flex items-center gap-2 border border-zinc-700/50 transition-all duration-300 shadow-xl z-30',
+            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
           )}
           onClick={(e) => e.stopPropagation()}
         >
@@ -268,13 +272,14 @@ export default function VideoPlayer({
                 if (val > 0 && internalMuted) setInternalMuted(false);
               }
             }}
+            onClick={(e) => e.stopPropagation()}
             className="w-24 accent-indigo-500 cursor-pointer"
           />
         </div>
       )}
 
-      {hasAudio && !muted && showVolumeControls && (effectiveMuted || effectiveVolume === 0) && !showControls && (
-        <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm p-1.5 rounded-full border border-white/10 z-20">
+      {shouldShowAudioUi && (effectiveMuted || effectiveVolume === 0) && !showControls && (
+        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm p-1.5 rounded-full border border-white/10 z-20">
           <VolumeX className="w-4 h-4 text-red-400/80" />
         </div>
       )}
