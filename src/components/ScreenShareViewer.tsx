@@ -28,41 +28,16 @@ function StreamAudioPlayer({
     el.volume = Math.max(0, Math.min(1, volume));
     audioRef.current = el;
 
-    console.log('[StreamAudio:viewer] attaching audio element', {
-      ownerId,
-      volume: el.volume,
-      muted: el.muted,
-      readyState: track.mediaStreamTrack.readyState,
-      enabled: track.mediaStreamTrack.enabled,
-    });
-
     track.attach(el);
 
-    el.play()
-      .then(() => {
-        console.log('[StreamAudio:viewer] playback started', {
-          ownerId,
-          paused: el.paused,
-          muted: el.muted,
-          volume: el.volume,
-          currentTime: el.currentTime,
-          readyState: el.readyState,
-        });
-      })
-      .catch((e) => {
-        console.error('[StreamAudio:viewer] playback failed', {
-          ownerId,
-          error: e?.message ?? e,
-        });
+    el.play().catch((e) => {
+      console.error('[StreamAudio:viewer] playback failed', {
+        ownerId,
+        error: e?.message ?? e,
       });
-
-    el.onplaying = () => console.log('[StreamAudio:viewer] onplaying', { ownerId });
-    el.onpause = () => console.log('[StreamAudio:viewer] onpause', { ownerId });
-    el.onstalled = () => console.warn('[StreamAudio:viewer] onstalled', { ownerId });
-    el.onemptied = () => console.warn('[StreamAudio:viewer] onemptied', { ownerId });
+    });
 
     return () => {
-      console.log('[StreamAudio:viewer] detaching audio element', { ownerId });
       track.detach(el);
       el.pause();
       el.srcObject = null;
@@ -114,16 +89,27 @@ export default function ScreenShareViewer() {
           width: 800,
           height: 600,
         });
-        const video = document.createElement('video');
+
+        const wrapper = pipWindow.document.createElement('div');
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+        wrapper.style.position = 'relative';
+        wrapper.style.background = '#000';
+
+        const video = pipWindow.document.createElement('video');
         video.srcObject = stream;
         video.autoplay = true;
+        video.playsInline = true;
+        video.muted = uid === currentUser?.id;
         video.style.width = '100%';
         video.style.height = '100%';
         video.style.objectFit = 'contain';
         video.style.backgroundColor = '#000';
+
+        wrapper.appendChild(video);
         pipWindow.document.body.style.margin = '0';
         pipWindow.document.body.style.backgroundColor = '#000';
-        pipWindow.document.body.appendChild(video);
+        pipWindow.document.body.appendChild(wrapper);
 
         setPoppedOutStreams(prev => new Set(prev).add(uid));
 
@@ -186,7 +172,7 @@ export default function ScreenShareViewer() {
         );
       })}
 
-      <div className="absolute top-14 md:top-4 right-4 z-50 flex flex-col gap-4 max-w-[200px] md:max-w-sm w-full pointer-events-none">
+      <div className="absolute top-14 md:top-4 right-4 z-50 flex flex-col gap-4 max-w-[220px] md:max-w-sm w-full pointer-events-none">
         {allStreams.map(([uid, stream]) => {
           if (poppedOutStreams.has(uid) && 'documentPictureInPicture' in window) return null;
           if (poppedOutStreams.has(uid)) return null;
