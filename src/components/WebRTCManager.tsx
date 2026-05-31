@@ -314,39 +314,73 @@ export default function WebRTCManager() {
   }, [setConnectedVoiceChannelId, isVoiceMuted, setIsVoiceMuted]);
 
 
-  // ─── LiveKit <-> UI Sync ───────────────────────────────────────────────────
-  // ✅ Piste : La "Vérité" est dans LiveKit. Si le socket bug, LiveKit sait qui est là.
-  useEffect(() => {
-    if (!connectedVoiceChannelId || !roomRef.current || !currentUser) return;
+	// ─── LiveKit <-> UI Sync ───────────────────────────────────────────────────
+	// LiveKit = source de vérité pour la présence ET l'état micro réel.
+	useEffect(() => {
+	  if (!connectedVoiceChannelId || !roomRef.current || !currentUser) return;
 
-    const sync = () => {
-      if (!roomRef.current || !connectedVoiceChannelId) return;
-      const room = roomRef.current;
-      const identities = Array.from(room.remoteParticipants.values()).map(p => p.identity).filter((id): id is string => !!id && !id.endsWith('-appaudio'));
-      syncVoiceParticipantsWithLiveKit(connectedVoiceChannelId, identities);
-    };
+	  const room = roomRef.current;
 
-    const room = roomRef.current;
-    room.on(RoomEvent.ParticipantConnected, sync);
-    room.on(RoomEvent.ParticipantDisconnected, sync);
-    room.on(RoomEvent.Connected, sync);
-    room.on(RoomEvent.Reconnected, sync);
+	  const syncPresenceOnly = () => {
+		if (!roomRef.current || !connectedVoiceChannelId) return;
 
-    // Sync initial
-    sync();
+		const identities = [
+		  currentUser.id,
+		  ...Array.from(roomRef.current.remoteParticipants.values())
+			.map(p => p.identity)
+			.filter((id): id is string => !!id && !id.endsWith('-appaudio'))
+		];
 
-    // Sync de sécurité toutes les 15s au cas où un socket.on('voice-participants-update')
-    // viderait par erreur la liste pendant une micro-déconnexion.
-    const interval = setInterval(sync, 15000);
+		syncVoiceParticipantsWithLiveKit(connectedVoiceChannelId, identities);
+	  };
 
-    return () => {
-      room.off(RoomEvent.ParticipantConnected, sync);
-      room.off(RoomEvent.ParticipantDisconnected, sync);
-      room.off(RoomEvent.Connected, sync);
-      room.off(RoomEvent.Reconnected, sync);
-      clearInterval(interval);
-    };
-  }, [connectedVoiceChannelId, syncVoiceParticipantsWithLiveKit, currentUser]);
+	  const syncMuteStateFromLiveKit = () => {
+		if (!roomRef.current || !connectedVoiceChannelId) return;
+
+		Array.from(roomRef.current.remoteParticipants.values()).forEach((p) => {
+		  if (!p.identity || p.identity.endsWith('-appaudio')) return;
+
+		  socket.emit('voice-state-update', {
+			channelId: connectedVoiceChannelId,
+			userId: p.identity,
+			updates: {
+			  isMuted: !p.isMicrophoneEnabled,
+			},
+		  });
+		});
+
+		socket.emit('voice-state-update', {
+		  channelId: connectedVoiceChannelId,
+		  userId: currentUser.id,
+		  updates: {
+			isMuted: useAppStore.getState().isVoiceMuted,
+			isDeafened: useAppStore.getState().isDeafened,
+		  },
+		});
+	  };
+
+	  const syncFull = () => {
+		syncPresenceOnly();
+		syncMuteStateFromLiveKit();
+	  };
+
+	  room.on(RoomEvent.ParticipantConnected, syncFull);
+	  room.on(RoomEvent.ParticipantDisconnected, syncPresenceOnly);
+	  room.on(RoomEvent.Connected, syncFull);
+	  room.on(RoomEvent.Reconnected, syncFull);
+
+	  syncFull();
+
+	  const interval = setInterval(syncPresenceOnly, 15000);
+
+	  return () => {
+		room.off(RoomEvent.ParticipantConnected, syncFull);
+		room.off(RoomEvent.ParticipantDisconnected, syncPresenceOnly);
+		room.off(RoomEvent.Connected, syncFull);
+		room.off(RoomEvent.Reconnected, syncFull);
+		clearInterval(interval);
+	  };
+	}, [connectedVoiceChannelId, syncVoiceParticipantsWithLiveKit, currentUser]);
 
 
   // ─── Mute local mic ────────────────────────────────────────────────────────

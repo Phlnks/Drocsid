@@ -906,6 +906,15 @@ async function startServer() {
       if (existingVoice && existingVoice.channelId === channelId) {
         socketVoiceMap.delete(socket.id);
       }
+      voiceRooms.get(channelId)?.delete(userId);
+      const room = voiceRooms.get(channelId);
+      if (room) {
+        io.emit("voice-participants-update", {
+          channelId,
+          participants: Array.from(room.values()),
+        });
+        if (room.size === 0) await cleanupVoiceRoom(channelId);
+      }
     });
 
     socket.on("voice-state-update", (data) => {
@@ -1080,17 +1089,17 @@ async function startServer() {
     socket.on("disconnect", async () => {
       const voiceInfo = socketVoiceMap.get(socket.id);
       if (voiceInfo) {
-        socketVoiceMap.delete(socket.id);
-        // We do not manage voiceRooms here anymore; LiveKit Webhook handles true presence.
+      socketVoiceMap.delete(socket.id);
+      // LiveKit Webhook gère la présence réelle — on ne touche pas voiceRooms ici.
       }
 
       if (currentUserId && onlineUsers.has(currentUserId)) {
-        const sockets = onlineUsers.get(currentUserId);
-        sockets?.delete(socket.id);
-        if (sockets?.size === 0) {
-          onlineUsers.delete(currentUserId);
-        }
-        io.emit("online-users", Array.from(onlineUsers.keys()));
+      const sockets = onlineUsers.get(currentUserId);
+      sockets?.delete(socket.id);
+      if (sockets?.size === 0) {
+        onlineUsers.delete(currentUserId);
+      }
+      io.emit("online-users", Array.from(onlineUsers.keys()));
       }
 
       console.log("Socket disconnected", socket.id);
