@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, Volume2, VolumeX } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useAuthStore } from '../store/authStore';
 import VideoPlayer from './VideoPlayer';
@@ -93,15 +93,17 @@ function StreamAudioPlayer({
 export default function ScreenShareViewer() {
   const { user: currentUser } = useAuthStore();
   const {
-	  remoteScreenShares,
-	  remoteScreenShareAudioTracks,
-	  localScreenShareStream,
-	  viewingScreenShares,
-	  streamVolume,
-	  isStreamVolumeMuted,
-	  isDeafened,
-	  voiceSettings
-	} = useAppStore();
+    remoteScreenShares,
+    remoteScreenShareAudioTracks,
+    localScreenShareStream,
+    viewingScreenShares,
+    streamVolume,
+    isStreamVolumeMuted,
+    isDeafened,
+    voiceSettings,
+    setStreamVolume,
+    setIsStreamVolumeMuted,
+  } = useAppStore();
 
   const [poppedOutStreams, setPoppedOutStreams] = useState<Set<string>>(new Set());
 
@@ -159,33 +161,38 @@ export default function ScreenShareViewer() {
       viewingScreenShares.has(uid)
     ),
   ].filter(([uid]) => uid !== useAppStore.getState().activeStreamFocus);
-  
-	const audibleStreamIds = Array.from(viewingScreenShares).filter((uid) => uid !== currentUser?.id && !!remoteScreenShareAudioTracks[uid]);
+
+  const audibleStreamIds = Array.from(viewingScreenShares).filter(
+    (uid) => uid !== currentUser?.id && !!remoteScreenShareAudioTracks[uid]
+  );
 
   if (allStreams.length === 0 && audibleStreamIds.length === 0) return null;
 
   return (
     <>
-		{audibleStreamIds.map((uid) => {
-		  const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
-		  if (!audioTrack) return null;
+      {audibleStreamIds.map((uid) => {
+        const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
+        if (!audioTrack) return null;
 
-		  return (
-			<StreamAudioPlayer
-			  key={`stream-audio-${uid}`}
-			  ownerId={uid}
-			  track={audioTrack}
-			  volume={streamVolume}
-			  muted={isDeafened || isStreamVolumeMuted}
-			  selectedSpeakerId={voiceSettings.selectedSpeakerId}
-			/>
-		  );
-		})}
+        return (
+          <StreamAudioPlayer
+            key={`stream-audio-${uid}`}
+            ownerId={uid}
+            track={audioTrack}
+            volume={streamVolume}
+            muted={isDeafened || isStreamVolumeMuted}
+            selectedSpeakerId={voiceSettings.selectedSpeakerId}
+          />
+        );
+      })}
 
       <div className="absolute top-14 md:top-4 right-4 z-50 flex flex-col gap-4 max-w-[200px] md:max-w-sm w-full pointer-events-none">
         {allStreams.map(([uid, stream]) => {
           if (poppedOutStreams.has(uid) && 'documentPictureInPicture' in window) return null;
           if (poppedOutStreams.has(uid)) return null;
+
+          const isOwnStream = uid === currentUser?.id;
+          const hasRemoteAudio = !isOwnStream && !!remoteScreenShareAudioTracks[uid];
 
           return (
             <div
@@ -196,18 +203,57 @@ export default function ScreenShareViewer() {
                 useAppStore.getState().setIsRightSidebarOpen(false);
               }}
             >
-              <div className="bg-zinc-800 px-3 py-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-200">
-                  {uid === currentUser?.id ? "Votre partage d'écran" : "Partage d'écran"}
+              <div className="bg-zinc-800 px-3 py-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-zinc-200 truncate">
+                  {isOwnStream ? "Votre partage d'écran" : "Partage d'écran"}
                 </span>
-                <div className="flex items-center gap-2">
+
+                <div
+                  className="flex items-center gap-2 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {hasRemoteAudio && (
+                    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-zinc-900/70 border border-zinc-700">
+                      <button
+                        onClick={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
+                        className="text-zinc-400 hover:text-zinc-100 transition-colors"
+                        title={isStreamVolumeMuted ? 'Réactiver le son du stream' : 'Couper le son du stream'}
+                      >
+                        {isStreamVolumeMuted ? (
+                          <VolumeX className="w-4 h-4" />
+                        ) : (
+                          <Volume2 className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={Math.round(streamVolume * 100)}
+                        onChange={(e) => setStreamVolume(Number(e.target.value) / 100)}
+                        className="w-20 md:w-24 accent-indigo-500"
+                        title={`Volume du stream : ${Math.round(streamVolume * 100)}%`}
+                      />
+
+                      <span className="text-[10px] text-zinc-400 w-8 text-right tabular-nums">
+                        {Math.round(streamVolume * 100)}%
+                      </span>
+                    </div>
+                  )}
+
                   <button
-                    onClick={(e) => { e.stopPropagation(); handlePopOut(uid, stream); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePopOut(uid, stream);
+                    }}
                     className="text-zinc-400 hover:text-zinc-100 transition-colors"
                     title="Ouvrir dans une nouvelle fenêtre"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </button>
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -224,6 +270,7 @@ export default function ScreenShareViewer() {
                   </button>
                 </div>
               </div>
+
               <div className="aspect-video bg-black relative">
                 <VideoPlayer stream={stream} muted={uid === currentUser?.id} />
               </div>
@@ -251,6 +298,7 @@ export default function ScreenShareViewer() {
               <X className="w-5 h-5" />
             </button>
           </div>
+
           <div
             className="flex-1 bg-black p-2 grid gap-2"
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
