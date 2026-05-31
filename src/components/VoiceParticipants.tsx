@@ -23,13 +23,21 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
     voiceParticipants: allVoiceParticipants,
     globalProfiles
   } = useAppStore();
+
   const activeChannelId = channelId || selectedChannelId;
   const participants = allVoiceParticipants[activeChannelId || ''] || [];
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
+  const canWatchStreamsInThisChannel =
+    !!connectedVoiceChannelId && connectedVoiceChannelId === activeChannelId;
+
   const toggleViewScreenShare = (e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
+
+    if (!canWatchStreamsInThisChannel) {
+      return;
+    }
     
     if (window.innerWidth < 768) {
       if (activeStreamFocus === uid) {
@@ -96,23 +104,37 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
                 displayName?.charAt(0).toUpperCase() || 'U'
               )}
             </div>
+
             <span className={`text-xs font-medium bg-zinc-800 px-2 py-0.5 rounded-full text-user-${p.id} text-zinc-300`}>
               {displayName}
             </span>
+
             <div className="absolute -top-2 -right-2 flex gap-1">
               {p.isMuted && (
                 <div className="bg-zinc-800 rounded-full p-1 border border-zinc-900">
                   <MicOff className="w-3 h-3 text-red-500" />
                 </div>
               )}
+
               {(p.isStreaming || isSharingScreen) && (
-                <button 
+                <button
                   onClick={(e) => toggleViewScreenShare(e, p.id)}
+                  disabled={!canWatchStreamsInThisChannel}
                   className={clsx(
                     "rounded-full p-1.5 border border-zinc-900 transition-colors shadow-lg",
-                    isViewing ? "bg-emerald-500 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"
+                    !canWatchStreamsInThisChannel
+                      ? "bg-zinc-800 text-zinc-500 opacity-70 cursor-not-allowed"
+                      : isViewing
+                        ? "bg-emerald-500 text-white"
+                        : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"
                   )}
-                  title={isViewing ? "Fermer le stream" : "Regarder le stream"}
+                  title={
+                    !canWatchStreamsInThisChannel
+                      ? "Connectez-vous à ce salon vocal pour regarder le stream"
+                      : isViewing
+                        ? "Fermer le stream"
+                        : "Regarder le stream"
+                  }
                 >
                   <MonitorUp className="w-4 h-4" />
                 </button>
