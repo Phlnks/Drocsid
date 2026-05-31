@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, ExternalLink, Volume2, VolumeX } from 'lucide-react';
+import { X, ExternalLink } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useAuthStore } from '../store/authStore';
 import VideoPlayer from './VideoPlayer';
@@ -178,7 +178,6 @@ export default function ScreenShareViewer() {
           if (poppedOutStreams.has(uid)) return null;
 
           const isOwnStream = uid === currentUser?.id;
-          const hasRemoteAudio = !isOwnStream && !!remoteScreenShareAudioTracks[uid];
 
           return (
             <div
@@ -198,37 +197,6 @@ export default function ScreenShareViewer() {
                   className="flex items-center gap-2 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {hasRemoteAudio && (
-                    <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-zinc-900/70 border border-zinc-700">
-                      <button
-                        onClick={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
-                        className="text-zinc-400 hover:text-zinc-100 transition-colors"
-                        title={isStreamVolumeMuted ? 'Réactiver le son du stream' : 'Couper le son du stream'}
-                      >
-                        {isStreamVolumeMuted ? (
-                          <VolumeX className="w-4 h-4" />
-                        ) : (
-                          <Volume2 className="w-4 h-4" />
-                        )}
-                      </button>
-
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={Math.round(streamVolume * 100)}
-                        onChange={(e) => setStreamVolume(Number(e.target.value) / 100)}
-                        className="w-20 md:w-24 accent-indigo-500"
-                        title={`Volume du stream : ${Math.round(streamVolume * 100)}%`}
-                      />
-
-                      <span className="text-[10px] text-zinc-400 w-8 text-right tabular-nums">
-                        {Math.round(streamVolume * 100)}%
-                      </span>
-                    </div>
-                  )}
-
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -258,7 +226,15 @@ export default function ScreenShareViewer() {
               </div>
 
               <div className="aspect-video bg-black relative">
-                <VideoPlayer stream={stream} muted={uid === currentUser?.id} />
+                <VideoPlayer
+                  stream={stream}
+                  muted={isOwnStream}
+                  showVolumeControls={!isOwnStream}
+                  externalVolume={streamVolume}
+                  externalMuted={isStreamVolumeMuted}
+                  onVolumeChange={setStreamVolume}
+                  onToggleMuted={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
+                />
               </div>
             </div>
           );
@@ -292,13 +268,15 @@ export default function ScreenShareViewer() {
             {allStreams.map(([uid, stream]) => {
               if (!poppedOutStreams.has(uid) || 'documentPictureInPicture' in window) return null;
 
+              const isOwnStream = uid === currentUser?.id;
+
               return (
                 <div
                   key={`fallback-${uid}`}
                   className="relative bg-zinc-900 rounded border border-zinc-800 overflow-hidden flex flex-col"
                 >
                   <div className="absolute top-2 left-2 z-10 bg-black/60 px-2 py-1 rounded text-xs text-white">
-                    {uid === currentUser?.id ? 'Vous' : 'Participant'}
+                    {isOwnStream ? 'Vous' : 'Participant'}
                   </div>
                   <button
                     onClick={() => fallbackPopOut(uid)}
@@ -306,7 +284,16 @@ export default function ScreenShareViewer() {
                   >
                     <X className="w-4 h-4" />
                   </button>
-                  <VideoPlayer stream={stream} muted={uid === currentUser?.id} />
+
+                  <VideoPlayer
+                    stream={stream}
+                    muted={isOwnStream}
+                    showVolumeControls={!isOwnStream}
+                    externalVolume={streamVolume}
+                    externalMuted={isStreamVolumeMuted}
+                    onVolumeChange={setStreamVolume}
+                    onToggleMuted={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
+                  />
                 </div>
               );
             })}

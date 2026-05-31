@@ -1,13 +1,39 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Volume2, VolumeX } from 'lucide-react';
+import clsx from 'clsx';
 
 export default function VideoPlayer({
   stream,
   muted = false,
+  showVolumeControls = false,
+  externalVolume,
+  externalMuted,
+  onVolumeChange,
+  onToggleMuted,
 }: {
   stream: MediaStream;
   muted?: boolean;
+  showVolumeControls?: boolean;
+  externalVolume?: number;
+  externalMuted?: boolean;
+  onVolumeChange?: (value: number) => void;
+  onToggleMuted?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [showControls, setShowControls] = useState(false);
+  const [hasAudio, setHasAudio] = useState(false);
+  const [internalVolume, setInternalVolume] = useState(1);
+  const [internalMuted, setInternalMuted] = useState(muted);
+
+  const effectiveMuted =
+    typeof externalMuted === 'boolean' ? externalMuted : internalMuted;
+
+  const effectiveVolume =
+    typeof externalVolume === 'number' ? externalVolume : internalVolume;
+
+  useEffect(() => {
+    setInternalMuted(muted);
+  }, [muted]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -16,6 +42,11 @@ export default function VideoPlayer({
     let cancelled = false;
     let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
     let watchdogInterval: ReturnType<typeof setInterval> | null = null;
+
+    const updateHasAudio = () => {
+      if (cancelled) return;
+      setHasAudio(stream.getAudioTracks().length > 0);
+    };
 
     const safePlay = () => {
       if (cancelled || !videoRef.current) return;
@@ -80,17 +111,22 @@ export default function VideoPlayer({
 
     const handleAddTrack = () => {
       console.log('[VideoPlayer] stream addtrack');
+      updateHasAudio();
       bindStream('stream-addtrack');
     };
 
     const handleRemoveTrack = () => {
       console.log('[VideoPlayer] stream removetrack');
+      updateHasAudio();
       bindStream('stream-removetrack');
     };
+
+    updateHasAudio();
 
     video.autoplay = true;
     video.playsInline = true;
     video.muted = muted;
+    video.volume = Math.max(0, Math.min(1, effectiveVolume));
 
     const videoTrack = stream.getVideoTracks()[0];
 
@@ -169,10 +205,19 @@ export default function VideoPlayer({
         videoRef.current.load();
       }
     };
-  }, [stream, muted]);
+  }, [stream, muted, effectiveVolume]);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.volume = Math.max(0, Math.min(1, effectiveVolume));
+  }, [effectiveVolume]);
 
   return (
-    <div className="relative w-full h-full bg-black">
+    <div
+      className="relative w-full h-full bg-black group"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
+    >
       <video
         ref={videoRef}
         autoPlay
@@ -180,6 +225,59 @@ export default function VideoPlayer({
         muted={muted}
         className="w-full h-full object-contain"
       />
+
+      {hasAudio && !muted && showVolumeControls && (
+        <div
+          className={clsx(
+            'absolute top-4 right-4 bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg flex items-center gap-2 border border-zinc-700/50 transition-all duration-300 shadow-xl z-30',
+            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              if (onToggleMuted) {
+                onToggleMuted();
+              } else {
+                setInternalMuted(!internalMuted);
+              }
+            }}
+            className="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-300 hover:text-white transition-colors"
+            title={effectiveMuted ? 'Réactiver le son' : 'Couper le son'}
+          >
+            {(effectiveMuted || effectiveVolume === 0) ? (
+              <VolumeX className="w-5 h-5 text-red-400" />
+            ) : (
+              <Volume2 className="w-5 h-5 text-indigo-400" />
+            )}
+          </button>
+
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={effectiveMuted ? 0 : effectiveVolume}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+
+              if (onVolumeChange) {
+                onVolumeChange(val);
+              } else {
+                setInternalVolume(val);
+                if (val > 0 && internalMuted) setInternalMuted(false);
+              }
+            }}
+            className="w-24 accent-indigo-500 cursor-pointer"
+          />
+        </div>
+      )}
+
+      {hasAudio && !muted && showVolumeControls && (effectiveMuted || effectiveVolume === 0) && !showControls && (
+        <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm p-1.5 rounded-full border border-white/10 z-20">
+          <VolumeX className="w-4 h-4 text-red-400/80" />
+        </div>
+      )}
     </div>
   );
 }
