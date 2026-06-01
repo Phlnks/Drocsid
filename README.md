@@ -46,48 +46,79 @@ Drocsid is built with global reach in mind, using **i18next** for a localized ex
 - **Automatic Detection**: The app detects your browser's language on the first visit.
 - **Manual Switching**: Easily switch languages in the **User Settings** menu.
 
-## 🛠️ Self-Hosted Deployment Guide
+## 🛠️ Self-Hosted Deployment & Prerequisites
 
-To run your own fully-featured instance of Drocsid, you need a database (Supabase), a WebRTC server (LiveKit), and a Node.js hosting platform (Render).
+Drocsid is designed to be fully self-hostable. To run your own instance, you need a database (Supabase), a WebRTC server (LiveKit), and a Node.js environment to host the web app and signaling server.
 
-### 1. Supabase (Database, Auth, Storage)
+### Prerequisites Ecosystem
+
+- **Node.js** (v18 or higher)
+- **Docker & Docker Compose** (Highly recommended for self-hosting Supabase and LiveKit)
+- A domain name (for production WebRTC/HTTPS requirements)
+
+---
+
+### 1. Supabase (Database, Auth, Storage) - Self-Hosted
 Drocsid uses Supabase for database management, user authentication, and real-time database updates.
-- **Create a project** on [Supabase](https://supabase.com).
-- **Run the Schema**: Go to the **SQL Editor** tab in your Supabase dashboard. Paste and run the contents of the `supabase.sql` file located in the root of this repository. This creates all necessary tables, RLS policies, functions, and triggers.
-- **Configure Authentication (Google)**: Go to **Authentication > Providers > Google**. Enable it and enter your Client ID and Secret. In your Google Cloud Console, ensure the Redirect URL is `https://<your-project>.supabase.co/auth/v1/callback`.
-- **Storage Buckets**: In Supabase Storage, create the following **public** buckets:
-  - `avatars` (User profile pictures)
-  - `server-icons` (Server logos)
-  - `attachments` (File sharing in messages)
-  - `emojis` (Custom server emojis)
-- **Enable Realtime**: Ensure realtime broadcasting is enabled for the `channels`, `messages`, `profiles`, `roles`, and `server_members` tables.
 
-### 2. LiveKit (Voice, Video & Screen Sharing)
+1. **Deploy Supabase**: You can self-host Supabase using Docker. Clone the [Supabase Docker repository](https://github.com/supabase/supabase/tree/master/docker) and follow their instructions to spin up the containers via `docker-compose up -d`.
+2. **Run the Schema**: Once your Supabase instance is running and accessible via the studio UI (usually `http://localhost:8000`), navigate to the **SQL Editor** tab. Paste and run the entire contents of the `supabase.sql` file located in the root of this repository. This creates all necessary tables, RLS policies, functions, and triggers.
+3. **Configure Authentication (Google)**: Go to **Authentication > Providers**. Enable Google and enter your Client ID and Secret. Ensure the Redirect URL is `https://<your-supabase-domain>/auth/v1/callback`.
+4. **Storage Buckets**: In Supabase Storage, create the following **public** buckets:
+   - `avatars` (User profile pictures)
+   - `server-icons` (Server logos)
+   - `attachments` (File sharing in messages)
+   - `emojis` (Custom server emojis)
+5. **Enable Realtime**: Ensure realtime broadcasting is enabled for the `channels`, `messages`, `profiles`, `roles`, and `server_members` tables within the Supabase Database settings.
+
+---
+
+### 2. LiveKit (Voice, Video & Screen Sharing) - Self-Hosted
 Drocsid relies on LiveKit's robust WebRTC infrastructure for high-quality audio, video, and screen sharing.
-- **Create a project** on [LiveKit Cloud](https://cloud.livekit.io/) (or deploy a self-hosted instance).
-- Generate a new set of API keys in your LiveKit project settings.
-- Note down your **API Key**, **API Secret**, and your **WebSocket URL** (e.g., `wss://<your-project>.livekit.cloud`).
+
+1. **Deploy LiveKit Server**: Use the LiveKit deployment tools (like `livekit-cli generate-config`) or docker-compose to self-host LiveKit. 
+2. **Configure TURN Server**: It is **critical** to configure and enable the integrated TURN server feature in LiveKit. WebRTC requires TURN servers to bypass strict enterprise firewalls and NATs for reliable voice/video communication. Ensure your `livekit.yaml` config has `turn` enabled and proper UDP/TCP ports exposed (typically 3478/5349).
+3. **Token Generation API**: The Drocsid Node.js backend handles LiveKit token generation. You do not need a separate token server, but you *must* provide the LiveKit API Key and Secret to the Node.js backend so it can generate secure tokens for connecting users.
+4. Note down your **API Key**, **API Secret**, and your **WebSocket URL** (e.g., `wss://livekit.your-domain.com`).
+
+---
 
 ### 3. VAPID Keys (Web Push Notifications)
 To enable push notifications for DMs and mentions when the app is running in the background:
 - Open a terminal and run: `npx web-push generate-vapid-keys`
 - Save the generated **Public Key** and **Private Key**.
 
-### 4. Deploying the Backend on Render
-Render will host the Node.js WebSocket backend (used for presence and direct messaging signaling) and serve the built React frontend.
-- Create a new **Web Service** on [Render](https://render.com) and connect your GitHub repository.
-- **Build Command**: `npm install && npm run build`
-- **Start Command**: `npm start`
-- **Environment Variables**: Add the following variables in the Render dashboard:
+---
 
+### 4. Application Installation & Startup
+
+Once your prerequisites are running, install and configure the Drocsid app:
+
+1. **Clone the repository**:
+```bash
+git clone https://github.com/your-repo/drocsid.git
+cd drocsid
+```
+
+2. **Install Dependencies**:
+```bash
+npm install
+```
+
+3. **Configure Environment Variables**:
+Copy the example environment file and fill in your self-hosted instance details.
+```bash
+cp .env.example .env
+```
+Edit the `.env` file with your credentials:
 ```env
-# ==== Supabase ====
-VITE_SUPABASE_URL=https://<your-project>.supabase.co
+# ==== Supabase (Self-hosted or Cloud) ====
+VITE_SUPABASE_URL=http://localhost:8000 # Your Supabase API URL
 VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# ==== LiveKit ====
-VITE_LIVEKIT_URL=wss://<your-project>.livekit.cloud
+# ==== LiveKit (Self-hosted or Cloud) ====
+VITE_LIVEKIT_URL=wss://livekit.yourdomain.com
 LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
 
@@ -95,33 +126,26 @@ LIVEKIT_API_SECRET=your_livekit_api_secret
 VITE_VAPID_PUBLIC_KEY=your_vapid_public_key
 VAPID_PUBLIC_KEY=your_vapid_public_key
 VAPID_PRIVATE_KEY=your_vapid_private_key
-VAPID_SUBJECT=mailto:admin@your-domain.com
+VAPID_SUBJECT=mailto:admin@yourdomain.com
 
 # ==== Backend Configuration ====
-VITE_BACKEND_URL=https://<your-render-app>.onrender.com
-RENDER=true
+VITE_BACKEND_URL=http://localhost:3000
 PORT=3000
 ```
 
-That's it! Render will build the Vite frontend and serve it automatically using the Express backend. Your application will be accessible at your Render URL.
-
-## 🚀 Running Locally for Development
-
-If you want to run Drocsid locally on your machine for development:
-
-1. Clone the repository and install dependencies:
-```bash
-npm install
-```
-
-2. Copy `.env.example` to `.env` and fill in your Supabase, LiveKit, and VAPID keys. Set `VITE_BACKEND_URL=http://localhost:3000`.
-
-3. Start the development server (runs both the Vite frontend and Express backend concurrently):
+4. **Run the Application locally**:
+Start the development server (this runs both the Vite frontend and Express backend concurrently):
 ```bash
 npm run dev
 ```
-
 The application will be accessible at `http://localhost:3000`.
+
+5. **Building for Production**:
+To deploy the app to production, build the platform and start the Node process:
+```bash
+npm run build
+npm start
+```
 
 ## 🏗️ Multi-Instance Architecture
 
