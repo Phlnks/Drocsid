@@ -160,7 +160,6 @@ async function startServer() {
     next();
   });
 
-  // Host validation removed to simplify self-hosting.
   app.use((req, res, next) => {
     next();
   });
@@ -561,7 +560,6 @@ async function startServer() {
         return res.status(400).json({ error: "Missing fields" });
       }
 
-      // Verify hierarchy and permissions
       const [rolesRes, membersRes, serverRes] = await Promise.all([
         supabaseAdmin.from('roles').select('*').eq('server_id', serverId),
         supabaseAdmin.from('server_members').select('*').eq('server_id', serverId).in('user_id', [currentUser.id, targetUserId]),
@@ -804,8 +802,6 @@ async function startServer() {
         if (!voiceRooms.has(roomName)) voiceRooms.set(roomName, new Map());
         
         const existingData = voiceRooms.get(roomName)?.get(identity) || {};
-        // Merge identity and metadata correctly to reconstruct the user profile
-        // keep any existingData (like early voice-state-updates from the socket)
         voiceRooms.get(roomName)?.set(identity, { id: identity, ...metadataObj, ...existingData });
         updated = true;
       } else if (event.event === "participant_left") {
@@ -827,7 +823,6 @@ async function startServer() {
         });
         
         if (event.event === "room_finished" || (voiceRooms.has(roomName) && voiceRooms.get(roomName)?.size === 0)) {
-           // Basic cleanup of database call record
            try {
               await supabaseAdmin.from("calls").delete().eq("id", roomName);
            } catch(e) {}
