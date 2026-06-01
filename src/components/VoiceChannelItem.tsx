@@ -217,9 +217,11 @@ export default function VoiceChannelItem({
         <div className="flex flex-col gap-[2px] mt-1 mb-2 ml-6">
           {participants.map((p) => {
             const isCurrentUser = !!currentUser && p.id === currentUser.id;
-            const isSharingScreen = isCurrentUser
+            const hasActiveStreamObject = isCurrentUser
               ? !!localScreenShareStream
               : !!remoteScreenShares[p.id];
+
+            const isStreamingIndicator = !!p.isStreaming || hasActiveStreamObject;
             const isViewing = viewingScreenShares.has(p.id);
             const userProfile = globalProfiles[p.id];
             const displayName = userProfile?.username || p.name;
@@ -233,7 +235,7 @@ export default function VoiceChannelItem({
               : p.isDeafened;
 
             const canWatchThisStream =
-              isSharingScreen && isConnectedToThisChannel;
+              isStreamingIndicator && isConnectedToThisChannel;
 
             return (
               <div
@@ -269,7 +271,7 @@ export default function VoiceChannelItem({
                 </span>
 
                 <div className="ml-auto flex items-center gap-1 shrink-0">
-                  {isSharingScreen && (
+                  {isStreamingIndicator && (
                     <button
                       onClick={(e) => {
                         if (!canWatchThisStream) {
