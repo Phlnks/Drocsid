@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Volume2, MicOff, Headphones, MonitorUp, Moon, Settings } from 'lucide-react';
+import {
+  Volume2,
+  MicOff,
+  Headphones,
+  MonitorUp,
+  Moon,
+  Settings,
+} from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import clsx from 'clsx';
 import UserContextMenu from './ui/UserContextMenu';
 import UserProfileModal from './ui/UserProfileModal';
 import { useTranslation } from 'react-i18next';
-import { playScreenShareJoinSound, playScreenShareLeaveSound } from '../lib/sounds';
+import {
+  playScreenShareJoinSound,
+  playScreenShareLeaveSound,
+} from '../lib/sounds';
 
 interface Props {
   key?: any;
@@ -36,7 +46,7 @@ export default function VoiceChannelItem({
   onKickMember,
   onBanMember,
   hasManageChannels,
-  onRename
+  onRename,
 }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
@@ -54,7 +64,12 @@ export default function VoiceChannelItem({
 
   const participants = allVoiceParticipants[channel.id] || [];
   const [isDragOver, setIsDragOver] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; userId: string; username: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    userId: string;
+    username: string;
+  } | null>(null);
   const [showProfile, setShowProfile] = useState<any>(null);
 
   const isConnectedToThisChannel =
@@ -63,13 +78,21 @@ export default function VoiceChannelItem({
   const handleContextMenu = (e: React.MouseEvent, user: any) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, userId: user.id, username: user.name });
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      userId: user.id,
+      username: user.name,
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, userId: string) => {
     if (!hasMoveMembers) return;
     e.stopPropagation();
-    e.dataTransfer.setData('text/plain', JSON.stringify({ userId, sourceChannelId: channel.id }));
+    e.dataTransfer.setData(
+      'text/plain',
+      JSON.stringify({ userId, sourceChannelId: channel.id })
+    );
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -102,6 +125,7 @@ export default function VoiceChannelItem({
       const dataStr = e.dataTransfer.getData('text/plain');
       if (!dataStr) return;
       const data = JSON.parse(dataStr);
+
       if (data.userId && data.sourceChannelId && data.sourceChannelId !== channel.id) {
         if (onMoveMember) {
           onMoveMember(data.userId, channel.id);
@@ -119,7 +143,7 @@ export default function VoiceChannelItem({
 
     const isActiveFocus = useAppStore.getState().activeStreamFocus === uid;
 
-    setViewingScreenShares(prev => {
+    setViewingScreenShares((prev) => {
       const next = new Set(prev);
 
       if (next.has(uid)) {
@@ -147,7 +171,9 @@ export default function VoiceChannelItem({
   };
 
   const isAfk = channel.name.endsWith(' [AFK]');
-  const displayChannelName = isAfk ? channel.name.replace(' [AFK]', '') : channel.name;
+  const displayChannelName = isAfk
+    ? channel.name.replace(' [AFK]', '')
+    : channel.name;
 
   return (
     <div
@@ -166,7 +192,12 @@ export default function VoiceChannelItem({
           isDragOver && hasMoveMembers && 'ring-2 ring-indigo-500 bg-zinc-800/80'
         )}
       >
-        {isAfk ? <Moon className="w-5 h-5 md:w-4 md:h-4" /> : <Volume2 className="w-5 h-5 md:w-4 md:h-4" />}
+        {isAfk ? (
+          <Moon className="w-5 h-5 md:w-4 md:h-4" />
+        ) : (
+          <Volume2 className="w-5 h-5 md:w-4 md:h-4" />
+        )}
+
         <span className="truncate flex-1">{displayChannelName}</span>
 
         {hasManageChannels && onRename && (
@@ -185,17 +216,24 @@ export default function VoiceChannelItem({
       {participants.length > 0 && (
         <div className="flex flex-col gap-[2px] mt-1 mb-2 ml-6">
           {participants.map((p) => {
-            const isCurrentUser = currentUser && p.id === currentUser.id;
-            const isSharingScreen = isCurrentUser ? !!localScreenShareStream : !!remoteScreenShares[p.id];
+            const isCurrentUser = !!currentUser && p.id === currentUser.id;
+            const isSharingScreen = isCurrentUser
+              ? !!localScreenShareStream
+              : !!remoteScreenShares[p.id];
             const isViewing = viewingScreenShares.has(p.id);
             const userProfile = globalProfiles[p.id];
             const displayName = userProfile?.username || p.name;
             const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
 
-            const isMutedUser = isCurrentUser ? useAppStore.getState().isVoiceMuted : p.isMuted;
-            const isDeafenedUser = isCurrentUser ? useAppStore.getState().isDeafened : p.isDeafened;
+            const isMutedUser = isCurrentUser
+              ? useAppStore.getState().isVoiceMuted
+              : p.isMuted;
+            const isDeafenedUser = isCurrentUser
+              ? useAppStore.getState().isDeafened
+              : p.isDeafened;
 
-            const canWatchThisStream = isSharingScreen && isConnectedToThisChannel;
+            const canWatchThisStream =
+              isSharingScreen && isConnectedToThisChannel;
 
             return (
               <div
@@ -208,9 +246,15 @@ export default function VoiceChannelItem({
                   hasMoveMembers && 'cursor-grab active:cursor-grabbing'
                 )}
               >
-                <div className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 participant-small avatar-user-${p.id} ring-2 ring-transparent`}>
+                <div
+                  className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 transition-all duration-200 bg-indigo-500 participant-small avatar-user-${p.id} ring-2 ring-transparent`}
+                >
                   {displayAvatar ? (
-                    <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
+                    <img
+                      src={displayAvatar}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <span className="text-[12px] md:text-[10px] font-bold text-white">
                       {displayName?.charAt(0).toUpperCase() || 'U'}
@@ -218,38 +262,47 @@ export default function VoiceChannelItem({
                   )}
                 </div>
 
-                <span className={`text-base md:text-sm truncate transition-colors text-user-${p.id} text-zinc-400 group-hover:text-zinc-300`}>
+                <span
+                  className={`text-base md:text-sm truncate transition-colors text-user-${p.id} text-zinc-400 group-hover:text-zinc-300`}
+                >
                   {displayName}
                 </span>
 
                 <div className="ml-auto flex items-center gap-1 shrink-0">
                   {isSharingScreen && (
-                    canWatchThisStream ? (
-                      <button
-                        onClick={(e) => toggleViewScreenShare(e, p.id)}
-                        className={clsx(
-                          'p-1.5 rounded-md transition-colors',
-                          isViewing
+                    <button
+                      onClick={(e) => {
+                        if (!canWatchThisStream) {
+                          e.stopPropagation();
+                          return;
+                        }
+                        toggleViewScreenShare(e, p.id);
+                      }}
+                      disabled={!canWatchThisStream}
+                      className={clsx(
+                        'p-1.5 rounded-md transition-colors',
+                        canWatchThisStream
+                          ? isViewing
                             ? 'bg-emerald-500/20 text-emerald-400'
                             : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
-                        )}
-                        title={isViewing ? t('common.closeStream') : t('common.watchStream')}
-                      >
-                        <MonitorUp className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <div
-                        className="p-1.5 rounded-md text-zinc-600 opacity-70 cursor-not-allowed"
-                        title="Connectez-vous à ce salon vocal pour regarder le stream"
-                        aria-hidden="true"
-                      >
-                        <MonitorUp className="w-4 h-4" />
-                      </div>
-                    )
+                          : 'text-zinc-500 opacity-70 cursor-not-allowed'
+                      )}
+                      title={
+                        canWatchThisStream
+                          ? isViewing
+                            ? t('common.closeStream')
+                            : t('common.watchStream')
+                          : 'Connectez-vous à ce salon vocal pour regarder le stream'
+                      }
+                    >
+                      <MonitorUp className="w-4 h-4" />
+                    </button>
                   )}
 
                   {isMutedUser && <MicOff className="w-3 h-3 text-red-500" />}
-                  {isDeafenedUser && <Headphones className="w-3 h-3 text-red-500" />}
+                  {isDeafenedUser && (
+                    <Headphones className="w-3 h-3 text-red-500" />
+                  )}
                 </div>
               </div>
             );
@@ -265,10 +318,18 @@ export default function VoiceChannelItem({
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={() => setContextMenu(null)}
           onViewProfile={() => {
-            const p = participants.find(part => part.id === contextMenu.userId);
+            const p = participants.find(
+              (part) => part.id === contextMenu.userId
+            );
             if (p) {
               const uProfile = globalProfiles[p.id];
-              setShowProfile(uProfile || { id: p.id, username: p.name, avatar_url: p.avatarUrl });
+              setShowProfile(
+                uProfile || {
+                  id: p.id,
+                  username: p.name,
+                  avatar_url: p.avatarUrl,
+                }
+              );
             }
           }}
         />
