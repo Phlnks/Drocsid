@@ -4,6 +4,7 @@ import { useAppStore } from '../store/appStore';
 import { useAuthStore } from '../store/authStore';
 import VideoPlayer from './VideoPlayer';
 import type { RemoteAudioTrack } from 'livekit-client';
+import { useTranslation } from 'react-i18next';
 
 function StreamAudioPlayer({
   ownerId,
@@ -23,7 +24,7 @@ function StreamAudioPlayer({
   useEffect(() => {
     const el = document.createElement('audio');
     el.autoplay = true;
-    el.playsInline = true;
+    el.setAttribute('playsinline', '');
     el.muted = muted;
     el.volume = Math.max(0, Math.min(1, volume));
     audioRef.current = el;
@@ -66,6 +67,7 @@ function StreamAudioPlayer({
 }
 
 export default function ScreenShareViewer() {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const {
     remoteScreenShares,
@@ -210,7 +212,7 @@ export default function ScreenShareViewer() {
             >
               <div className="bg-zinc-800 px-3 py-2 flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-zinc-200 truncate">
-                  {isOwnStream ? "Votre partage d'écran" : "Partage d'écran"}
+                  {isOwnStream ? t('voice.yourScreenShare') : t('voice.screenShare')}
                 </span>
 
                 <div
@@ -223,7 +225,7 @@ export default function ScreenShareViewer() {
                       handlePopOut(uid, stream);
                     }}
                     className="text-zinc-400 hover:text-zinc-100 transition-colors"
-                    title="Ouvrir dans une nouvelle fenêtre"
+                    title={t('voice.openInNewWindow')}
                   >
                     <ExternalLink className="w-4 h-4" />
                   </button>
@@ -238,7 +240,7 @@ export default function ScreenShareViewer() {
                       });
                     }}
                     className="text-zinc-400 hover:text-red-400 transition-colors"
-                    title="Fermer le stream"
+                    title={t('common.closeStream')}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -266,7 +268,7 @@ export default function ScreenShareViewer() {
         <div className="fixed inset-4 z-[100] bg-zinc-900 rounded-lg shadow-2xl overflow-hidden pointer-events-auto border border-zinc-700 flex flex-col">
           <div className="bg-zinc-800 px-4 py-3 flex items-center justify-between shrink-0">
             <span className="text-sm font-medium text-zinc-200">
-              Partages d'écran en plein écran
+              {t('voice.fullscreenShares')}
             </span>
             <button
               onClick={() =>
@@ -298,7 +300,7 @@ export default function ScreenShareViewer() {
                   className="relative bg-zinc-900 rounded border border-zinc-800 overflow-hidden flex flex-col"
                 >
                   <div className="absolute top-2 left-2 z-10 bg-black/60 px-2 py-1 rounded text-xs text-white">
-                    {isOwnStream ? 'Vous' : 'Participant'}
+                    {isOwnStream ? t('voice.you') : t('voice.participant')}
                   </div>
                   <button
                     onClick={() => fallbackPopOut(uid)}

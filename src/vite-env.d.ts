@@ -48,6 +48,8 @@ declare global {
       stopAppAudioCapture: () => Promise<AppAudioStatusResponse>;
       getAppAudioCaptureStatus: () => Promise<AppAudioStatusResponse>;
 
+      configureLivekitAppAudio: (config: { url: string; token: string }) => Promise<{ ok: boolean; error?: string }>;
+
       launchLoopbackTest: (pid: number, outputPath?: string) => Promise<LoopbackTestStatusResponse>;
       stopLoopbackTest: () => Promise<LoopbackTestStatusResponse>;
       getLoopbackTestStatus: () => Promise<LoopbackTestStatusResponse>;

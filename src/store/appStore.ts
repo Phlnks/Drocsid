@@ -125,7 +125,7 @@ interface AppState {
   isVoiceVolumeMuted: boolean;
   streamVolume: number;
   isStreamVolumeMuted: boolean;
-  peerVolumes: Record;
+  peerVolumes: Record<string, number>;
   setPeerVolume: (peerId: string, volume: number) => void;
   setStreamVolume: (volume: number) => void;
   setIsStreamVolumeMuted: (muted: boolean) => void;

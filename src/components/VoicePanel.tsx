@@ -616,7 +616,7 @@ export default function VoicePanel() {
         <div className="px-2">
           <div className="w-full flex items-center justify-center gap-2 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-md text-xs font-medium border border-yellow-500/20 animate-pulse">
             <PauseCircle className="w-3 h-3" />
-            Stream en pause — fenêtre minimisée
+            {t('voice.streamPaused')}
           </div>
         </div>
       )}
@@ -735,17 +735,17 @@ export default function VoicePanel() {
           {/* Note audio — uniquement sur navigateur web où displaySurface: 'monitor' est utilisé */}
           {!isElectron && (
             <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
-              🖥️ Écran entier uniquement — l'audio système sera proposé dans la boîte de dialogue du navigateur.
+              {t('voice.browserAudioNote')}
               {/firefox/i.test(navigator.userAgent) && (
                 <span className="block mt-1 text-yellow-500/80">
-                  ⚠️ Firefox : préférez partager un écran entier pour éviter les coupures.
+                  {t('voice.firefoxWarning')}
                 </span>
               )}
             </div>
           )}
           {isElectron && (
             <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
-              🎵 L'audio système est capturé automatiquement lors d'un partage d'écran entier.
+              {t('voice.electronAudioNote')}
             </div>
           )}
           <button onClick={() => startScreenShareFlow({ width: 1280, height: 720, frameRate: 30 })} className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors">{t('voice.standard')}</button>

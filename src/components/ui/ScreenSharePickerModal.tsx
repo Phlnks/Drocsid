@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Monitor, Layout as WindowIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { type DesktopSourceInfo } from '../../vite-env';
+import { useTranslation } from 'react-i18next';
 
 interface ScreenSharePickerModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface ScreenSharePickerModalProps {
 }
 
 export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: ScreenSharePickerModalProps) {
+  const { t } = useTranslation();
   const [sources, setSources] = useState<DesktopSourceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'screens' | 'windows'>('screens');
@@ -60,7 +62,7 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-zinc-700">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              Partager votre écran
+              {t('voice.shareScreenTitle')}
             </h2>
             <button
               onClick={onClose}
@@ -84,7 +86,7 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
               }`}
             >
               <Monitor className="w-4 h-4" />
-              Écrans
+              {t('voice.screensTab')}
             </button>
             <button
               onClick={() => {
@@ -98,7 +100,7 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
               }`}
             >
               <WindowIcon className="w-4 h-4" />
-              Fenêtres
+              {t('voice.windowsTab')}
             </button>
           </div>
 
@@ -107,11 +109,11 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-4">
                 <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-                <p>Détection des sources...</p>
+                <p>{t('voice.detectingSources')}</p>
               </div>
             ) : filteredSources.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-                <p>Aucune source trouvée</p>
+                <p>{t('voice.noSourcesFound')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -153,14 +155,14 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
               onClick={fetchSources}
               className="px-4 py-2 text-zinc-400 hover:text-zinc-200 text-sm font-medium transition-colors"
             >
-              Actualiser
+              {t('voice.refresh')}
             </button>
             <div className="flex gap-3">
               <button
                 onClick={onClose}
                 className="px-4 py-2 text-zinc-300 hover:text-white font-medium transition-colors"
               >
-                Annuler
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleShare}
@@ -171,7 +173,7 @@ export default function ScreenSharePickerModal({ isOpen, onClose, onSelect }: Sc
                     : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
                 }`}
               >
-                Partager
+                {t('voice.share')}
               </button>
             </div>
           </div>
