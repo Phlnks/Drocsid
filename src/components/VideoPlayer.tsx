@@ -1,288 +1,330 @@
 import { useEffect, useRef, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
-import clsx from 'clsx';
+import { X, ExternalLink } from 'lucide-react';
+import { useAppStore } from '../store/appStore';
+import { useAuthStore } from '../store/authStore';
+import VideoPlayer from './VideoPlayer';
+import type { RemoteAudioTrack } from 'livekit-client';
 
-export default function VideoPlayer({
-  stream,
-  muted = false,
-  showVolumeControls = false,
-  forceHasAudio = false,
-  externalVolume,
-  externalMuted,
-  onVolumeChange,
-  onToggleMuted,
+function StreamAudioPlayer({
+  ownerId,
+  track,
+  volume,
+  muted,
+  selectedSpeakerId,
 }: {
-  stream: MediaStream;
-  muted?: boolean;
-  showVolumeControls?: boolean;
-  forceHasAudio?: boolean;
-  externalVolume?: number;
-  externalMuted?: boolean;
-  onVolumeChange?: (value: number) => void;
-  onToggleMuted?: () => void;
+  ownerId: string;
+  track: RemoteAudioTrack;
+  volume: number;
+  muted: boolean;
+  selectedSpeakerId?: string;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [showControls, setShowControls] = useState(false);
-  const [hasAudio, setHasAudio] = useState(false);
-  const [internalVolume, setInternalVolume] = useState(1);
-  const [internalMuted, setInternalMuted] = useState(muted);
-
-  const effectiveMuted =
-    typeof externalMuted === 'boolean' ? externalMuted : internalMuted;
-
-  const effectiveVolume =
-    typeof externalVolume === 'number' ? externalVolume : internalVolume;
-
-  const shouldShowAudioUi = showVolumeControls && !muted && (hasAudio || forceHasAudio);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    setInternalMuted(muted);
+    const el = document.createElement('audio');
+    el.autoplay = true;
+    el.playsInline = true;
+    el.muted = muted;
+    el.volume = Math.max(0, Math.min(1, volume));
+    audioRef.current = el;
+
+    track.attach(el);
+
+    el.play().catch((e) => {
+      console.error('[StreamAudio:viewer] playback failed', {
+        ownerId,
+        error: e?.message ?? e,
+      });
+    });
+
+    return () => {
+      track.detach(el);
+      el.pause();
+      el.srcObject = null;
+      audioRef.current = null;
+    };
+  }, [ownerId, track]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = Math.max(0, Math.min(1, volume));
+  }, [volume]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.muted = muted;
   }, [muted]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !stream) return;
+    if (!audioRef.current || !selectedSpeakerId) return;
+    (audioRef.current as any).setSinkId?.(selectedSpeakerId).catch((e: any) => {
+      console.error('[StreamAudio:viewer] setSinkId error', e);
+    });
+  }, [selectedSpeakerId]);
 
-    let cancelled = false;
-    let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
-    let watchdogInterval: ReturnType<typeof setInterval> | null = null;
+  return null;
+}
 
-    const updateHasAudio = () => {
-      if (cancelled) return;
-      setHasAudio(stream.getAudioTracks().length > 0);
-    };
+export default function ScreenShareViewer() {
+  const { user: currentUser } = useAuthStore();
+  const {
+    remoteScreenShares,
+    remoteScreenShareAudioTracks,
+    localScreenShareStream,
+    viewingScreenShares,
+    streamVolume,
+    isStreamVolumeMuted,
+    isDeafened,
+    voiceSettings,
+    connectedVoiceChannelId,
+    setStreamVolume,
+    setIsStreamVolumeMuted,
+    setViewingScreenShares,
+    setActiveStreamFocus,
+  } = useAppStore();
 
-    const safePlay = () => {
-      if (cancelled || !videoRef.current) return;
-
-      videoRef.current.play().catch((e) => {
-        if (e?.name !== 'AbortError') {
-          console.warn('[VideoPlayer] play failed', e);
-        }
-      });
-    };
-
-    const bindStream = (reason: string) => {
-      if (cancelled || !videoRef.current) return;
-
-      const el = videoRef.current;
-      const currentTrack = stream.getVideoTracks()[0];
-
-      console.log('[VideoPlayer] bindStream', {
-        reason,
-        videoTracks: stream.getVideoTracks().length,
-        audioTracks: stream.getAudioTracks().length,
-        readyState: currentTrack?.readyState,
-        enabled: currentTrack?.enabled,
-        muted: currentTrack?.muted,
-      });
-
-      el.srcObject = null;
-
-      requestAnimationFrame(() => {
-        if (cancelled || !videoRef.current) return;
-        videoRef.current.srcObject = stream;
-        safePlay();
-      });
-    };
-
-    const handleLoadedMetadata = () => {
-      console.log('[VideoPlayer] loadedmetadata');
-      safePlay();
-    };
-
-    const handleCanPlay = () => {
-      console.log('[VideoPlayer] canplay');
-      safePlay();
-    };
-
-    const handlePlaying = () => {
-      console.log('[VideoPlayer] playing');
-    };
-
-    const handleWaiting = () => {
-      console.warn('[VideoPlayer] waiting');
-    };
-
-    const handleVideoTrackUnmute = () => {
-      console.log('[VideoPlayer] video track unmuted');
-      bindStream('video-track-unmute');
-    };
-
-    const handleVideoTrackEnded = () => {
-      console.warn('[VideoPlayer] video track ended');
-    };
-
-    const handleAddTrack = () => {
-      console.log('[VideoPlayer] stream addtrack');
-      updateHasAudio();
-      bindStream('stream-addtrack');
-    };
-
-    const handleRemoveTrack = () => {
-      console.log('[VideoPlayer] stream removetrack');
-      updateHasAudio();
-      bindStream('stream-removetrack');
-    };
-
-    updateHasAudio();
-
-    video.autoplay = true;
-    video.playsInline = true;
-    video.muted = muted;
-    video.volume = Math.max(0, Math.min(1, effectiveVolume));
-
-    const videoTrack = stream.getVideoTracks()[0];
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('playing', handlePlaying);
-    video.addEventListener('waiting', handleWaiting);
-
-    stream.addEventListener('addtrack', handleAddTrack);
-    stream.addEventListener('removetrack', handleRemoveTrack);
-
-    if (videoTrack) {
-      videoTrack.addEventListener('unmute', handleVideoTrackUnmute);
-      videoTrack.addEventListener('ended', handleVideoTrackEnded);
-    }
-
-    bindStream('initial');
-
-    fallbackTimeout = setTimeout(() => {
-      if (cancelled || !videoRef.current) return;
-
-      const el = videoRef.current;
-      const noVisualProgress =
-        el.readyState < 2 ||
-        el.videoWidth === 0 ||
-        el.videoHeight === 0;
-
-      if (noVisualProgress) {
-        console.warn('[VideoPlayer] fallback rebind triggered');
-        bindStream('fallback-timeout');
-      }
-    }, 700);
-
-    watchdogInterval = setInterval(() => {
-      if (cancelled || !videoRef.current) return;
-
-      const el = videoRef.current;
-      const hasVideoTrack = stream.getVideoTracks().length > 0;
-
-      if (!hasVideoTrack) return;
-
-      const looksStuck =
-        !el.paused &&
-        el.currentTime < 0.05 &&
-        (el.videoWidth === 0 || el.readyState < 2);
-
-      if (looksStuck) {
-        console.warn('[VideoPlayer] watchdog rebind triggered');
-        bindStream('watchdog');
-      }
-    }, 2000);
-
-    return () => {
-      cancelled = true;
-
-      if (fallbackTimeout) clearTimeout(fallbackTimeout);
-      if (watchdogInterval) clearInterval(watchdogInterval);
-
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('playing', handlePlaying);
-      video.removeEventListener('waiting', handleWaiting);
-
-      stream.removeEventListener('addtrack', handleAddTrack);
-      stream.removeEventListener('removetrack', handleRemoveTrack);
-
-      if (videoTrack) {
-        videoTrack.removeEventListener('unmute', handleVideoTrackUnmute);
-        videoTrack.removeEventListener('ended', handleVideoTrackEnded);
-      }
-
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-        videoRef.current.removeAttribute('src');
-        videoRef.current.load();
-      }
-    };
-  }, [stream, muted, effectiveVolume]);
+  const [poppedOutStreams, setPoppedOutStreams] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!videoRef.current) return;
-    videoRef.current.volume = Math.max(0, Math.min(1, effectiveVolume));
-  }, [effectiveVolume]);
+    if (!connectedVoiceChannelId) {
+      setViewingScreenShares(new Set());
+      setActiveStreamFocus(null);
+      setPoppedOutStreams(new Set());
+    }
+  }, [connectedVoiceChannelId, setViewingScreenShares, setActiveStreamFocus]);
+
+  const handlePopOut = async (uid: string, stream: MediaStream) => {
+    if (!connectedVoiceChannelId) return;
+
+    if ('documentPictureInPicture' in window) {
+      try {
+        const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
+          width: 800,
+          height: 600,
+        });
+
+        const wrapper = pipWindow.document.createElement('div');
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+        wrapper.style.position = 'relative';
+        wrapper.style.background = '#000';
+
+        const video = pipWindow.document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = uid === currentUser?.id;
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'contain';
+        video.style.backgroundColor = '#000';
+
+        wrapper.appendChild(video);
+        pipWindow.document.body.style.margin = '0';
+        pipWindow.document.body.style.backgroundColor = '#000';
+        pipWindow.document.body.appendChild(wrapper);
+
+        setPoppedOutStreams(prev => new Set(prev).add(uid));
+
+        pipWindow.addEventListener('pagehide', () => {
+          video.srcObject = null;
+          setPoppedOutStreams(prev => {
+            const next = new Set(prev);
+            next.delete(uid);
+            return next;
+          });
+        });
+      } catch (err) {
+        console.error('Failed to open PiP window:', err);
+        fallbackPopOut(uid);
+      }
+    } else {
+      fallbackPopOut(uid);
+    }
+  };
+
+  const fallbackPopOut = (uid: string) => {
+    if (!connectedVoiceChannelId) return;
+
+    setPoppedOutStreams(prev => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  };
+
+  const allStreams = [
+    ...(localScreenShareStream && currentUser && viewingScreenShares.has(currentUser.id)
+      ? [[currentUser.id, localScreenShareStream] as const]
+      : []),
+    ...Array.from(Object.entries(remoteScreenShares)).filter(([uid]) =>
+      viewingScreenShares.has(uid)
+    ),
+  ].filter(([uid]) => uid !== useAppStore.getState().activeStreamFocus);
+
+  const audibleStreamIds = connectedVoiceChannelId
+    ? Array.from(viewingScreenShares).filter(
+        (uid) => uid !== currentUser?.id && !!remoteScreenShareAudioTracks[uid]
+      )
+    : [];
+
+  if (!connectedVoiceChannelId) return null;
+  if (allStreams.length === 0 && audibleStreamIds.length === 0) return null;
 
   return (
-    <div
-      className="relative w-full h-full bg-black group"
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted={muted}
-        className="w-full h-full object-contain"
-      />
+    <>
+      {audibleStreamIds.map((uid) => {
+        const audioTrack = remoteScreenShareAudioTracks[uid] as RemoteAudioTrack | undefined;
+        if (!audioTrack) return null;
 
-      {shouldShowAudioUi && (
-        <div
-          className={clsx(
-            'absolute bottom-4 right-4 bg-zinc-900/90 backdrop-blur-sm p-2 rounded-lg flex items-center gap-2 border border-zinc-700/50 transition-all duration-300 shadow-xl z-30',
-            showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => {
-              if (onToggleMuted) {
-                onToggleMuted();
-              } else {
-                setInternalMuted(!internalMuted);
-              }
-            }}
-            className="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-300 hover:text-white transition-colors"
-            title={effectiveMuted ? 'Réactiver le son' : 'Couper le son'}
-          >
-            {(effectiveMuted || effectiveVolume === 0) ? (
-              <VolumeX className="w-5 h-5 text-red-400" />
-            ) : (
-              <Volume2 className="w-5 h-5 text-indigo-400" />
-            )}
-          </button>
-
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={effectiveMuted ? 0 : effectiveVolume}
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-
-              if (onVolumeChange) {
-                onVolumeChange(val);
-              } else {
-                setInternalVolume(val);
-                if (val > 0 && internalMuted) setInternalMuted(false);
-              }
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-24 accent-indigo-500 cursor-pointer"
+        return (
+          <StreamAudioPlayer
+            key={`stream-audio-${uid}`}
+            ownerId={uid}
+            track={audioTrack}
+            volume={streamVolume}
+            muted={isDeafened || isStreamVolumeMuted}
+            selectedSpeakerId={voiceSettings.selectedSpeakerId}
           />
-        </div>
-      )}
+        );
+      })}
 
-      {shouldShowAudioUi && (effectiveMuted || effectiveVolume === 0) && !showControls && (
-        <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm p-1.5 rounded-full border border-white/10 z-20">
-          <VolumeX className="w-4 h-4 text-red-400/80" />
+      <div className="absolute top-14 md:top-4 right-4 z-50 flex flex-col gap-4 max-w-[220px] md:max-w-sm w-full pointer-events-none">
+        {allStreams.map(([uid, stream]) => {
+          if (poppedOutStreams.has(uid) && 'documentPictureInPicture' in window) return null;
+          if (poppedOutStreams.has(uid)) return null;
+
+          const isOwnStream = uid === currentUser?.id;
+          const hasSeparateRemoteAudio = !isOwnStream && !!remoteScreenShareAudioTracks[uid];
+
+          return (
+            <div
+              key={uid}
+              className="bg-zinc-900 rounded-lg shadow-xl overflow-hidden pointer-events-auto border border-zinc-700 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
+              onClick={() => {
+                if (!connectedVoiceChannelId) return;
+                useAppStore.getState().setActiveStreamFocus(uid);
+                useAppStore.getState().setIsRightSidebarOpen(false);
+              }}
+            >
+              <div className="bg-zinc-800 px-3 py-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-zinc-200 truncate">
+                  {isOwnStream ? "Votre partage d'écran" : "Partage d'écran"}
+                </span>
+
+                <div
+                  className="flex items-center gap-2 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePopOut(uid, stream);
+                    }}
+                    className="text-zinc-400 hover:text-zinc-100 transition-colors"
+                    title="Ouvrir dans une nouvelle fenêtre"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      useAppStore.getState().setViewingScreenShares(prev => {
+                        const next = new Set(prev);
+                        next.delete(uid);
+                        return next;
+                      });
+                    }}
+                    className="text-zinc-400 hover:text-red-400 transition-colors"
+                    title="Fermer le stream"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="aspect-video bg-black relative">
+                <VideoPlayer
+                  stream={stream}
+                  muted={isOwnStream}
+                  showVolumeControls={!isOwnStream}
+                  forceHasAudio={hasSeparateRemoteAudio}
+                  externalVolume={streamVolume}
+                  externalMuted={isStreamVolumeMuted || isDeafened}
+                  onVolumeChange={setStreamVolume}
+                  onToggleMuted={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
+				  controlsMode="hover"
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {Array.from(poppedOutStreams).filter(uid => !('documentPictureInPicture' in window)).length > 0 && (
+        <div className="fixed inset-4 z-[100] bg-zinc-900 rounded-lg shadow-2xl overflow-hidden pointer-events-auto border border-zinc-700 flex flex-col">
+          <div className="bg-zinc-800 px-4 py-3 flex items-center justify-between shrink-0">
+            <span className="text-sm font-medium text-zinc-200">
+              Partages d'écran en plein écran
+            </span>
+            <button
+              onClick={() =>
+                setPoppedOutStreams(prev => {
+                  const next = new Set(prev);
+                  allStreams.forEach(([uid]) => next.delete(uid));
+                  return next;
+                })
+              }
+              className="p-1 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div
+            className="flex-1 bg-black p-2 grid gap-2"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
+          >
+            {allStreams.map(([uid, stream]) => {
+              if (!poppedOutStreams.has(uid) || 'documentPictureInPicture' in window) return null;
+
+              const isOwnStream = uid === currentUser?.id;
+              const hasSeparateRemoteAudio = !isOwnStream && !!remoteScreenShareAudioTracks[uid];
+
+              return (
+                <div
+                  key={`fallback-${uid}`}
+                  className="relative bg-zinc-900 rounded border border-zinc-800 overflow-hidden flex flex-col"
+                >
+                  <div className="absolute top-2 left-2 z-10 bg-black/60 px-2 py-1 rounded text-xs text-white">
+                    {isOwnStream ? 'Vous' : 'Participant'}
+                  </div>
+                  <button
+                    onClick={() => fallbackPopOut(uid)}
+                    className="absolute top-2 right-2 z-10 p-1 bg-black/60 hover:bg-black/80 rounded text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <VideoPlayer
+                    stream={stream}
+                    muted={isOwnStream}
+                    showVolumeControls={!isOwnStream}
+                    forceHasAudio={hasSeparateRemoteAudio}
+                    externalVolume={streamVolume}
+                    externalMuted={isStreamVolumeMuted || isDeafened}
+                    onVolumeChange={setStreamVolume}
+                    onToggleMuted={() => setIsStreamVolumeMuted(!isStreamVolumeMuted)}
+					controlsMode="always"
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

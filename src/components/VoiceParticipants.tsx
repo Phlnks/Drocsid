@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { useState } from 'react';
 import { useAppStore } from '../store/appStore';
 import { MicOff, MonitorUp } from 'lucide-react';
 import clsx from 'clsx';
@@ -29,30 +28,16 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  const canWatchStreamsInThisChannel =
-    !!connectedVoiceChannelId && !!activeChannelId && connectedVoiceChannelId === activeChannelId;
-
-  useEffect(() => {
-    if (!canWatchStreamsInThisChannel) {
-      setViewingScreenShares(new Set());
-      if (activeStreamFocus) {
-        setActiveStreamFocus(null);
-      }
-    }
-  }, [canWatchStreamsInThisChannel, setViewingScreenShares, setActiveStreamFocus, activeStreamFocus]);
+  const isConnectedToThisChannel =
+    !!connectedVoiceChannelId &&
+    !!activeChannelId &&
+    connectedVoiceChannelId === activeChannelId;
 
   const toggleViewScreenShare = (e: React.MouseEvent, uid: string) => {
     e.stopPropagation();
 
-    if (!canWatchStreamsInThisChannel) {
-      return;
-    }
-
-    const hasLiveRemoteStream = !!remoteScreenShares[uid];
-
-    if (!hasLiveRemoteStream) {
-      return;
-    }
+    if (!isConnectedToThisChannel) return;
+    if (!remoteScreenShares[uid]) return;
 
     if (window.innerWidth < 768) {
       if (activeStreamFocus === uid) {
@@ -100,11 +85,12 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
   return (
     <div className="bg-zinc-900 border-b border-zinc-700 p-3 shrink-0 flex flex-nowrap md:flex-wrap overflow-x-auto md:overflow-y-auto md:overflow-x-visible gap-3 max-h-32 md:max-h-none custom-scrollbar">
       {participants.map(p => {
-        const isSharingScreen = !!remoteScreenShares[p.id];
+        const hasLiveStream = !!remoteScreenShares[p.id];
         const isViewing = viewingScreenShares.has(p.id);
         const userProfile = globalProfiles[p.id];
         const displayName = userProfile?.username || p.name;
         const displayAvatar = userProfile?.avatar_url || p.avatarUrl;
+        const canClickStream = isConnectedToThisChannel && hasLiveStream;
 
         return (
           <div
@@ -132,30 +118,29 @@ export default function VoiceParticipants({ channelId }: VoiceParticipantsProps)
                 </div>
               )}
 
-              {(p.isStreaming || isSharingScreen) && (
-                <button
-                  onClick={(e) => toggleViewScreenShare(e, p.id)}
-                  disabled={!canWatchStreamsInThisChannel || !isSharingScreen}
-                  className={clsx(
-                    "rounded-full p-1.5 border border-zinc-900 transition-colors shadow-lg",
-                    (!canWatchStreamsInThisChannel || !isSharingScreen)
-                      ? "bg-zinc-800 text-zinc-500 opacity-70 cursor-not-allowed"
-                      : isViewing
+              {(p.isStreaming || hasLiveStream) && (
+                canClickStream ? (
+                  <button
+                    onClick={(e) => toggleViewScreenShare(e, p.id)}
+                    className={clsx(
+                      "rounded-full p-1.5 border border-zinc-900 transition-colors shadow-lg",
+                      isViewing
                         ? "bg-emerald-500 text-white"
                         : "bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"
-                  )}
-                  title={
-                    !canWatchStreamsInThisChannel
-                      ? "Connectez-vous à ce salon vocal pour regarder le stream"
-                      : !isSharingScreen
-                        ? "Stream indisponible"
-                        : isViewing
-                          ? "Fermer le stream"
-                          : "Regarder le stream"
-                  }
-                >
-                  <MonitorUp className="w-4 h-4" />
-                </button>
+                    )}
+                    title={isViewing ? "Fermer le stream" : "Regarder le stream"}
+                  >
+                    <MonitorUp className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <div
+                    className="rounded-full p-1.5 border border-zinc-900 shadow-lg bg-zinc-800 text-zinc-500 opacity-70 cursor-not-allowed"
+                    title="Connectez-vous à ce salon vocal pour regarder le stream"
+                    aria-hidden="true"
+                  >
+                    <MonitorUp className="w-4 h-4" />
+                  </div>
+                )
               )}
             </div>
           </div>
