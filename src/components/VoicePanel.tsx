@@ -526,6 +526,63 @@ export default function VoicePanel() {
 
   const isAfk = channelName.endsWith(' [AFK]');
   const displayChannelName = isAfk ? channelName.replace(' [AFK]', '') : channelName;
+    const getShareStatusMeta = () => {
+    if (!isScreenSharing) return null;
+
+    const sourceType = activeShareSource?.type;
+    const sourceName = activeShareSource?.name?.trim();
+
+    const cleanName =
+      sourceName && sourceName !== 'Entire Screen' && sourceName !== 'Screen 1'
+        ? sourceName
+        : null;
+
+    const isWindowShare = isElectron && sourceType === 'window';
+    const isScreenShare = (isElectron && sourceType === 'screen') || (!isElectron && !activeShareSource);
+
+    let title = t('voice.shareActive');
+    let subtitle = t('voice.shareRunning');
+
+    if (isWindowShare) {
+      title = cleanName ? cleanName : t('voice.sharedWindow');
+      if (loopbackStatus === 'process_running') {
+        subtitle = t('voice.appAudioRunning');
+      } else if (loopbackStatus === 'launching') {
+        subtitle = t('voice.appAudioStarting');
+      } else if (loopbackStatus === 'error') {
+        subtitle = loopbackError || t('voice.appAudioUnavailable');
+      } else {
+        subtitle = t('voice.windowShareActive');
+      }
+    } else if (isScreenShare) {
+      title = cleanName ? cleanName : t('voice.sharedScreen');
+      subtitle = t('voice.screenShareActive');
+    } else {
+      title = cleanName ? cleanName : t('voice.shareActive');
+      subtitle = t('voice.shareRunning');
+    }
+
+    if (!isElectron && supportsDisplayMedia) {
+      subtitle = t('voice.browserShareActive');
+    }
+
+    return {
+      title,
+      subtitle,
+      badge: isWindowShare
+        ? t('voice.window')
+        : isScreenShare
+          ? t('voice.screen')
+          : t('voice.live'),
+      hasError: loopbackStatus === 'error',
+      hasAudio:
+        isWindowShare
+          ? loopbackStatus === 'process_running'
+          : true,
+    };
+  };
+
+  const shareStatusMeta = getShareStatusMeta();
 
   return (
     <div className="bg-zinc-950 border-t border-zinc-800 p-2 flex flex-col gap-2 shrink-0 relative">
@@ -573,32 +630,51 @@ export default function VoicePanel() {
         </div>
       )}
 	  
-		{isElectron && isScreenSharing && activeShareSource?.type === 'window' && (
-		  <div className="px-2">
-			<div className="w-full rounded-md border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-xs">
-			  <div className="flex items-center justify-between gap-3">
-				<div className="min-w-0">
-				  <div className="font-semibold text-indigo-300 truncate">
-					Audio applicatif — {activeShareSource.name}
-				  </div>
-				  <div className="text-zinc-400 truncate">
-					PID: {activeShareSource.pid ?? 'inconnu'} · Statut: {loopbackStatus}
-				  </div>
-				  {loopbackOutputPath && (
-					<div className="text-zinc-500 truncate">
-					  WAV: {loopbackOutputPath}
-					</div>
-				  )}
-				  {loopbackError && (
-					<div className="text-red-400 truncate">
-					  Erreur: {loopbackError}
-					</div>
-				  )}
-				</div>
-			  </div>
-			</div>
-		  </div>
-		)}
+	        {isScreenSharing && shareStatusMeta && (
+        <div className="px-2">
+          <div
+            className={clsx(
+              'w-full rounded-md border px-3 py-2 text-xs',
+              shareStatusMeta.hasError
+                ? 'border-red-500/20 bg-red-500/10'
+                : 'border-indigo-500/20 bg-indigo-500/10'
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div
+                  className={clsx(
+                    'font-semibold truncate',
+                    shareStatusMeta.hasError ? 'text-red-300' : 'text-indigo-300'
+                  )}
+                >
+                  {shareStatusMeta.title}
+                </div>
+
+                <div
+                  className={clsx(
+                    'truncate mt-0.5',
+                    shareStatusMeta.hasError ? 'text-red-200/90' : 'text-zinc-400'
+                  )}
+                >
+                  {shareStatusMeta.subtitle}
+                </div>
+              </div>
+
+              <div
+                className={clsx(
+                  'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                  shareStatusMeta.hasError
+                    ? 'bg-red-500/15 text-red-300'
+                    : 'bg-indigo-500/15 text-indigo-300'
+                )}
+              >
+                {shareStatusMeta.badge}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-1 px-1">
         <div className="relative flex-1 hidden md:block">
