@@ -1206,7 +1206,7 @@ export default function DMChatArea() {
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => {
-                            if (!users || users.length === 0) return null;
+                            if (!Array.isArray(users) || users.length === 0) return null;
                             const hasReacted = users.includes(user?.id);
                             const reactionUsernames = users.map((uid: string) => usersMap[uid]?.username || t('chatArea.unknownUser')).join(', ');
                             return (
