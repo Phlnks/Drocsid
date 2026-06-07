@@ -405,23 +405,42 @@ export const useAppStore = create<AppState>((set) => ({
   }),
   setOnlineUserIds: (ids: string[]) => set({ onlineUserIds: ids }),
   setVoiceParticipants: (channelId: string, participants: any[]) => set((state) => {
-	const sanitized = participants.filter(p => !isTechnicalParticipant(p.id));
-    const current = state.voiceParticipants[channelId];
-    
-    // ✅ PROTECTION : Si c'est le channel LiveKit actuel, on fusionne avec la "vérité" LiveKit
-    // pour éviter les disparitions si le Socket est instable (Render timeout).
-    const finalParticipants = sanitized;
-    const socketIds = new Set(sanitized.map(p => p.id));
-    const missingLiveKitUsers = Array.from(state.livekitParticipantIdentities).filter(id => !socketIds.has(id));
-	
-    if (participantsSig(current) === participantsSig(finalParticipants)) return state;
-    return {
-      voiceParticipants: {
-        ...state.voiceParticipants,
-        [channelId]: finalParticipants
-      }
-    };
-  }),
+  const sanitized = participants.filter(p => !isTechnicalParticipant(p.id));
+  const current = state.voiceParticipants[channelId];
+  
+  const finalParticipants = sanitized;
+  const socketIds = new Set(sanitized.map(p => p.id));
+  const missingLiveKitUsers = Array.from(state.livekitParticipantIdentities).filter(id => !socketIds.has(id));
+
+  if (participantsSig(current) === participantsSig(finalParticipants)) return state;
+
+  // Charger les profils manquants en arrière-plan
+  const currentProfiles = state.globalProfiles;
+  const missingProfileIds = finalParticipants
+    .map(p => p.id)
+    .filter(id => !currentProfiles[id] && !isTechnicalParticipant(id));
+
+  if (missingProfileIds.length > 0) {
+    import('../supabase').then(({ supabase }) => {
+      supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', missingProfileIds)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            useAppStore.getState().setGlobalProfiles(data);
+          }
+        });
+    });
+  }
+
+  return {
+    voiceParticipants: {
+      ...state.voiceParticipants,
+      [channelId]: finalParticipants
+    }
+  };
+}),
   setGlobalProfile: (profile: any) => set((state) => ({
     globalProfiles: { ...state.globalProfiles, [profile.id]: profile }
   })),
