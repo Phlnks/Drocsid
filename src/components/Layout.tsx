@@ -33,8 +33,7 @@ export default function Layout() {
 
     const handleVoiceParticipantsUpdate = (data: { channelId: string, participants: any[] }) => {
       console.log(`[Socket] Réception d'une mise à jour de la liste des participants vocaux (Source de vérité = Serveur/LiveKit Webhook) :`, data);
-	  const sanitized = data.participants.filter(p => !p.id?.endsWith('-appaudio'));
-	  setVoiceParticipants(data.channelId, sanitized);
+	    setVoiceParticipants(data.channelId, data.participants);
     };
 
     socket.on('connect', handleConnect);

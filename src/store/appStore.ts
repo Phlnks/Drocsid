@@ -14,7 +14,7 @@ function safeParse<T>(key: string, fallback: T): T {
 function participantsSig(arr: any[] | undefined): string {
   if (!arr || arr.length === 0) return '';
   return arr
-    .map(p => `${p.id}:${p.isMuted ? 1 : 0}:${p.isDeafened ? 1 : 0}:${p.isStreaming ? 1 : 0}:${p.name ?? ''}`)
+    .map(p => `${p.id}:${p.isMuted ? 1 : 0}:${p.isDeafened ? 1 : 0}:${p.isStreaming ? 1 : 0}`)
     .sort()
     .join('|');
 }
