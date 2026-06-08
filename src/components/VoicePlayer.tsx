@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, AlertCircle, Download } from 'lucide-react';
+import { Play, Pause, Volume2, AlertCircle, Download, Loader2 } from 'lucide-react';
 
 interface VoicePlayerProps {
   url: string;
@@ -11,6 +11,8 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [audioSrc, setAudioSrc] = useState<string>('');
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -19,12 +21,43 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     setDuration(0);
     setCurrentTime(0);
     setError(false);
+    setIsLoading(true);
     
-    // Forcer le rechargement explicite si l'URL change (essentiel pour certains navigateurs/Electron)
-    if (audioRef.current) {
+    let isMounted = true;
+    let currentObjectUrl = '';
+
+    const loadAudioBlob = async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const blob = await response.blob();
+        if (!isMounted) return;
+        currentObjectUrl = URL.createObjectURL(blob);
+        setAudioSrc(currentObjectUrl);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Audio blob fetch error, falling back to direct URL:", err);
+        if (!isMounted) return;
+        setAudioSrc(url);
+        setIsLoading(false);
+      }
+    };
+
+    loadAudioBlob();
+
+    return () => {
+      isMounted = false;
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl);
+      }
+    };
+  }, [url]);
+
+  useEffect(() => {
+    if (audioSrc && audioRef.current) {
       audioRef.current.load();
     }
-  }, [url]);
+  }, [audioSrc]);
 
   const togglePlay = () => {
     if (audioRef.current) {
@@ -59,6 +92,9 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
       const dur = audioRef.current.duration;
       if (dur !== Infinity && !isNaN(dur)) {
         setDuration(dur);
+      } else {
+        // Fallback for WebM recorded audio that lacks initial duration
+        setDuration(0);
       }
     }
     setError(false);
@@ -76,6 +112,9 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
       // Resolve WebM Infinity duration issue dynamically as it plays
       if ((duration === 0 || duration === Infinity) && audioRef.current.duration !== Infinity && !isNaN(audioRef.current.duration)) {
         setDuration(audioRef.current.duration);
+      } else if (duration === 0 && audioRef.current.currentTime > 0) {
+        // If duration is stuck at 0 or Infinity, we can at least show progressing time as max duration trick
+        setDuration(Math.max(duration, audioRef.current.currentTime));
       }
     }
   };
@@ -85,6 +124,9 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     setCurrentTime(0);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
+      if (duration === 0 || duration === Infinity) {
+        setDuration(audioRef.current.duration);
+      }
     }
   };
   
@@ -92,6 +134,7 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     console.error("Audio target error:", e);
     setError(true);
     setIsPlaying(false);
+    setIsLoading(false);
   };
 
   const formatTime = (time: number) => {
@@ -105,15 +148,10 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
 
   return (
     <div className="bg-zinc-800 border border-zinc-700/50 rounded-2xl p-3 mt-2 max-w-sm flex items-center gap-4 shadow-sm group hover:border-zinc-700 transition-all">
-      {/* 
-        Utiliser preload="auto" et crossorigin="anonymous" 
-        aide avec certains problèmes CORS sur Supabase Storage + Web Audio 
-      */}
       <audio 
         ref={audioRef} 
-        src={url} 
+        src={audioSrc} 
         preload="auto"
-        crossOrigin="anonymous"
         onLoadedMetadata={onLoadedMetadata}
         onDurationChange={onDurationChange}
         onTimeUpdate={onTimeUpdate}
@@ -124,12 +162,16 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
       
       <button 
         onClick={togglePlay}
-        disabled={error}
+        disabled={error || isLoading}
         className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors shrink-0 shadow-lg ${
-          error ? 'bg-red-500/20 text-red-500 cursor-not-allowed' : 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-indigo-500/20'
+          error ? 'bg-red-500/20 text-red-500 cursor-not-allowed' : 
+          isLoading ? 'bg-zinc-700 text-zinc-400 cursor-wait' :
+          'bg-indigo-500 text-white hover:bg-indigo-600 shadow-indigo-500/20'
         }`}
       >
-        {error ? (
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : error ? (
           <AlertCircle className="w-5 h-5 opacity-80" />
         ) : isPlaying ? (
           <Pause className="w-5 h-5 fill-current" />
@@ -171,7 +213,7 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
           <div className="flex items-center gap-1">
              <Volume2 className="w-3 h-3 text-zinc-500" />
              <span className="text-[10px] font-mono font-medium text-zinc-500">
-              {error ? 'Erreur' : formatTime(duration)}
+              {error ? 'Erreur' : isLoading ? 'Chargement...' : formatTime(duration)}
             </span>
           </div>
         </div>
@@ -179,4 +221,3 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     </div>
   );
 }
-
