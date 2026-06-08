@@ -30,5 +30,10 @@ contextBridge.exposeInMainWorld('electron', {
   onLoopbackPcmChunk: (callback) => ipcRenderer.on('loopback-pcm-chunk', (_event, payload) => callback(payload)),
   removeLoopbackPcmChunk: (callback) => ipcRenderer.removeListener('loopback-pcm-chunk', callback),
   getLoopbackTestStatus: () => ipcRenderer.invoke('get-loopback-test-status'),
-  configureLivekitAppAudio: (payload) => ipcRenderer.invoke('configure-livekit-app-audio', payload)
+  configureLivekitAppAudio: (payload) => ipcRenderer.invoke('configure-livekit-app-audio', payload),
+
+  // File-backed storage helpers to survive restarts
+  getSavedStorage: () => ipcRenderer.invoke('get-saved-storage'),
+  saveStorageKey: (key, value) => ipcRenderer.send('save-storage-key', { key, value }),
+  removeStorageKey: (key) => ipcRenderer.send('remove-storage-key', key)
 });

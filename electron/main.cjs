@@ -346,6 +346,57 @@ ipcMain.on('set-launch-at-startup', (event, enabled) => {
   });
 });
 
+// --- File-backed localStorage sync for session resilience ---
+const storageFilePath = path.join(app.getPath('userData'), 'drocsid-settings.json');
+let writeTimeout = null;
+let storageCache = null;
+
+function readStorage() {
+  if (storageCache) return storageCache;
+  try {
+    if (fs.existsSync(storageFilePath)) {
+      const content = fs.readFileSync(storageFilePath, 'utf8');
+      storageCache = JSON.parse(content);
+      return storageCache;
+    }
+  } catch (err) {
+    console.error('[Electron Storage] Error reading storage file:', err);
+  }
+  storageCache = {};
+  return storageCache;
+}
+
+function writeStorageDebounced() {
+  if (writeTimeout) clearTimeout(writeTimeout);
+  writeTimeout = setTimeout(() => {
+    try {
+      const dir = path.dirname(storageFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(storageFilePath, JSON.stringify(storageCache, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[Electron Storage] Error writing storage file:', err);
+    }
+  }, 200); // 200ms debounce
+}
+
+ipcMain.handle('get-saved-storage', () => {
+  return readStorage();
+});
+
+ipcMain.on('save-storage-key', (event, { key, value }) => {
+  const data = readStorage();
+  data[key] = value;
+  writeStorageDebounced();
+});
+
+ipcMain.on('remove-storage-key', (event, key) => {
+  const data = readStorage();
+  delete data[key];
+  writeStorageDebounced();
+});
+
 //-------ajout livekit
 
 ipcMain.handle('configure-livekit-app-audio', async (_event, payload) => {
