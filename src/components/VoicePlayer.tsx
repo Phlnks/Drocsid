@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, AlertCircle } from 'lucide-react';
+import { Play, Pause, Volume2, AlertCircle, Download } from 'lucide-react';
 
 interface VoicePlayerProps {
   url: string;
@@ -19,6 +19,11 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     setDuration(0);
     setCurrentTime(0);
     setError(false);
+    
+    // Forcer le rechargement explicite si l'URL change (essentiel pour certains navigateurs/Electron)
+    if (audioRef.current) {
+      audioRef.current.load();
+    }
   }, [url]);
 
   const togglePlay = () => {
@@ -32,9 +37,13 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
           playPromise
             .then(() => {
               setIsPlaying(true);
+              setError(false);
             })
             .catch((err) => {
               console.error("Audio playback error:", err);
+              if (audioRef.current?.error) {
+                console.error("Audio error code:", audioRef.current.error.code);
+              }
               setError(true);
               setIsPlaying(false);
             });
@@ -52,6 +61,7 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
         setDuration(dur);
       }
     }
+    setError(false);
   };
 
   const onDurationChange = () => {
@@ -78,7 +88,8 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     }
   };
   
-  const onError = () => {
+  const onError = (e: any) => {
+    console.error("Audio target error:", e);
     setError(true);
     setIsPlaying(false);
   };
@@ -94,10 +105,15 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
 
   return (
     <div className="bg-zinc-800 border border-zinc-700/50 rounded-2xl p-3 mt-2 max-w-sm flex items-center gap-4 shadow-sm group hover:border-zinc-700 transition-all">
+      {/* 
+        Utiliser preload="auto" et crossorigin="anonymous" 
+        aide avec certains problèmes CORS sur Supabase Storage + Web Audio 
+      */}
       <audio 
         ref={audioRef} 
         src={url} 
-        preload="metadata"
+        preload="auto"
+        crossOrigin="anonymous"
         onLoadedMetadata={onLoadedMetadata}
         onDurationChange={onDurationChange}
         onTimeUpdate={onTimeUpdate}
@@ -124,8 +140,22 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
 
       <div className="flex-1 flex flex-col gap-1.5 min-w-0">
         {filename && (
-          <div className="text-[11px] font-medium text-zinc-400 truncate mb-0.5" title={filename}>
-            {filename}
+          <div className="flex justify-between items-center gap-2 mb-0.5">
+            <div className="text-[11px] font-medium text-zinc-400 truncate" title={filename}>
+              {filename}
+            </div>
+            {error && (
+              <a 
+                href={url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                download={filename || 'audio_file'}
+                className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-[10px]"
+                title="Télécharger le fichier manuellement"
+              >
+                <Download className="w-3 h-3" />
+              </a>
+            )}
           </div>
         )}
         <div className="relative h-1.5 bg-zinc-700 rounded-full overflow-hidden">
@@ -149,3 +179,4 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
     </div>
   );
 }
+
