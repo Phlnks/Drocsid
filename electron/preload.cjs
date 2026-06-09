@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld('electron', {
   updateShortcuts: (shortcuts) => ipcRenderer.send('update-shortcuts', shortcuts),
   updateTray: (state) => ipcRenderer.send('tray-update', state),
   setLaunchAtStartup: (enabled) => ipcRenderer.send('set-launch-at-startup', enabled),
+
+  onGlobalInputEvent: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('global-input-event', handler);
+    return () => ipcRenderer.removeListener('global-input-event', handler);
+  },
   
   // App Audio Capture (Pre-implémentation)
   startAppAudioCapture: (pid) => ipcRenderer.invoke('start-app-audio', pid),

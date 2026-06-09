@@ -624,19 +624,15 @@ export default function UserSettingsModal({
                                 return;
                               }
                               const keys = [];
-                              if (e.ctrlKey || e.metaKey)
+                              if ((e.ctrlKey || e.metaKey) && e.key !== 'Control' && e.key !== 'Meta')
                                 keys.push("CommandOrControl");
-                              if (e.altKey) keys.push("Alt");
-                              if (e.shiftKey) keys.push("Shift");
+                              if (e.altKey && e.key !== 'Alt') keys.push("Alt");
+                              if (e.shiftKey && e.key !== 'Shift') keys.push("Shift");
 
                               let key = e.key;
-                              if (
-                                key === "Control" ||
-                                key === "Shift" ||
-                                key === "Alt" ||
-                                key === "Meta"
-                              )
-                                return;
+                              if (key === 'Control') key = "CommandOrControl";
+                              else if (key === "Meta") key = "CommandOrControl";
+                              
                               if (key === " ") key = "Space";
                               if (key.length === 1) key = key.toUpperCase();
 
@@ -644,6 +640,19 @@ export default function UserSettingsModal({
                               const finalShortcut = keys.join("+");
                               setKeybinds({ pushToTalk: finalShortcut });
                             }}
+                            onMouseDown={(e) => {
+                              const buttonMap: Record<number, string> = {
+                                1: 'Mouse Middle',
+                                3: 'Mouse Back',
+                                4: 'Mouse Forward'
+                              };
+                              const btn = buttonMap[e.button];
+                              if (btn) {
+                                e.preventDefault();
+                                setKeybinds({ pushToTalk: btn });
+                              }
+                            }}
+                            onContextMenu={(e) => e.preventDefault()}
                           />
                         </div>
                       )}
@@ -1928,21 +1937,15 @@ export default function UserSettingsModal({
                             return;
                           }
                           const keys = [];
-                          if (e.ctrlKey || e.metaKey)
+                          if ((e.ctrlKey || e.metaKey) && e.key !== 'Control' && e.key !== 'Meta')
                             keys.push("CommandOrControl");
-                          if (e.altKey) keys.push("Alt");
-                          if (e.shiftKey) keys.push("Shift");
+                          if (e.altKey && e.key !== 'Alt') keys.push("Alt");
+                          if (e.shiftKey && e.key !== 'Shift') keys.push("Shift");
 
                           let key = e.key;
-                          if (
-                            key === "Control" ||
-                            key === "Shift" ||
-                            key === "Alt" ||
-                            key === "Meta"
-                          )
-                            // We can actually allow raw Control/Shift/Alt for PTT if we want, but Electron globalShortcut requires an actual key.
-                            // Let's just use regular keys combined, or single keys.
-                            return;
+                          if (key === 'Control') key = "CommandOrControl";
+                          else if (key === "Meta") key = "CommandOrControl";
+                          
                           if (key === " ") key = "Space";
                           if (key.length === 1) key = key.toUpperCase();
 
@@ -1950,6 +1953,19 @@ export default function UserSettingsModal({
                           const finalShortcut = keys.join("+");
                           setKeybinds({ pushToTalk: finalShortcut });
                         }}
+                        onMouseDown={(e) => {
+                          const buttonMap: Record<number, string> = {
+                            1: 'Mouse Middle',
+                            3: 'Mouse Back',
+                            4: 'Mouse Forward'
+                          };
+                          const btn = buttonMap[e.button];
+                          if (btn) {
+                            e.preventDefault();
+                            setKeybinds({ pushToTalk: btn });
+                          }
+                        }}
+                        onContextMenu={(e) => e.preventDefault()}
                       />
                     </div>
                   </div>

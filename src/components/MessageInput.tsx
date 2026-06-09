@@ -482,12 +482,14 @@ export default function MessageInput({
 
       let attachmentType = forcedType || "file";
       if (!forcedType) {
+        const isAudioExt = fileToSend && /\.(m4a|mp3|wav|ogg|aac|flac)$/i.test(fileToSend.name);
+        
         if (gifUrl || (fileToSend && fileToSend.type.startsWith("image/"))) {
           attachmentType = "image";
+        } else if (isAudioExt || (fileToSend && fileToSend.type.startsWith("audio/"))) {
+          attachmentType = "audio";
         } else if (fileToSend && fileToSend.type.startsWith("video/")) {
           attachmentType = "video";
-        } else if (fileToSend && fileToSend.type.startsWith("audio/")) {
-          attachmentType = "audio";
         }
       }
 

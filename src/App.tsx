@@ -270,7 +270,7 @@ export default function App() {
       }
     }
 
-    const checkShortcut = (e: KeyboardEvent, shortcut: string) => {
+    const checkShortcut = (e: KeyboardEvent | { key: string, ctrlKey?: boolean, metaKey?: boolean, altKey?: boolean, shiftKey?: boolean }, shortcut: string) => {
       if (!shortcut) return false;
       const parts = shortcut.split('+');
       const requiresCtrl = parts.includes('CommandOrControl');
@@ -278,12 +278,18 @@ export default function App() {
       const requiresShift = parts.includes('Shift');
       const key = parts[parts.length - 1];
       
-      if (requiresCtrl && !e.ctrlKey && !e.metaKey) return false;
-      if (requiresAlt && !e.altKey) return false;
-      if (requiresShift && !e.shiftKey) return false;
+      const eCtrl = 'ctrlKey' in e ? !!e.ctrlKey : false;
+      const eMeta = 'metaKey' in e ? !!e.metaKey : false;
+      const eAlt = 'altKey' in e ? !!e.altKey : false;
+      const eShift = 'shiftKey' in e ? !!e.shiftKey : false;
+
+      if (requiresCtrl && !eCtrl && !eMeta && key !== 'CommandOrControl') return false;
+      if (requiresAlt && !eAlt && key !== 'Alt') return false;
+      if (requiresShift && !eShift && key !== 'Shift') return false;
       
-      let pressedKey = e.key;
+      let pressedKey = ('key' in e) ? e.key : '';
       if (pressedKey === ' ') pressedKey = 'Space';
+      if (pressedKey === 'Control' || pressedKey === 'Meta') pressedKey = 'CommandOrControl';
       if (pressedKey.length === 1) pressedKey = pressedKey.toUpperCase();
       
       return pressedKey === key;
@@ -296,9 +302,6 @@ export default function App() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isModifierOnly = e.key === 'Control' || e.key === 'Alt' || e.key === 'Shift' || e.key === 'Meta';
-      if (isModifierOnly) return; 
-      
       const { keybinds } = useAppStore.getState();
       const inInput = isInputFocusedMode();
       // Allow function keys or combo with modifiers even if input is focused. 
@@ -333,8 +336,75 @@ export default function App() {
       }
     };
 
+    const handleMouseDownGlobal = (e: MouseEvent) => {
+      const buttonMap: Record<number, string> = {
+        1: 'Mouse Middle',
+        3: 'Mouse Back',
+        4: 'Mouse Forward'
+      };
+      const buttonName = buttonMap[e.button];
+      if (!buttonName) return;
+
+      const { keybinds, isPTTActive, setIsPTTActive } = useAppStore.getState();
+      if (checkShortcut({ key: buttonName }, keybinds.pushToTalk)) {
+         const currentState = useAppStore.getState();
+         if (!isPTTActive && currentState.connectedVoiceChannelId) {
+             playPTTActivateSound();
+             setIsPTTActive(true);
+         }
+      }
+    };
+
+    const handleMouseUpGlobal = (e: MouseEvent) => {
+      const buttonMap: Record<number, string> = {
+        1: 'Mouse Middle',
+        3: 'Mouse Back',
+        4: 'Mouse Forward'
+      };
+      const buttonName = buttonMap[e.button];
+      if (!buttonName) return;
+
+      const { keybinds, isPTTActive, setIsPTTActive } = useAppStore.getState();
+      if (checkShortcut({ key: buttonName }, keybinds.pushToTalk)) {
+         if (isPTTActive) {
+            playPTTDeactivateSound();
+            setIsPTTActive(false);
+         }
+      }
+    };
+
+    let cleanupGlobalInputInfo: (() => void) | undefined;
+    if ((window as any).electron?.onGlobalInputEvent) {
+      cleanupGlobalInputInfo = (window as any).electron.onGlobalInputEvent((payload: any) => {
+        if (payload.type === 'keydown') {
+           handleKeyDown(payload as any);
+        } else if (payload.type === 'keyup') {
+           handleKeyUp(payload as any);
+        } else if (payload.type === 'mousedown') {
+           const { keybinds, isPTTActive, setIsPTTActive } = useAppStore.getState();
+           if (checkShortcut({ key: payload.button }, keybinds.pushToTalk)) {
+              const currentState = useAppStore.getState();
+              if (!isPTTActive && currentState.connectedVoiceChannelId) {
+                  playPTTActivateSound();
+                  setIsPTTActive(true);
+              }
+           }
+        } else if (payload.type === 'mouseup') {
+           const { keybinds, isPTTActive, setIsPTTActive } = useAppStore.getState();
+           if (checkShortcut({ key: payload.button }, keybinds.pushToTalk)) {
+              if (isPTTActive) {
+                 playPTTDeactivateSound();
+                 setIsPTTActive(false);
+              }
+           }
+        }
+      });
+    }
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('mousedown', handleMouseDownGlobal);
+    window.addEventListener('mouseup', handleMouseUpGlobal);
 
     return () => {
       if ((window as any).electron) {
@@ -343,9 +413,12 @@ export default function App() {
         if ((window as any).electron.removeDisconnectVoice) {
            (window as any).electron.removeDisconnectVoice(handleDisconnectVoice);
         }
+        if (cleanupGlobalInputInfo) cleanupGlobalInputInfo();
       }
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('mousedown', handleMouseDownGlobal);
+      window.removeEventListener('mouseup', handleMouseUpGlobal);
     };
   }, []);
 

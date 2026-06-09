@@ -21,11 +21,15 @@
     "cap:copy": "npx cap copy",
     "android:open": "npx cap open android",
     "android:sync": "npm run build && npx cap sync android",
-	"electron:rebuild": "electron-rebuild -f -w @livekit/rtc-node"
+    "electron:rebuild": "electron-rebuild -f -w @livekit/rtc-node"
   },
   "build": {
     "appId": "com.drocsid.app",
     "productName": "Drocsid",
+    "asarUnpack": [
+      "**/node_modules/uiohook-napi/**/*",
+      "**/node_modules/@livekit/rtc-node/**/*"
+    ],
     "directories": {
       "output": "dist-electron"
     },
@@ -34,15 +38,15 @@
       "electron/**/*",
       "public/logo-bg.png"
     ],
-	"extraResources": [
-		{
-		  "from": "bin",
-		  "to": "bin",
-		  "filter": [
-			"**/*"
-		  ]
-		}
-	  ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -64,6 +68,7 @@
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
     "@livekit/components-react": "^2.9.21",
+    "@livekit/rtc-node": "^0.13.24",
     "@supabase/supabase-js": "^2.103.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/cors": "^2.8.19",
@@ -97,12 +102,11 @@
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.5.0",
     "tsx": "^4.21.0",
+    "uiohook-napi": "^1.5.5",
     "vite": "^6.2.0",
     "vite-plugin-pwa": "^0.21.x",
     "web-push": "^3.6.7",
-    "zustand": "^5.0.12",
-	"@livekit/rtc-node": "^0.13.24"
-	
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
@@ -114,10 +118,10 @@
     "cross-env": "^10.1.0",
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
+    "electron-rebuild": "^3.2.9",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "wait-on": "^9.0.5",
-	"electron-rebuild": "^3.2.9"
+    "wait-on": "^9.0.5"
   }
 }

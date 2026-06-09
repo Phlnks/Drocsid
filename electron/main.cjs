@@ -2,6 +2,14 @@ const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalS
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { uIOhook, UiohookKey } = require('uiohook-napi');
+
+// Reverse map for uIOhook keycodes -> String (e.g. 'Space', 'A', 'Alt')
+const uiohookToKeyString = {};
+for (const [keyName, code] of Object.entries(UiohookKey)) {
+  uiohookToKeyString[code] = keyName;
+}
+
 const {
   Room,
   AudioSource,
@@ -887,6 +895,81 @@ if (!gotTheLock) {
     createWindow();
     createTray();
 
+    // Start uIOhook for global low-level input
+    try {
+      uIOhook.on('keydown', (e) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          let keyName = uiohookToKeyString[e.keycode] || `Keycode-${e.keycode}`;
+          // Normalize names to match frontend logic
+          if (keyName === 'Space') keyName = 'Space';
+          else if (keyName === 'Ctrl' || keyName === 'CtrlRight') keyName = 'Control';
+          else if (keyName === 'Alt' || keyName === 'AltRight') keyName = 'Alt';
+          else if (keyName === 'Shift' || keyName === 'ShiftRight') keyName = 'Shift';
+          else if (keyName === 'Meta' || keyName === 'MetaRight') keyName = 'Meta';
+          
+          mainWindow.webContents.send('global-input-event', {
+            type: 'keydown',
+            key: keyName,
+            altKey: e.altKey,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            shiftKey: e.shiftKey
+          });
+        }
+      });
+      uIOhook.on('keyup', (e) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          let keyName = uiohookToKeyString[e.keycode] || `Keycode-${e.keycode}`;
+          if (keyName === 'Ctrl' || keyName === 'CtrlRight') keyName = 'Control';
+          else if (keyName === 'Alt' || keyName === 'AltRight') keyName = 'Alt';
+          else if (keyName === 'Shift' || keyName === 'ShiftRight') keyName = 'Shift';
+          else if (keyName === 'Meta' || keyName === 'MetaRight') keyName = 'Meta';
+          
+          mainWindow.webContents.send('global-input-event', {
+             type: 'keyup',
+             key: keyName,
+             altKey: e.altKey,
+             ctrlKey: e.ctrlKey,
+             metaKey: e.metaKey,
+             shiftKey: e.shiftKey
+          });
+        }
+      });
+      uIOhook.on('mousedown', (e) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const buttonMap = {
+             1: 'Mouse Left',
+             2: 'Mouse Right',
+             3: 'Mouse Middle',
+             4: 'Mouse Back',
+             5: 'Mouse Forward'
+          };
+          mainWindow.webContents.send('global-input-event', {
+            type: 'mousedown',
+            button: buttonMap[e.button] || `Mouse ${e.button}`
+          });
+        }
+      });
+      uIOhook.on('mouseup', (e) => {
+         if (mainWindow && !mainWindow.isDestroyed()) {
+          const buttonMap = {
+             1: 'Mouse Left',
+             2: 'Mouse Right',
+             3: 'Mouse Middle',
+             4: 'Mouse Back',
+             5: 'Mouse Forward'
+          };
+          mainWindow.webContents.send('global-input-event', {
+            type: 'mouseup',
+            button: buttonMap[e.button] || `Mouse ${e.button}`
+          });
+         }
+      });
+      uIOhook.start();
+    } catch (err) {
+      console.error('[uIOhook] start error:', err);
+    }
+
     app.on('activate', function () {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
       else mainWindow.show();
@@ -900,6 +983,7 @@ app.on('window-all-closed', function () {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  try { uIOhook.stop(); } catch (e) {}
 
   try {
     if (loopbackProcess && loopbackStopFilePath) {
