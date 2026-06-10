@@ -389,7 +389,17 @@ export default function WebRTCManager() {
       try {
         if (roomRef.current?.localParticipant) {
           const micShouldBeEnabled = !(isVoiceMuted || isDeafened) && (voiceSettings.inputMode === 'push_to_talk' ? isPTTActive : true);
-          await roomRef.current.localParticipant.setMicrophoneEnabled(micShouldBeEnabled);
+          const participant = roomRef.current.localParticipant;
+          const pub = participant.getTrackPublication(Track.Source.Microphone);
+          if (pub && pub.track) {
+            if (micShouldBeEnabled) {
+              await (pub.track as any).unmute();
+            } else {
+              await (pub.track as any).mute();
+            }
+          } else {
+            await participant.setMicrophoneEnabled(micShouldBeEnabled);
+          }
         }
       } catch (e) {
         console.warn('[LK MIC] setMicrophoneEnabled ignoré pendant reconnexion transitoire', e);
@@ -637,6 +647,12 @@ export default function WebRTCManager() {
       // ✅ dynacast: true — ajuste dynamiquement la qualité selon le nombre de spectateurs
       // Compatible avec simulcast: false car dynacast agit sur la couche d'encodage, pas les flux
       dynacast: true,
+      audioCaptureDefaults: {
+        deviceId: voiceSettings.selectedMicrophoneId || undefined,
+        echoCancellation: voiceSettings.echoCancellation,
+        noiseSuppression: voiceSettings.noiseSuppression,
+        autoGainControl: voiceSettings.autoGainControl,
+      },
       videoCaptureDefaults: screenShareQuality ? {
         resolution: {
           width: screenShareQuality.width,

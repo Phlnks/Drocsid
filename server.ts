@@ -164,7 +164,7 @@ async function startServer() {
     next();
   });
 
-  app.post("/api/livekit/token", express.json(), async (req, res) => {
+  app.post("/api/livekit/token", express.json({ limit: "50mb" }), async (req, res) => {
     const { roomName, participantIdentity, participantName, userProfile } = req.body;
 
     if (!roomName || !participantIdentity) {

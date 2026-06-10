@@ -1105,9 +1105,19 @@ export default function ChatArea() {
                           {msg.is_edited && <span className="text-[10px] text-zinc-500 ml-2">{t('chatArea.edited')}</span>}
                         </div>
                       )}
-                      {msg.attachments && Array.isArray(msg.attachments) && msg.attachments.map((attachment: any, i: number) => (
+                      {msg.attachments && Array.isArray(msg.attachments) && msg.attachments.map((attachment: any, i: number) => {
+                        let renderType = attachment.type;
+                        if (renderType === 'file' || !renderType) {
+                          if (attachment.url && /\.(m4a|mp3|wav|ogg|aac|flac)(\?.*)?$/i.test(attachment.url)) {
+                            renderType = 'audio';
+                          } else if (attachment.name && /\.(m4a|mp3|wav|ogg|aac|flac)$/i.test(attachment.name)) {
+                            renderType = 'audio';
+                          }
+                        }
+                        
+                        return (
                         <div key={i} className="mt-2">
-                          {attachment.type === 'image' ? (
+                          {renderType === 'image' ? (
                             <div 
                               className="cursor-pointer inline-block min-h-[200px] min-w-[200px] bg-zinc-900/50 rounded-md animate-pulse"
                               onClick={() => setPreviewImage(attachment.url)}
@@ -1123,15 +1133,15 @@ export default function ChatArea() {
                                 }}
                               />
                             </div>
-                          ) : attachment.type === 'video' ? (
+                          ) : renderType === 'video' ? (
                             <video 
                               src={attachment.url} 
                               controls 
                               className="max-w-sm max-h-80 rounded-md bg-zinc-900/50 outline-none hover:ring-2 hover:ring-indigo-500/50 transition-all"
                             />
-                          ) : attachment.type === 'audio' || attachment.type === 'voice' ? (
+                          ) : renderType === 'audio' || renderType === 'voice' ? (
                             <VoicePlayer url={attachment.url} filename={attachment.name} />
-                          ) : attachment.type === 'poll' ? (
+                          ) : renderType === 'poll' ? (
                             <PollDisplay 
                               messageId={msg.id} 
                               pollData={attachment.data} 
@@ -1161,7 +1171,8 @@ export default function ChatArea() {
                             </a>
                           )}
                         </div>
-                      ))}
+                      );
+                    })}
 
                       {/* Reactions Display */}
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
