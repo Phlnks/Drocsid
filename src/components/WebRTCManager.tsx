@@ -14,6 +14,7 @@ function AudioPlayer({ userId, track }: { userId: string; track: RemoteAudioTrac
   const audioRef = useRef<HTMLAudioElement>(null);
   const { isDeafened, voiceSettings, voiceVolume, isVoiceVolumeMuted, peerVolumes } = useAppStore();
   const userPeerVolume = peerVolumes[userId] ?? 1.0;
+  const keybinds = useAppStore(state => state.keybinds);
 
   // Utilize LiveKit's built-in track attaching (safely handles Web Audio and autoplay policies)
 	useEffect(() => {
@@ -93,6 +94,7 @@ export default function WebRTCManager() {
 	  activeShareSource,
 	  screenShareHasAudio,
 	  setRemoteScreenShareAudioTracks,
+	  keybinds,
 	} = useAppStore();
 
   const roomRef = useRef<Room | null>(null);
@@ -243,6 +245,14 @@ export default function WebRTCManager() {
     if (ctx.state === 'suspended') {
       await ctx.resume();
     }
+    // ✅ FIX : écouter les suspensions futures pour les rattraper
+    ctx.onstatechange = () => {
+      if (ctx.state === 'suspended' && !useAppStore.getState().isVoiceMuted && !useAppStore.getState().isDeafened) {
+        console.warn('[WebRTC] AudioContext suspendu de façon inattendue, resume...');
+        ctx.resume().catch(() => {});
+      }
+    };
+
     
     console.warn('[CTX] AudioContext state:', ctx.state);
     
@@ -383,39 +393,101 @@ export default function WebRTCManager() {
 	}, [connectedVoiceChannelId, syncVoiceParticipantsWithLiveKit, currentUser]);
 
 
-  // ─── Mute local mic ────────────────────────────────────────────────────────
-  useEffect(() => {
-    const run = async () => {
-      try {
-        if (roomRef.current?.localParticipant) {
-          const micShouldBeEnabled = !(isVoiceMuted || isDeafened) && (voiceSettings.inputMode === 'push_to_talk' ? isPTTActive : true);
-          const participant = roomRef.current.localParticipant;
-          const pub = participant.getTrackPublication(Track.Source.Microphone);
-          if (pub && pub.track) {
-            if (micShouldBeEnabled) {
-              await (pub.track as any).unmute();
-            } else {
-              await (pub.track as any).mute();
-            }
-          } else {
-            await participant.setMicrophoneEnabled(micShouldBeEnabled);
-          }
-        }
-      } catch (e) {
-        console.warn('[LK MIC] setMicrophoneEnabled ignoré pendant reconnexion transitoire', e);
-      }
+  // ─── Mute local mic ────────────────────────────────────────────────────────   
+	// Mute local mic — version instrumentée + gestion PTT sans touche
+	useEffect(() => {
+	  console.warn(
+		'[WebRTC] 🟡 MUTE EFFECT triggered — isVoiceMuted:',
+		isVoiceMuted,
+		'| isDeafened:',
+		isDeafened,
+		'| isElectron:',
+		isElectron,
+	  );
 
-      if (connectedVoiceChannelId && currentUser) {
-        socket.emit('voice-state-update', {
-          channelId: connectedVoiceChannelId,
-          userId: currentUser.id,
-          updates: { isMuted: isVoiceMuted, isDeafened }
-        });
-      }
-    };
+	  const run = async () => {
+		const room = roomRef.current;
+		const lp = room?.localParticipant;
 
-    run();
-  }, [isVoiceMuted, isDeafened, isPTTActive, voiceSettings.inputMode, connectedVoiceChannelId, currentUser]);
+		console.warn(
+		  '[WebRTC] 🔍 run() — roomRef:',
+		  !!room,
+		  '| localParticipant:',
+		  !!lp,
+		  '| isElectron:',
+		  isElectron,
+		);
+
+		if (!room || !lp) return;
+
+		// Si le mode est PTT mais qu'il n'y a pas de touche configurée,
+		// on se comporte comme en voice_activity (toujours ON côté LiveKit).
+		const hasPttKey = !!keybinds?.pushToTalk;
+
+		const micShouldBeEnabled =
+		  !isVoiceMuted &&
+		  !isDeafened &&
+		  (
+			voiceSettings.inputMode !== 'push_to_talk' || !hasPttKey
+			  ? true
+			  : isPTTActive
+		  );
+
+		const beforePub = lp.getTrackPublication(Track.Source.Microphone) as any;
+		const beforeTrack = beforePub?.track as LocalAudioTrack | undefined;
+		const beforeMedia = beforeTrack?.mediaStreamTrack;
+
+		console.warn('[WebRTC] 🎯 micShouldBeEnabled =', micShouldBeEnabled);
+		console.warn('[WebRTC] BEFORE setMicrophoneEnabled', {
+		  hasPublication: !!beforePub,
+		  pubMuted: beforePub?.isMuted,
+		  trackSid: beforePub?.trackSid,
+		  trackExists: !!beforeTrack,
+		  readyState: beforeMedia?.readyState,
+		  enabled: beforeMedia?.enabled,
+		  muted: beforeMedia?.muted,
+		});
+
+		try {
+		  // On laisse LiveKit gérer le (re)mute/unmute
+		  await lp.setMicrophoneEnabled(micShouldBeEnabled);
+		} catch (e) {
+		  console.error('[WebRTC] setMicrophoneEnabled failed:', e);
+		}
+
+		const afterPub = lp.getTrackPublication(Track.Source.Microphone) as any;
+		const afterTrack = afterPub?.track as LocalAudioTrack | undefined;
+		const afterMedia = afterTrack?.mediaStreamTrack;
+
+		console.warn('[WebRTC] AFTER setMicrophoneEnabled', {
+		  hasPublication: !!afterPub,
+		  pubMuted: afterPub?.isMuted,
+		  trackSid: afterPub?.trackSid,
+		  trackExists: !!afterTrack,
+		  readyState: afterMedia?.readyState,
+		  enabled: afterMedia?.enabled,
+		  muted: afterMedia?.muted,
+		});
+
+		if (connectedVoiceChannelId && currentUser) {
+		  socket.emit('voice-state-update', {
+			channelId: connectedVoiceChannelId,
+			userId: currentUser.id,
+			updates: { isMuted: isVoiceMuted, isDeafened },
+		  });
+		}
+	  };
+
+	  run();
+	}, [
+	  isVoiceMuted,
+	  isDeafened,
+	  isPTTActive,
+	  voiceSettings.inputMode,
+	  keybinds.pushToTalk,          // ⬅️ important
+	  connectedVoiceChannelId,
+	  currentUser,
+	]);
 
 
   // ─── AFK ───────────────────────────────────────────────────────────────────
@@ -562,30 +634,48 @@ export default function WebRTCManager() {
   ]);
 
 
-  // ─── Media Session API ─────────────────────────────────────────────────────
+  
+  // ─── Media Session API — metadata seulement ────────────────────────────────
   useEffect(() => {
     if (!connectedVoiceChannelId || !currentUser) {
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
+      return;
+    }
+
+    try {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'Conversation Vocale',
+          artist: 'Drocsid',
+          album: isVoiceMuted ? 'Micro : OFF' : 'Micro : ON',
+          artwork: []
+        });
+
+        navigator.mediaSession.playbackState = isVoiceMuted ? 'paused' : 'playing';
+
+        try { navigator.mediaSession.setActionHandler('play', () => setIsVoiceMuted(false)); } catch {}
+        try { navigator.mediaSession.setActionHandler('pause', () => setIsVoiceMuted(true)); } catch {}
+        try { navigator.mediaSession.setActionHandler('stop', () => setConnectedVoiceChannelId(null)); } catch {}
+        try { navigator.mediaSession.setActionHandler('previoustrack', () => { setIsDeafened(!isDeafened); }); } catch {}
+      }
+    } catch (e) {
+      console.warn('[WebRTC] MediaSession update failed (non-fatal):', e);
+    }
+  }, [connectedVoiceChannelId, currentUser, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened, setConnectedVoiceChannelId]);
+
+  // ─── Silent audio — créé une seule fois au join ─────────────────────────────
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !currentUser) {
       if (silentAudioRef.current) silentAudioRef.current.pause();
       return;
     }
-    if ('mediaSession' in navigator) {
-      const status = [isVoiceMuted ? 'Micro : OFF' : 'Micro : ON', isDeafened ? 'Sourdine : ON' : 'Sourdine : OFF'].join(' | ');
-      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Conversation Vocale', artist: 'Drocsid', album: status, artwork: [{ src: '/logo.png', sizes: '512x512', type: 'image/png' }] });
-      navigator.mediaSession.playbackState = isVoiceMuted ? 'paused' : 'playing';
-      try { navigator.mediaSession.setActionHandler('play', () => setIsVoiceMuted(false)); } catch (e) {}
-      try { navigator.mediaSession.setActionHandler('pause', () => setIsVoiceMuted(true)); } catch (e) {}
-      try { navigator.mediaSession.setActionHandler('stop', () => setConnectedVoiceChannelId(null)); } catch (e) {}
-      try { navigator.mediaSession.setActionHandler('previoustrack', () => { setIsDeafened(!isDeafened); if (!isDeafened) playDeafenSound(); else playUndeafenSound(); }); } catch (e) {}
-      try { navigator.mediaSession.setActionHandler('togglemicrophone' as any, () => { setIsVoiceMuted(!isVoiceMuted); if (!isVoiceMuted) playMuteSound(); else playUnmuteSound(); }); } catch (e) {}
-      try { navigator.mediaSession.setActionHandler('hangup' as any, () => setConnectedVoiceChannelId(null)); } catch (e) {}
-    }
-    if (!silentAudioRef.current) {      
-      // Générer un vrai silence via Web Audio API — compatible Chrome/Firefox/Safari
+
+    if (!silentAudioRef.current) {
       const silentCtx = new AudioContext();
       const silentBuffer = silentCtx.createBuffer(1, silentCtx.sampleRate, silentCtx.sampleRate);
       const silentDest = silentCtx.createMediaStreamDestination();
       const silentSource = silentCtx.createBufferSource();
+
       silentSource.buffer = silentBuffer;
       silentSource.loop = true;
       silentSource.connect(silentDest);
@@ -596,10 +686,11 @@ export default function WebRTCManager() {
       audio.loop = true;
       silentAudioRef.current = audio;
     }
+
     silentAudioRef.current.play()
       .then(() => console.warn('[SILENT] ✅ audio started'))
       .catch(e => console.error('[SILENT] ❌ audio blocked', e));
-  }, [connectedVoiceChannelId, currentUser, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened, setConnectedVoiceChannelId]);
+  }, [connectedVoiceChannelId, currentUser]);
 
 
   // ─── Sync remote streams / participants ────────────────────────────────────
@@ -639,6 +730,7 @@ export default function WebRTCManager() {
 
   // ─── Main LiveKit Connection Loop ─────────────────────────────────────────
   useEffect(() => {
+    console.warn('[WebRTC] 🔴 MAIN EFFECT triggered — connectedVoiceChannelId:', connectedVoiceChannelId, '| isVoiceMuted:', isVoiceMuted, '| isDeafened:', isDeafened);
     if (!connectedVoiceChannelId || !currentUser) return;
 
     let isMounted = true;
@@ -1066,6 +1158,7 @@ export default function WebRTCManager() {
 	window.addEventListener('pagehide', handleBeforeUnload);
 
     return () => {
+      console.warn('[WebRTC] 🔴 MAIN EFFECT CLEANUP — isMounted will be false');
       isMounted = false;
       window.removeEventListener('beforeunload', handleBeforeUnload);
 	  window.removeEventListener('pagehide', handleBeforeUnload);

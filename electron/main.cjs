@@ -119,6 +119,15 @@ function createWindow() {
     }
   });
 
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowedPermissions = ['media', 'mediaKeySystem', 'microphone', 'camera'];
+    if (allowedPermissions.includes(permission)) {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
   mainWindow.loadURL(startUrl);
 }
 
@@ -312,26 +321,31 @@ ipcMain.on('tray-update', (_event, state) => {
   tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
 });
 
+let uiohookAvailable = true;
+
+try {
+  uIOhook.start();
+} catch (err) {
+  uiohookAvailable = false;
+  console.error('uIOhook start error:', err);
+}
+
 // Global Shortcuts dynamic configuration
 ipcMain.on('update-shortcuts', (event, shortcuts) => {
   globalShortcut.unregisterAll();
-  
+
+  if (uiohookAvailable) return;
+
   if (shortcuts?.mute) {
-    const success = globalShortcut.register(shortcuts.mute, () => {
-      if (mainWindow) {
-        mainWindow.webContents.send('toggle-mute-global');
-      }
+    globalShortcut.register(shortcuts.mute, () => {
+      if (mainWindow) mainWindow.webContents.send('toggle-mute-global');
     });
-    if (!success) console.error(`Failed to register shortcut: ${shortcuts.mute}`);
   }
 
   if (shortcuts?.deafen) {
-    const success = globalShortcut.register(shortcuts.deafen, () => {
-      if (mainWindow) {
-        mainWindow.webContents.send('toggle-deafen-global');
-      }
+    globalShortcut.register(shortcuts.deafen, () => {
+      if (mainWindow) mainWindow.webContents.send('toggle-deafen-global');
     });
-    if (!success) console.error(`Failed to register shortcut: ${shortcuts.deafen}`);
   }
 });
 
