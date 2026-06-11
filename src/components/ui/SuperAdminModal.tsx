@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import { useInstanceStore } from '../../store/instanceStore';
+import { copyToClipboard } from '../../lib/utils';
 import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
@@ -436,7 +437,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         });
       }
 
-      await navigator.clipboard.writeText(inviteCode);
+      await copyToClipboard(inviteCode);
       addNotification("Invite code copied to clipboard", "success");
     } catch (err: any) {
       addNotification("Failed to copy invite code: " + err.message, "error");

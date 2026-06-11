@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import socket from "../lib/socket";
+import { copyToClipboard } from "../lib/utils";
 import CreateChannelModal from "./ui/CreateChannelModal";
 import UserSettingsModal from "./ui/UserSettingsModal";
 import ServerSettingsModal from "./ui/ServerSettingsModal";
@@ -500,7 +501,7 @@ export default function ChannelList() {
       }
 
       // Copy to clipboard
-      await navigator.clipboard.writeText(inviteCode);
+      await copyToClipboard(inviteCode);
       addNotification(t("channelList.inviteCopied"), "success");
       setIsServerMenuOpen(false);
     } catch (error) {

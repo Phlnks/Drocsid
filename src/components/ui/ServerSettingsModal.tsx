@@ -8,6 +8,7 @@ import PromptModal from './PromptModal';
 import ConfirmModal from './ConfirmModal';
 import UserAvatar from './UserAvatar';
 import { processImageForSupabase } from '../../lib/imageUtils';
+import { copyToClipboard } from '../../lib/utils';
 import { useTranslation } from 'react-i18next';
 import socket from '../../lib/socket';
 
@@ -1818,8 +1819,8 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(invite.code);
+                            onClick={async () => {
+                              await copyToClipboard(invite.code);
                               addNotification("Code copié dans le presse-papier !", "success");
                             }}
                             className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
