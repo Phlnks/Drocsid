@@ -13,6 +13,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install Linux dependencies and required X11 headers
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxext-dev libxkbfile-dev
+
       - run: npm install
 
       - run: npm run build
