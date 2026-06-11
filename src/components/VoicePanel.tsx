@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2, PauseCircle } from 'lucide-react';
-import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound, playRingtone, stopRingtone } from '../lib/sounds';
+import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound } from '../lib/sounds';
 import clsx from 'clsx';
 import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
 import SoundboardPicker from './SoundboardPicker';
@@ -136,32 +136,7 @@ export default function VoicePanel() {
     return () => { if (interval) clearInterval(interval); };
   }, [connectedVoiceChannelId, isCall]);
 
-  // ─── Sonnerie ──────────────────────────────────────────────────────────────
-  // Après — isCaller stocké en ref pour éviter la race condition
-  const isCallerRef = useRef(false);
 
-  useEffect(() => {
-    if (!connectedVoiceChannelId || !isCall || !currentUser) {
-      stopRingtone();
-      isCallerRef.current = false;
-      return;
-    }
-    const checkCaller = async () => {
-      const { data: call } = await supabase.from('calls')
-        .select('caller_id, status')
-        .eq('id', connectedVoiceChannelId)
-        .maybeSingle();
-      // ✅ Vérifier que l'appel est toujours actif avant de sonner
-      if (!call) { isCallerRef.current = false; return; }
-      isCallerRef.current = call.caller_id === currentUser.id;
-      if (isCallerRef.current && voiceParticipants.length === 1 && call.status === 'ringing') playRingtone();
-      else stopRingtone();
-    };
-    checkCaller();
-    if (voiceParticipants.length > 1) stopRingtone();
-    // ✅ cleanup immédiat — ne pas laisser la sonnerie si on quitte
-    return () => { stopRingtone(); isCallerRef.current = false; };
-  }, [connectedVoiceChannelId, isCall, currentUser, voiceParticipants.length]);
 
   // ─── Wake Lock ─────────────────────────────────────────────────────────────
   useEffect(() => {

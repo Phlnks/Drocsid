@@ -94,23 +94,6 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
           .eq('id', dmId);
         if (error) throw error;
 
-        // ✅ Mettre à jour aussi l'appel actif si présent
-        const { data: existingCall } = await supabase.from('calls')
-          .select('id')
-          .eq('id', dmId)
-          .maybeSingle();
-        if (existingCall) {
-          await supabase.from('calls')
-            .update({ participants: newParticipantsList })
-            .eq('id', dmId);
-          // ✅ Notifier les nouveaux participants via socket
-          socket.emit('start-call', {
-            callId: dmId,
-            dmId: dmId,
-            callerId: currentUser.id,
-            participants: newParticipantsList
-          });
-        }
         onClose();
       } else {
         // ✅ DM 1-on-1 → créer un nouveau groupe
@@ -138,24 +121,6 @@ export default function AddFriendsToDMModal({ isOpen, onClose, dmId, currentPart
 
         if (newDm) {
           setSelectedDmId(newDm.id);
-          // ✅ Démarrer un appel dans le NOUVEAU groupe si un appel était actif dans l'ancien
-          const { data: oldCall } = await supabase.from('calls')
-            .select('*').eq('id', dmId).maybeSingle();
-          if (oldCall) {
-            await supabase.from('calls').insert({
-              id: newDm.id,
-              dm_id: newDm.id,
-              caller_id: currentUser.id,
-              participants: newParticipantsList,
-              status: 'ringing'
-            });
-            socket.emit('start-call', {
-              callId: newDm.id,
-              dmId: newDm.id,
-              callerId: currentUser.id,
-              participants: newParticipantsList
-            });
-          }
         }
         onClose();
       }

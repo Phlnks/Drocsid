@@ -101,64 +101,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
     }
   };
 
-  const handleCall = async () => {
-    if (!currentUser || isCreatingDM) return;
-    setIsCreatingDM(true);
-    try {
-      const { data: dmsData } = await supabase.from('dms').select('*').contains('participants', [currentUser.id]);
-      
-      let dmId = null;
-      let dmParticipants = null;
-      if (dmsData) {
-        for (const dm of dmsData) {
-          if (dm.participants && dm.participants.includes(user.id) && dm.participants.length === 2) {
-            dmId = dm.id;
-            dmParticipants = dm.participants;
-            break;
-          }
-        }
-      }
 
-      if (!dmId) {
-        const { data: newDm, error } = await supabase.from('dms').insert({
-          participants: [currentUser.id, user.id]
-        }).select().single();
-        
-        if (error) throw error;
-        dmId = newDm.id;
-        dmParticipants = [currentUser.id, user.id];
-      }
-
-      const { data: existingCall } = await supabase.from('calls').select('*').eq('dm_id', dmId).single();
-      
-      if (!existingCall) {
-        await supabase.from('calls').insert({
-          id: dmId,
-          dm_id: dmId,
-          caller_id: currentUser.id,
-          participants: dmParticipants,
-          status: 'ringing'
-        });
-      }
-
-      // Emit socket event for real-time notification
-      socket.emit('start-call', {
-        callId: dmId,
-        dmId: dmId,
-        callerId: currentUser.id,
-        participants: dmParticipants
-      });
-
-      setSelectedServerId(null);
-      setSelectedDmId(dmId);
-      useAppStore.getState().setConnectedVoiceChannelId(dmId);
-      onClose();
-    } catch (error) {
-      console.error("Error starting call:", error);
-    } finally {
-      setIsCreatingDM(false);
-    }
-  };
 
   const handleAddFriend = async () => {
     if (!currentUser) return;
@@ -304,14 +247,7 @@ export default function UserProfileModal({ isOpen, onClose, user }: UserProfileM
                   <MessageSquare className="w-5 h-5" />
                   {isCreatingDM ? t('modals.userProfile.calling') : t('modals.userProfile.sendMessage')}
                 </button>
-                <button 
-                  onClick={handleCall}
-                  disabled={isCreatingDM}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded-md font-medium transition-colors"
-                >
-                  <Phone className="w-5 h-5" />
-                  {t('modals.userProfile.call')}
-                </button>
+
                 {renderFriendButton()}
               </>
             )}

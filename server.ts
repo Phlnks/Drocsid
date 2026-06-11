@@ -823,9 +823,6 @@ async function startServer() {
         });
         
         if (event.event === "room_finished" || (voiceRooms.has(roomName) && voiceRooms.get(roomName)?.size === 0)) {
-           try {
-              await supabaseAdmin.from("calls").delete().eq("id", roomName);
-           } catch(e) {}
            voiceRooms.delete(roomName);
         }
       }
@@ -861,11 +858,6 @@ async function startServer() {
     const cleanupVoiceRoom = async (channelId: string) => {
       const room = voiceRooms.get(channelId);
       if (!room || room.size === 0) {
-        try {
-          await supabaseAdmin.from("calls").delete().eq("id", channelId);
-        } catch (err) {
-          console.error("Error cleaning up call", err);
-        }
         voiceRooms.delete(channelId);
       }
     };
@@ -1033,33 +1025,6 @@ async function startServer() {
 
     socket.on("dm-read", (data) => {
       socket.to(data.dmId).emit("dm-read", data);
-    });
-
-    socket.on("start-call", (data) => {
-      data.participants.forEach((userId: string) => {
-        if (userId !== data.callerId) {
-          const sockets = onlineUsers.get(userId);
-          sockets?.forEach((socketId) => io.to(socketId).emit("incoming-call", data));
-        }
-      });
-    });
-
-    socket.on("decline-call", (data) => {
-      data.participants.forEach((userId: string) => {
-        if (userId !== data.userId) {
-          const sockets = onlineUsers.get(userId);
-          sockets?.forEach((socketId) => io.to(socketId).emit("call-declined", data));
-        }
-      });
-    });
-
-    socket.on("accept-call", (data) => {
-      data.participants.forEach((userId: string) => {
-        if (userId !== data.userId) {
-          const sockets = onlineUsers.get(userId);
-          sockets?.forEach((socketId) => io.to(socketId).emit("call-accepted", data));
-        }
-      });
     });
 
     socket.on("move-user", (data) => {

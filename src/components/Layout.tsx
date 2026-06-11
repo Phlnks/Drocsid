@@ -8,8 +8,6 @@ import DMChatArea from './DMChatArea';
 import FriendsDashboard from './FriendsDashboard';
 import WebRTCManager from './WebRTCManager';
 import RightSidebar from './RightSidebar';
-import IncomingCallModal from './ui/IncomingCallModal';
-import OutgoingCallModal from './ui/OutgoingCallModal';
 import ScreenShareViewer from './ScreenShareViewer';
 import FocusedScreenShare from './FocusedScreenShare';
 import MobileVoiceControl from './MobileVoiceControl';
@@ -50,8 +48,6 @@ export default function Layout() {
       <ServerDataPreloader />
       <WebRTCManager />
       <NotificationManager />
-      <IncomingCallModal />
-      <OutgoingCallModal />
       <ScreenShareViewer />
       <MobileVoiceControl />
       

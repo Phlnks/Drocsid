@@ -141,68 +141,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
     }
   };
 
-  const handleCall = async () => {
-    if (!user) return;
-    onClose();
 
-    try {
-      // Find or create DM first
-      const { data: dmsData } = await supabase.from('dms').select('*').contains('participants', [user.id]);
-      
-      let dmId = null;
-      let dmParticipants = null;
-      if (dmsData) {
-        for (const dm of dmsData) {
-          if (dm.participants && dm.participants.includes(userId) && dm.participants.length === 2) {
-            dmId = dm.id;
-            dmParticipants = dm.participants;
-            break;
-          }
-        }
-      }
-
-      if (!dmId) {
-        const { data: newDm, error } = await supabase.from('dms').insert({
-          participants: [user.id, userId]
-        }).select().single();
-        
-        if (error) throw error;
-        dmId = newDm.id;
-        dmParticipants = [user.id, userId];
-      }
-
-      // Check for active call
-      const { data: callsData } = await supabase.from('calls')
-        .select('*')
-        .eq('dm_id', dmId)
-        .contains('participants', [user.id]);
-      
-      if (callsData && callsData.length > 0) {
-        setConnectedVoiceChannelId(dmId);
-      } else {
-        await supabase.from('calls').insert({
-          id: dmId,
-          dm_id: dmId,
-          caller_id: user.id,
-          participants: dmParticipants,
-          status: 'ringing'
-        });
-        setConnectedVoiceChannelId(dmId);
-      }
-
-      // Emit socket event for real-time notification
-      socket.emit('start-call', {
-        callId: dmId,
-        dmId: dmId,
-        callerId: user.id,
-        participants: dmParticipants
-      });
-      
-      setSelectedDmId(dmId);
-    } catch (error) {
-      console.error("Error starting call:", error);
-    }
-  };
 
   const handleFriendAction = async () => {
     if (!user) return;
@@ -436,13 +375,7 @@ export default function UserContextMenu({ userId, username, serverId, dmId, posi
               {t('modals.userContextMenu.message')}
             </button>
 
-            <button 
-              onClick={handleCall}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:bg-indigo-500 hover:text-white transition-colors"
-            >
-              <Phone className="w-4 h-4" />
-              {t('modals.userContextMenu.call')}
-            </button>
+
 
             {dmId && (
               <button 

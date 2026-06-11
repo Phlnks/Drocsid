@@ -101,26 +101,6 @@ export const playMessageSound = () => {
   playTone(1046, 'sine', 0.2, 0.15, 0.1); // C6
 };
 
-let ringtoneAudio: HTMLAudioElement | null = null;
-
-export const playRingtone = () => {
-  if (!ringtoneAudio) {
-    ringtoneAudio = new Audio('/ringtone.mp3');
-    ringtoneAudio.loop = true;
-  }
-  
-  ringtoneAudio.play().catch(e => {
-    console.error("Erreur de lecture de la sonnerie mp3:", e);
-  });
-};
-
-export const stopRingtone = () => {
-  if (ringtoneAudio) {
-    ringtoneAudio.pause();
-    ringtoneAudio.currentTime = 0;
-  }
-};
-
 export const playScreenShareStartSound = () => {
   playTone(523.25, 'sine', 0.1, 0.15, 0); // C5
   playTone(659.25, 'sine', 0.1, 0.15, 0.1); // E5
@@ -156,10 +136,4 @@ export const playPTTActivateSound = () => {
 export const playPTTDeactivateSound = () => {
   playTone(600, 'sine', 0.05, 0.1, 0);
   playTone(400, 'sine', 0.05, 0.1, 0.03);
-};
-
-export const playCallJoinedSound = (volume = 0.5) => {
-  const audio = new Audio('/call_joined.mp3');
-  audio.volume = volume;
-  audio.play().catch(console.error);
 };

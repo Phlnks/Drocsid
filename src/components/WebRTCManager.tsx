@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
 import { useInstanceStore } from '../store/instanceStore';
-import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playCallJoinedSound, stopRingtone } from '../lib/sounds';
+import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
 import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
 
@@ -1051,8 +1051,6 @@ export default function WebRTCManager() {
           
           if (!state.callJoinedSoundPlayed) {
             state.setCallJoinedSoundPlayed(true);
-            stopRingtone();
-            playCallJoinedSound(state.voiceVolume);
             console.log('[WebRTC] Private call established, playing sound');
           }
         };

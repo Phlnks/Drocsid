@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { User, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, Phone, UserPlus, Users, ArrowDown, ArrowLeft, LogOut, Check, CheckCheck, Loader2, Pin, Bell, Plus } from 'lucide-react';
+import { User, FileIcon, Download, Pencil, Trash2, SmilePlus, Reply, UserPlus, Users, ArrowDown, ArrowLeft, Check, CheckCheck, Loader2, Pin, Bell, Plus } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
@@ -137,7 +137,6 @@ export default function DMChatArea() {
   const [typingUsers, setTypingUsers] = useState<any[]>([]);
   const [showPins, setShowPins] = useState(false);
   const [isAddFriendsModalOpen, setIsAddFriendsModalOpen] = useState(false);
-  const [activeCall, setActiveCall] = useState<any>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const showScrollButtonRef = useRef(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -320,7 +319,6 @@ export default function DMChatArea() {
     setReplyingTo(null);
     setShowPins(false);
     setTypingUsers([]);
-    setActiveCall(null);
 
     // Removed nested updateLastRead definition
 
@@ -353,10 +351,6 @@ export default function DMChatArea() {
           }
         }
       }
-
-      // Fetch Call
-      const { data: callData } = await supabase.from('calls').select('*').eq('id', selectedDmId).maybeSingle();
-      setActiveCall(callData);
 
       // Fetch Users - Only fetch profiles for participants of this DM
       if (dmData && dmData.participants && dmData.participants.length > 0) {
@@ -502,13 +496,6 @@ export default function DMChatArea() {
     const dmSub = supabase.channel(channelName)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dms', filter: `id=eq.${selectedDmId}` }, () => {
         fetchInitialData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calls', filter: `id=eq.${selectedDmId}` }, (payload) => {
-        if (payload.eventType === 'DELETE') {
-          setActiveCall(null);
-        } else {
-          setActiveCall(payload.new);
-        }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload: any) => {
         if (participantsRef.current.includes(payload.new.id)) {
@@ -688,45 +675,7 @@ export default function DMChatArea() {
     </div>
   );
 
-  const handleCall = async () => {
-    if (!selectedDmId || !user || !dmData) return;
-    
-    if (activeCall) {
-      // If there's already a call, just join it
-      playConnectSound();
-      setConnectedVoiceChannelId(selectedDmId);
-      return;
-    }
-    
-    try {
-      await supabase.from('calls').insert({
-        id: selectedDmId,
-        dm_id: selectedDmId,
-        caller_id: user.id,
-        participants: dmData.participants,
-        status: 'ringing'
-      });
 
-      // Emit socket event for real-time notification
-      socket.emit('start-call', {
-        callId: selectedDmId,
-        dmId: selectedDmId,
-        callerId: user.id,
-        participants: dmData.participants
-      });
-
-      // Join the call immediately
-      playConnectSound();
-      setConnectedVoiceChannelId(selectedDmId);
-    } catch (error) {
-      console.error("Error starting call:", error);
-    }
-  };
-
-  const handleJoinCall = () => {
-    playConnectSound();
-    setConnectedVoiceChannelId(selectedDmId);
-  };
 
   const handleLeaveGroup = async () => {
     if (!user || !selectedDmId || !dmData) return;
@@ -825,22 +774,6 @@ export default function DMChatArea() {
             <div className="flex items-center gap-2">
               {!otherUser?.is_saved_messages && (
                 <>
-                  {otherUsers.length > 1 && (
-                    <button 
-                      className="p-2 hover:bg-red-500/20 rounded-md text-red-400 hover:text-red-300 transition-colors"
-                      title={t('channelList.leaveGroup')}
-                      onClick={handleLeaveGroup}
-                    >
-                      <LogOut className="w-5 h-5" />
-                    </button>
-                  )}
-                  <button 
-                    onClick={handleCall}
-                    className={`p-2 rounded-md transition-colors ${activeCall ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100'}`}
-                    title={activeCall ? t('modals.userProfile.rejoinCall') : t('modals.userProfile.call')}
-                  >
-                    <Phone className="w-5 h-5" />
-                  </button>
                   <button 
                     className="p-2 hover:bg-zinc-700 rounded-md text-zinc-400 hover:text-zinc-100 transition-colors"
                     title={t('friends.addFriends')}
@@ -894,30 +827,6 @@ export default function DMChatArea() {
               </button>
             </div>
           </div>
-
-          {activeCall && selectedDmId && connectedVoiceChannelId !== selectedDmId && (voiceParticipantsMap[selectedDmId] || []).length > 0 && (
-            <div className="bg-emerald-500/10 border-b border-emerald-500/20 p-3 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3 text-emerald-400">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center animate-pulse">
-                  <Phone className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm">{t('modals.userProfile.callInProgress')}</span>
-                  <span className="text-xs opacity-80">{t('modals.userProfile.joinVoiceDesc')}</span>
-                </div>
-              </div>
-              <button 
-                onClick={handleJoinCall}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-md transition-colors"
-              >
-                {t('modals.userProfile.accept')}
-              </button>
-            </div>
-          )}
-
-          {connectedVoiceChannelId === selectedDmId && (
-            <VoiceParticipants channelId={selectedDmId} />
-          )}
 
           <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
             {messages.length === 0 ? (
