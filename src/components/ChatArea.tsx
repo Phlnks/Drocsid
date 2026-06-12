@@ -1106,13 +1106,24 @@ export default function ChatArea() {
                         </div>
                       )}
                       {msg.attachments && Array.isArray(msg.attachments) && msg.attachments.map((attachment: any, i: number) => {
-                        let renderType = attachment.type;
-                        if (renderType === 'file' || !renderType) {
+                        let renderType = attachment.type || '';
+                        
+                        // Normalize standard mime types or generic strings
+                        if (renderType.startsWith('image/') || renderType === 'image') {
+                          renderType = 'image';
+                        } else if (renderType.startsWith('audio/') || renderType.startsWith('voice/') || renderType === 'audio' || renderType === 'voice') {
+                          renderType = 'audio';
+                        } else if (renderType.startsWith('video/') || renderType === 'video') {
+                          renderType = 'video';
+                        }
+                        
+                        // Fallback checking by filename or URL extension if the type is still generic or not recognized
+                        if (!['image', 'audio', 'video', 'voice', 'poll'].includes(renderType)) {
                           const url = attachment.url || '';
                           const name = attachment.name || '';
-                          const isAudio = /\.(m4a|mp3|wav|ogg|aac|flac|opus|amr|3gp)(\?.*)?$/i.test(url) || /\.(m4a|mp3|wav|ogg|aac|flac|opus|amr|3gp)$/i.test(name);
-                          const isImage = /\.(png|jpg|jpeg|gif|webp|bmp|heic)(\?.*)?$/i.test(url) || /\.(png|jpg|jpeg|gif|webp|bmp|heic)$/i.test(name);
-                          const isVideo = /\.(mp4|webm|mov|mkv|avi)(\?.*)?$/i.test(url) || /\.(mp4|webm|mov|mkv|avi)$/i.test(name);
+                          const isAudio = /\.(m4a|mp3|wav|ogg|aac|flac|opus|amr|3gp|caf|m4r)(\?.*)?$/i.test(url) || /\.(m4a|mp3|wav|ogg|aac|flac|opus|amr|3gp|caf|m4r)$/i.test(name);
+                          const isImage = /\.(png|jpg|jpeg|gif|webp|bmp|heic|tiff|svg)(\?.*)?$/i.test(url) || /\.(png|jpg|jpeg|gif|webp|bmp|heic|tiff|svg)$/i.test(name);
+                          const isVideo = /\.(mp4|webm|mov|mkv|avi|3gp|m4v)(\?.*)?$/i.test(url) || /\.(mp4|webm|mov|mkv|avi|3gp|m4v)$/i.test(name);
                           
                           if (isAudio) {
                             renderType = 'audio';
@@ -1120,6 +1131,8 @@ export default function ChatArea() {
                             renderType = 'image';
                           } else if (isVideo) {
                             renderType = 'video';
+                          } else {
+                            renderType = 'file';
                           }
                         }
                         
