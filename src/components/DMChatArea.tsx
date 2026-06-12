@@ -1056,10 +1056,18 @@ export default function DMChatArea() {
                       {msg.attachments && Array.isArray(msg.attachments) && msg.attachments.map((attachment: any, i: number) => {
                         let renderType = attachment.type;
                         if (renderType === 'file' || !renderType) {
-                          if (attachment.url && /\.(m4a|mp3|wav|ogg|aac|flac)(\?.*)?$/i.test(attachment.url)) {
+                          const url = attachment.url || '';
+                          const name = attachment.name || '';
+                          const isAudio = /\.(m4a|mp3|wav|ogg|aac|flac|opus|amr|3gp)(\?.*)?$/i.test(url) || /\.(m4a|mp3|wav|ogg|aac|flac|opus|amr|3gp)$/i.test(name);
+                          const isImage = /\.(png|jpg|jpeg|gif|webp|bmp|heic)(\?.*)?$/i.test(url) || /\.(png|jpg|jpeg|gif|webp|bmp|heic)$/i.test(name);
+                          const isVideo = /\.(mp4|webm|mov|mkv|avi)(\?.*)?$/i.test(url) || /\.(mp4|webm|mov|mkv|avi)$/i.test(name);
+                          
+                          if (isAudio) {
                             renderType = 'audio';
-                          } else if (attachment.name && /\.(m4a|mp3|wav|ogg|aac|flac)$/i.test(attachment.name)) {
-                            renderType = 'audio';
+                          } else if (isImage) {
+                            renderType = 'image';
+                          } else if (isVideo) {
+                            renderType = 'video';
                           }
                         }
                         
