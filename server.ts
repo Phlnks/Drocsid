@@ -98,7 +98,7 @@ async function sendPushToUser(
       }));
       
       try {
-        await fetch('https://exp.host/--/api/v2/push/send', {
+        const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
@@ -107,8 +107,10 @@ async function sendPushToUser(
           },
           body: JSON.stringify(messages),
         });
+        const resJson = await expoRes.json();
+        console.log("[Expo push] Response for user", userId, ":", JSON.stringify(resJson, null, 2));
       } catch (expoErr) {
-        console.error("Expo push error:", expoErr);
+        console.error("[Expo push] fetch Error:", expoErr);
       }
     }
   } catch (err) {
@@ -157,6 +159,7 @@ function setupRealtimePushNotifications() {
       { event: 'INSERT', schema: 'public', table: 'messages' },
       async (payload) => {
          const newMsg = payload.new;
+         console.log("[push realtime] message insertion intercepted", newMsg.id);
          if (!newMsg || !newMsg.author_id) return;
          
          try {
@@ -203,6 +206,7 @@ function setupRealtimePushNotifications() {
       { event: 'INSERT', schema: 'public', table: 'dm_messages' },
       async (payload) => {
          const newMsg = payload.new;
+         console.log("[push realtime] dm_messages insertion intercepted", newMsg.id);
          if (!newMsg || !newMsg.author_id) return;
          
          try {
@@ -918,6 +922,89 @@ async function startServer() {
     }
     await supabaseAdmin.from("expo_push_tokens").delete().eq("user_id", userId).eq("token", token);
     res.json({ ok: true });
+  });
+
+  app.get("/api/push/test", async (req, res) => {
+    const userId = req.query.userId as string;
+    if (!userId) return res.status(400).json({ error: "Missing userId query parameter" });
+    
+    try {
+      const { data: expoData, error: expoError } = await supabaseAdmin
+        .from("expo_push_tokens")
+        .select("token")
+        .eq("user_id", userId);
+
+      if (expoError || !expoData?.length) {
+        return res.json({ error: "No expo tokens found for this user", expoError });
+      }
+
+      const messages = expoData.map((row: any) => ({
+        to: row.token,
+        sound: 'default',
+        title: "Test de push API",
+        body: "Corps du test push",
+        data: { url: "/channels/@me" }
+      }));
+
+      const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
+
+      const resJson = await expoRes.json();
+      return res.json({ 
+        ok: true, 
+        tokens_found: expoData.length, 
+        expo_response: resJson 
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/push/test-all", async (req, res) => {
+    try {
+      const { data: expoData, error: expoError } = await supabaseAdmin
+        .from("expo_push_tokens")
+        .select("token, user_id");
+
+      if (expoError || !expoData?.length) {
+        return res.json({ error: "No expo tokens found in DB", expoError });
+      }
+
+      const messages = expoData.map((row: any) => ({
+        to: row.token,
+        sound: 'default',
+        title: "Test Global Push API",
+        body: "Ceci est un test envoyé à tous les terminaux enregistrés.",
+        data: { url: "/channels/@me" }
+      }));
+
+      const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
+
+      const resJson = await expoRes.json();
+      return res.json({ 
+        ok: true, 
+        tokens_found: expoData.length, 
+        expo_response: resJson,
+        tokens: expoData
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   const onlineUsers = new Map<string, Set<string>>();
