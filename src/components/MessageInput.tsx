@@ -644,7 +644,7 @@ export default function MessageInput({
             }
 
             for (const targetId of Array.from(mentionedUserIds)) {
-              await supabase.from("notifications").insert({
+              const { error: notifErr } = await supabase.from("notifications").insert({
                 user_id: targetId,
                 type: "mention",
                 data: {
@@ -661,6 +661,11 @@ export default function MessageInput({
                 read: false,
                 notified: false,
               });
+              if (notifErr) {
+                console.error("❌ [Db Notifications] Mention insert failed:", notifErr);
+              } else {
+                console.log("✅ [Db Notifications] Mention inserted for:", targetId);
+              }
             }
           }
         }
@@ -699,7 +704,7 @@ export default function MessageInput({
             }
           }
 
-          await supabase.from("notifications").insert({
+          const { error: notifErr } = await supabase.from("notifications").insert({
             user_id: replyingTo.author_id,
             type: "reply",
             data: {
@@ -718,6 +723,11 @@ export default function MessageInput({
             read: false,
             notified: false,
           });
+          if (notifErr) {
+            console.error("❌ [Db Notifications] Reply insert failed:", notifErr);
+          } else {
+            console.log("✅ [Db Notifications] Reply inserted for:", replyingTo.author_id);
+          }
         }
 
         // Automatically create notification for DM recipient
@@ -741,7 +751,7 @@ export default function MessageInput({
                 user?.email?.split("@")[0] ||
                 "Utilisateur";
               for (const targetId of recipients) {
-                await supabase.from("notifications").insert({
+                const { error: notifErr } = await supabase.from("notifications").insert({
                   user_id: targetId,
                   type: "dm",
                   data: {
@@ -757,6 +767,11 @@ export default function MessageInput({
                   read: false,
                   notified: false,
                 });
+                if (notifErr) {
+                  console.error("❌ [Db Notifications] DM recipient insert failed:", notifErr);
+                } else {
+                  console.log("✅ [Db Notifications] DM recipient inserted for:", targetId);
+                }
               }
             }
           }

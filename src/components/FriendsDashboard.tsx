@@ -124,7 +124,7 @@ export default function FriendsDashboard() {
       const rel = relationships.find(r => r.id === relId);
       const requesterId = rel?.requester_id;
       if (requesterId && requesterId !== user?.id) {
-        await supabase.from('notifications').insert({
+        const { error: notifErr } = await supabase.from('notifications').insert({
           user_id: requesterId,
           type: 'friend_accept',
           data: {
@@ -135,6 +135,11 @@ export default function FriendsDashboard() {
           read: false,
           notified: false
         });
+        if (notifErr) {
+          console.error("❌ [Db Notifications] Friend acceptance insert failed:", notifErr);
+        } else {
+          console.log("✅ [Db Notifications] Friend acceptance inserted for:", requesterId);
+        }
       }
     } catch (error) {
       console.error("Error accepting friend request:", error);
@@ -178,7 +183,7 @@ export default function FriendsDashboard() {
       if (error) throw error;
 
       // Add notification for the target user
-      await supabase.from('notifications').insert({
+      const { error: notifErr } = await supabase.from('notifications').insert({
         user_id: targetUserId,
         type: 'friend_request',
         data: {
@@ -189,6 +194,11 @@ export default function FriendsDashboard() {
         read: false,
         notified: false
       });
+      if (notifErr) {
+        console.error("❌ [Db Notifications] Friend request insert failed:", notifErr);
+      } else {
+        console.log("✅ [Db Notifications] Friend request inserted for:", targetUserId);
+      }
 
       setAddMessage({ type: 'success', text: t('friends.addFriendSuccess') });
     } catch (error) {

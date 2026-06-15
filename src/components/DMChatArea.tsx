@@ -606,7 +606,7 @@ export default function DMChatArea() {
           const authorProfile = usersMap[uid];
           const authorName = authorProfile?.display_name || authorProfile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'Utilisateur';
 
-          await supabase.from('notifications').insert({
+          const { error: notifErr } = await supabase.from('notifications').insert({
              user_id: targetMsg.author_id,
              type: 'reaction',
              data: {
@@ -620,6 +620,11 @@ export default function DMChatArea() {
              read: false,
              notified: false
           });
+          if (notifErr) {
+            console.error("❌ [Db Notifications] DM Reaction insert failed:", notifErr);
+          } else {
+            console.log("✅ [Db Notifications] DM Reaction inserted for:", targetMsg.author_id);
+          }
         }
       }
     } catch (error) {
