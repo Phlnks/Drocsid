@@ -643,8 +643,8 @@ export default function MessageInput({
               console.error("Failed to fetch context names for notification", err);
             }
 
-            const notifications = Array.from(mentionedUserIds).map(
-              (targetId) => ({
+            for (const targetId of Array.from(mentionedUserIds)) {
+              await supabase.from("notifications").insert({
                 user_id: targetId,
                 type: "mention",
                 data: {
@@ -660,10 +660,8 @@ export default function MessageInput({
                 },
                 read: false,
                 notified: false,
-              })
-            );
-
-            await supabase.from("notifications").insert(notifications);
+              });
+            }
           }
         }
 
@@ -742,23 +740,24 @@ export default function MessageInput({
                 user?.user_metadata?.display_name ||
                 user?.email?.split("@")[0] ||
                 "Utilisateur";
-              const notifications = recipients.map((targetId) => ({
-                user_id: targetId,
-                type: "dm",
-                data: {
-                  author_id: user.id,
-                  author_name: currentUsername,
-                  content:
-                    textToSend.slice(0, 200) ||
-                    (fileToSend ? "📎 Fichier" : "Message"),
-                  channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
-                  message_id: newMessage.id,
-                  is_dm: true,
-                },
-                read: false,
-                notified: false,
-              }));
-              await supabase.from("notifications").insert(notifications);
+              for (const targetId of recipients) {
+                await supabase.from("notifications").insert({
+                  user_id: targetId,
+                  type: "dm",
+                  data: {
+                    author_id: user.id,
+                    author_name: currentUsername,
+                    content:
+                      textToSend.slice(0, 200) ||
+                      (fileToSend ? "📎 Fichier" : "Message"),
+                    channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
+                    message_id: newMessage.id,
+                    is_dm: true,
+                  },
+                  read: false,
+                  notified: false,
+                });
+              }
             }
           }
         }
