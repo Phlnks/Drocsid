@@ -38,8 +38,12 @@ const DM_PUSH_BASE_PATH = process.env.DM_PUSH_BASE_PATH || "/?dm=";
 const PUSH_ICON_URL = process.env.PUSH_ICON_URL || "/logo-192.png";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY is perfectly missing in environment variables. Backend will use the anon key which might fail RLS policies for sending push notifications.");
+}
 
 let pushEnabled = false;
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
@@ -154,85 +158,6 @@ function setupRealtimePushNotifications() {
   const pushChannel = supabaseAdmin.channel('backend-push-notifications');
 
   pushChannel
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'messages' },
-      async (payload) => {
-         const newMsg = payload.new;
-         console.log("[push realtime] message insertion intercepted", newMsg.id);
-         if (!newMsg || !newMsg.author_id) return;
-         
-         try {
-           const { data: chanData } = await supabaseAdmin.from('channels').select('name, server_id').eq('id', newMsg.channel_id).single();
-           if (!chanData) return;
-           
-           const { data: serverData } = await supabaseAdmin.from('servers').select('name').eq('id', chanData.server_id).single();
-           const { data: authorData } = await supabaseAdmin.from('profiles').select('username').eq('id', newMsg.author_id).single();
-
-           const mentionedUsernames = (newMsg.content.match(/@([a-zA-Z0-9_\-\.]+)/g) || []).map((m: string) => m.substring(1));
-           if (mentionedUsernames.length > 0) {
-              const { data: mentionedProfiles } = await supabaseAdmin.from('profiles').select('id, username').in('username', mentionedUsernames);
-              if (mentionedProfiles) {
-                 for (const profile of mentionedProfiles) {
-                    if (profile.id !== newMsg.author_id) {
-                       const notifData: any = {
-                          user_id: profile.id,
-                          type: 'mention',
-                          data: {
-                             message: "Vous avez été mentionné",
-                             message_id: newMsg.id,
-                             channel_id: newMsg.channel_id,
-                             server_id: chanData.server_id,
-                             author_id: newMsg.author_id,
-                             author_name: authorData?.username || 'Quelqu\'un',
-                             content: newMsg.content
-                          }
-                       };
-                       await supabaseAdmin.from('notifications').insert(notifData);
-                    }
-                 }
-              }
-           }
-         } catch (err) {
-           console.error("Error processing messages realtime event:", err);
-         }
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'dm_messages' },
-      async (payload) => {
-         const newMsg = payload.new;
-         console.log("[push realtime] dm_messages insertion intercepted", newMsg.id);
-         if (!newMsg || !newMsg.author_id) return;
-         
-         try {
-           const { data: authorData } = await supabaseAdmin.from('profiles').select('username').eq('id', newMsg.author_id).single();
-           const { data: dmData } = await supabaseAdmin.from('dms').select('participants').eq('id', newMsg.dm_id).single();
-           if (!dmData) return;
-           
-           const otherParticipants = dmData.participants.filter((p: string) => p !== newMsg.author_id);
-           
-           for (const participantId of otherParticipants) {
-               const notifData: any = {
-                  user_id: participantId,
-                  type: 'dm',
-                  data: {
-                     message: `@${authorData?.username || 'Pseudo'} vous a envoyé un message direct`,
-                     dm_id: newMsg.dm_id,
-                     message_id: newMsg.id,
-                     author_id: newMsg.author_id,
-                     author_name: authorData?.username || 'Quelqu\'un',
-                     content: newMsg.content
-                  }
-               };
-               await supabaseAdmin.from('notifications').insert(notifData);
-           }
-         } catch (err) {
-           console.error("Error processing dm_messages realtime event:", err);
-         }
-      }
-    )
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'notifications' },
