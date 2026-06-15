@@ -175,23 +175,20 @@ function setupRealtimePushNotifications() {
               if (mentionedProfiles) {
                  for (const profile of mentionedProfiles) {
                     if (profile.id !== newMsg.author_id) {
-                       await sendPushToUser(profile.id, {
-                          title: "Mention",
-                          body: `${authorData?.username || 'Quelqu\'un'} t'a mentionné dans #${chanData.name}:\n${newMsg.content}`,
-                          url: `/channels/${chanData.server_id}/${newMsg.channel_id}`,
-                          icon: PUSH_ICON_URL
-                       });
-                       await supabaseAdmin.from('notifications').insert({
+                       const notifData: any = {
                           user_id: profile.id,
-                          type: 'MENTION',
+                          type: 'mention',
                           data: {
+                             message: "Vous avez été mentionné",
                              message_id: newMsg.id,
                              channel_id: newMsg.channel_id,
                              server_id: chanData.server_id,
                              author_id: newMsg.author_id,
+                             author_name: authorData?.username || 'Quelqu\'un',
                              content: newMsg.content
                           }
-                       });
+                       };
+                       await supabaseAdmin.from('notifications').insert(notifData);
                     }
                  }
               }
@@ -217,29 +214,74 @@ function setupRealtimePushNotifications() {
            const otherParticipants = dmData.participants.filter((p: string) => p !== newMsg.author_id);
            
            for (const participantId of otherParticipants) {
-               await sendPushToUser(participantId, {
-                  title: `Message de ${authorData?.username || 'Quelqu\'un'}`,
-                  body: newMsg.content,
-                  url: `/channels/@me/${newMsg.dm_id}`,
-                  icon: PUSH_ICON_URL
-               });
-               await supabaseAdmin.from('notifications').insert({
+               const notifData: any = {
                   user_id: participantId,
-                  type: 'MESSAGE',
+                  type: 'dm',
                   data: {
+                     message: `@${authorData?.username || 'Pseudo'} vous a envoyé un message direct`,
+                     dm_id: newMsg.dm_id,
                      message_id: newMsg.id,
-                     channel_id: newMsg.dm_id,
                      author_id: newMsg.author_id,
+                     author_name: authorData?.username || 'Quelqu\'un',
                      content: newMsg.content
                   }
-               });
+               };
+               await supabaseAdmin.from('notifications').insert(notifData);
            }
          } catch (err) {
            console.error("Error processing dm_messages realtime event:", err);
          }
       }
     )
-    .subscribe((status) => {
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications' },
+      async (payload) => {
+         const newNotif = payload.new;
+         console.log("[push realtime] notification intercepted", newNotif.id);
+         if (!newNotif || !newNotif.user_id) return;
+         
+         const payloadData = typeof newNotif.data === 'string' ? JSON.parse(newNotif.data) : newNotif.data;
+
+         try {
+            let title = "Nouvelle notification";
+            let body = "Vous avez une nouvelle notification.";
+            let url = "/";
+            
+            if (newNotif.type === 'dm') {
+                title = `Message de ${payloadData.author_name || 'Quelqu\'un'}`;
+                body = payloadData.content || "Vous avez reçu un message direct.";
+                url = `/channels/@me/${payloadData.dm_id || payloadData.channel_id}`;
+            } else if (newNotif.type === 'mention') {
+                title = `Mention de ${payloadData.author_name || 'Quelqu\'un'}`;
+                body = payloadData.content || "Vous avez été mentionné.";
+                url = `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+            } else if (newNotif.type === 'reply') {
+                title = `Réponse de ${payloadData.author_name || 'Quelqu\'un'}`;
+                body = payloadData.content || "Quelqu'un a répondu à votre message.";
+                url = payloadData.is_dm 
+                   ? `/channels/@me/${payloadData.channel_id}`
+                   : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+            }
+            
+            await sendPushToUser(newNotif.user_id, {
+                title,
+                body,
+                url,
+                icon: PUSH_ICON_URL
+            });
+            
+            await supabaseAdmin.from('notifications').update({ notified: true }).eq('id', newNotif.id);
+         } catch (err) {
+           console.error("Error processing notifications realtime event:", err);
+         }
+      }
+    )
+    .subscribe((status, err) => {
+       console.log('[push] backend realtime notifications listener status:', status);
+       if (err) {
+         console.error('[push] backend realtime notifications listener error:', err);
+       }
        if (status === 'SUBSCRIBED') {
           console.log('[push] backend realtime notifications listener successfully subscribed.');
        }
