@@ -558,7 +558,7 @@ export default function MessageInput({
 
       // Explicitly tell socket
       const eventName = isDM ? "new-dm-message" : "new-message";
-      const currentProfile = users.find((u) => u.id === user.id);
+      const currentProfile = users?.find((u) => u.id === user.id);
       const authorName =
         currentProfile?.username ||
         currentProfile?.display_name ||
@@ -592,7 +592,7 @@ export default function MessageInput({
             }
 
             // Match with existing users state (case-insensitive)
-            let mentionedUser = users.find(
+            let mentionedUser = users?.find(
               (u) =>
                 (u.username || "").toLowerCase() === username.toLowerCase() ||
                 (u.display_name || "").toLowerCase() === username.toLowerCase()
@@ -617,7 +617,7 @@ export default function MessageInput({
           }
 
           if (mentionedUserIds.size > 0) {
-            const currentProfile = users.find((u) => u.id === user.id);
+            const currentProfile = users?.find((u) => u.id === user.id);
             const currentUsername =
               currentProfile?.username ||
               currentProfile?.display_name ||
@@ -673,7 +673,7 @@ export default function MessageInput({
           replyingTo.author_id !== user.id &&
           !mentionedUserIds.has(replyingTo.author_id)
         ) {
-          const currentProfile = users.find((u) => u.id === user.id);
+          const currentProfile = users?.find((u) => u.id === user.id);
           const currentUsername =
             currentProfile?.username ||
             currentProfile?.display_name ||
@@ -720,47 +720,6 @@ export default function MessageInput({
             read: false,
             notified: false,
           });
-        }
-
-        // Automatically create notification for DM recipient
-        if (isDM) {
-          const { data: dmData } = await supabase
-            .from("dms")
-            .select("participants")
-            .eq("id", channelId)
-            .maybeSingle();
-          if (dmData && dmData.participants) {
-            const recipients = dmData.participants.filter(
-              (p: string) => p !== user.id
-            );
-            if (recipients.length > 0) {
-              const currentProfile = users.find((u) => u.id === user.id);
-              const currentUsername =
-                currentProfile?.username ||
-                currentProfile?.display_name ||
-                user?.user_metadata?.username ||
-                user?.user_metadata?.display_name ||
-                user?.email?.split("@")[0] ||
-                "Utilisateur";
-              const notifications = recipients.map((targetId) => ({
-                user_id: targetId,
-                type: "dm",
-                data: {
-                  author_id: user.id,
-                  author_name: currentUsername,
-                  content:
-                    textToSend.slice(0, 200) ||
-                    (fileToSend ? "📎 Fichier" : "Message"),
-                  channel_id: channelId, // for DM, we use dm_id as channel_id in notifications
-                  message_id: newMessage.id,
-                  is_dm: true,
-                },
-                read: false,
-                notified: false,
-              }));
-              await supabase.from("notifications").insert(notifications);
-            }
-          }
         }
       } catch (notifErr) {
         console.error("Error creating notifications:", notifErr);
