@@ -409,3 +409,12 @@ BEGIN
   WHERE user_id = p_user_id AND read = false AND data->>'channel_id' = p_channel_id::text;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TABLE IF NOT EXISTS public.expo_push_tokens (
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  token text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT expo_push_tokens_pkey PRIMARY KEY (user_id, token)
+);
+ALTER TABLE public.expo_push_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "expo_push_tokens_owner" ON public.expo_push_tokens FOR ALL USING (auth.uid() = user_id);

@@ -60,25 +60,55 @@ async function sendPushToUser(
   userId: string,
   payload: { title: string; body: string; url: string; icon?: string }
 ) {
-  if (!pushEnabled) return;
-
   try {
-    const { data, error } = await supabaseAdmin
-      .from("push_subscriptions")
-      .select("subscription")
+    // 1. Web Push
+    if (pushEnabled) {
+      const { data, error } = await supabaseAdmin
+        .from("push_subscriptions")
+        .select("subscription")
+        .eq("user_id", userId);
+
+      if (!error && data?.length) {
+        const payloadStr = JSON.stringify(payload);
+        for (const row of data) {
+          try {
+            await webpush.sendNotification(row.subscription, payloadStr);
+          } catch (err: any) {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Expo Push
+    const { data: expoData, error: expoError } = await supabaseAdmin
+      .from("expo_push_tokens")
+      .select("token")
       .eq("user_id", userId);
 
-    if (error || !data?.length) return;
-
-    const payloadStr = JSON.stringify(payload);
-
-    for (const row of data) {
+    if (!expoError && expoData?.length) {
+      const messages = expoData.map((row: any) => ({
+        to: row.token,
+        sound: 'default',
+        title: payload.title,
+        body: payload.body,
+        data: { url: payload.url }
+      }));
+      
       try {
-        await webpush.sendNotification(row.subscription, payloadStr);
-      } catch (err: any) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId);
-        }
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(messages),
+        });
+      } catch (expoErr) {
+        console.error("Expo push error:", expoErr);
       }
     }
   } catch (err) {
@@ -118,7 +148,102 @@ async function requireSuperAdmin(req: express.Request, res: express.Response) {
   return user;
 }
 
+function setupRealtimePushNotifications() {
+  const pushChannel = supabaseAdmin.channel('backend-push-notifications');
+
+  pushChannel
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      async (payload) => {
+         const newMsg = payload.new;
+         if (!newMsg || !newMsg.author_id) return;
+         
+         try {
+           const { data: chanData } = await supabaseAdmin.from('channels').select('name, server_id').eq('id', newMsg.channel_id).single();
+           if (!chanData) return;
+           
+           const { data: serverData } = await supabaseAdmin.from('servers').select('name').eq('id', chanData.server_id).single();
+           const { data: authorData } = await supabaseAdmin.from('profiles').select('username').eq('id', newMsg.author_id).single();
+
+           const mentionedUsernames = (newMsg.content.match(/@([a-zA-Z0-9_\-\.]+)/g) || []).map((m: string) => m.substring(1));
+           if (mentionedUsernames.length > 0) {
+              const { data: mentionedProfiles } = await supabaseAdmin.from('profiles').select('id, username').in('username', mentionedUsernames);
+              if (mentionedProfiles) {
+                 for (const profile of mentionedProfiles) {
+                    if (profile.id !== newMsg.author_id) {
+                       await sendPushToUser(profile.id, {
+                          title: "Mention",
+                          body: `${authorData?.username || 'Quelqu\'un'} t'a mentionné dans #${chanData.name}:\n${newMsg.content}`,
+                          url: `/channels/${chanData.server_id}/${newMsg.channel_id}`,
+                          icon: PUSH_ICON_URL
+                       });
+                       await supabaseAdmin.from('notifications').insert({
+                          user_id: profile.id,
+                          type: 'MENTION',
+                          data: {
+                             message_id: newMsg.id,
+                             channel_id: newMsg.channel_id,
+                             server_id: chanData.server_id,
+                             author_id: newMsg.author_id,
+                             content: newMsg.content
+                          }
+                       });
+                    }
+                 }
+              }
+           }
+         } catch (err) {
+           console.error("Error processing messages realtime event:", err);
+         }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'dm_messages' },
+      async (payload) => {
+         const newMsg = payload.new;
+         if (!newMsg || !newMsg.author_id) return;
+         
+         try {
+           const { data: authorData } = await supabaseAdmin.from('profiles').select('username').eq('id', newMsg.author_id).single();
+           const { data: dmData } = await supabaseAdmin.from('dms').select('participants').eq('id', newMsg.dm_id).single();
+           if (!dmData) return;
+           
+           const otherParticipants = dmData.participants.filter((p: string) => p !== newMsg.author_id);
+           
+           for (const participantId of otherParticipants) {
+               await sendPushToUser(participantId, {
+                  title: `Message de ${authorData?.username || 'Quelqu\'un'}`,
+                  body: newMsg.content,
+                  url: `/channels/@me/${newMsg.dm_id}`,
+                  icon: PUSH_ICON_URL
+               });
+               await supabaseAdmin.from('notifications').insert({
+                  user_id: participantId,
+                  type: 'MESSAGE',
+                  data: {
+                     message_id: newMsg.id,
+                     channel_id: newMsg.dm_id,
+                     author_id: newMsg.author_id,
+                     content: newMsg.content
+                  }
+               });
+           }
+         } catch (err) {
+           console.error("Error processing dm_messages realtime event:", err);
+         }
+      }
+    )
+    .subscribe((status) => {
+       if (status === 'SUBSCRIBED') {
+          console.log('[push] backend realtime notifications listener successfully subscribed.');
+       }
+    });
+}
+
 async function startServer() {
+  setupRealtimePushNotifications();
   const CORS_ORIGINS = [
     APP_URL,
     ...(NODE_ENV !== "production" ? ["http://localhost:3000", "http://localhost:5173"] : []),
@@ -765,6 +890,33 @@ async function startServer() {
     if (!userId) return res.status(400).json({ error: "userId required" });
 
     await supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId);
+    res.json({ ok: true });
+  });
+
+  app.post("/api/push/expo-subscribe", express.json(), async (req, res) => {
+    const { token, userId } = req.body;
+    if (!token || !userId) {
+      return res.status(400).json({ error: "token and userId are required" });
+    }
+
+    try {
+      const { error } = await supabaseAdmin
+        .from("expo_push_tokens")
+        .upsert({ user_id: userId, token }, { onConflict: "user_id, token" });
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ error: "Failed to save expo token" });
+    }
+  });
+
+  app.delete("/api/push/expo-unsubscribe", express.json(), async (req, res) => {
+    const { token, userId } = req.body;
+    if (!token || !userId) {
+       return res.status(400).json({ error: "token and userId are required" });
+    }
+    await supabaseAdmin.from("expo_push_tokens").delete().eq("user_id", userId).eq("token", token);
     res.json({ ok: true });
   });
 

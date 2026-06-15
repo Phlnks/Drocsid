@@ -104,7 +104,19 @@ export default function DMSidebar() {
           
           return { ...dm, otherUsers, otherUser };
         });
-        resolvedDms.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
+        resolvedDms.sort((a, b) => {
+          const aTime = Math.max(
+            a.last_message_at ? new Date(a.last_message_at).getTime() : 0,
+            a.updated_at ? new Date(a.updated_at).getTime() : 0,
+            a.created_at ? new Date(a.created_at).getTime() : 0
+          );
+          const bTime = Math.max(
+            b.last_message_at ? new Date(b.last_message_at).getTime() : 0,
+            b.updated_at ? new Date(b.updated_at).getTime() : 0,
+            b.created_at ? new Date(b.created_at).getTime() : 0
+          );
+          return bTime - aTime;
+        });
         setDms(resolvedDms);
       } else {
         setDms([]);
@@ -322,8 +334,8 @@ export default function DMSidebar() {
     );
   };
 
-  const pinnedDms = dms.filter(dm => pinnedDmIds.includes(dm.id));
-  const unpinnedDms = dms.filter(dm => !pinnedDmIds.includes(dm.id));
+  const pinnedDms = dms.filter(dm => pinnedDmIds.includes(dm.id) && !dm.otherUser?.is_saved_messages);
+  const unpinnedDms = dms.filter(dm => !pinnedDmIds.includes(dm.id) && !dm.otherUser?.is_saved_messages);
 
   return (
     <>
@@ -425,7 +437,7 @@ export default function DMSidebar() {
                 
                 {unpinnedDms.map(dm => renderDmItem(dm))}
                 
-                {dms.length === 0 && (
+                {unpinnedDms.length === 0 && (
                   <div className="text-zinc-500 text-sm px-2 py-4 text-center">
                     {t('friends.noDirectMessages')}
                   </div>
