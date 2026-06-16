@@ -35,7 +35,7 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_CONTACT_EMAIL = process.env.VAPID_CONTACT_EMAIL || "mailto:admin@drocsid.com";
 const DM_PUSH_BASE_PATH = process.env.DM_PUSH_BASE_PATH || "/?dm=";
-const PUSH_ICON_URL = process.env.PUSH_ICON_URL || "/logo-192.png";
+const PUSH_ICON_URL = process.env.PUSH_ICON_URL || (APP_URL ? `${APP_URL.replace(/\/+$/, "")}/logo-192.png` : "/logo-192.png");
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
@@ -834,6 +834,26 @@ async function startServer() {
       if (error) throw error;
       res.json({ ok: true });
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/push/send-notification", express.json(), async (req, res) => {
+    const { userId, title, body, url, icon } = req.body;
+    if (!userId || !title || !body) {
+      return res.status(400).json({ error: "userId, title, and body are required" });
+    }
+    try {
+      console.log(`[push API] Sending push to user ${userId} with title: "${title}"`);
+      await sendPushToUser(userId, {
+        title,
+        body,
+        url: url || "/",
+        icon: icon || PUSH_ICON_URL
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error("[push API] send-notification error:", err);
       res.status(500).json({ error: err.message });
     }
   });

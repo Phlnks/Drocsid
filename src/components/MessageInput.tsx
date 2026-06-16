@@ -20,6 +20,7 @@ import PromptModal from "./ui/PromptModal";
 import socket from "../lib/socket";
 import PollModal from "./PollModal";
 import { useTranslation } from "react-i18next";
+import { triggerPushNotification } from "../lib/usePushNotifications";
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -665,6 +666,12 @@ export default function MessageInput({
                 console.error("❌ [Db Notifications] Mention insert failed:", notifErr);
               } else {
                 console.log("✅ [Db Notifications] Mention inserted for:", targetId);
+                triggerPushNotification(
+                  targetId,
+                  `Mention de ${currentUsername}`,
+                  textToSend.slice(0, 200) || "Vous avez été mentionné.",
+                  `/channels/${serverId || '@me'}/${channelId}`
+                );
               }
             }
           }
@@ -727,6 +734,14 @@ export default function MessageInput({
             console.error("❌ [Db Notifications] Reply insert failed:", notifErr);
           } else {
             console.log("✅ [Db Notifications] Reply inserted for:", replyingTo.author_id);
+            triggerPushNotification(
+              replyingTo.author_id,
+              `Réponse de ${currentUsername}`,
+              textToSend.slice(0, 200) || (fileToSend ? "📎 Fichier" : "Message"),
+              isDM 
+                ? `/channels/@me/${channelId}`
+                : `/channels/${serverId}/${channelId}`
+            );
           }
         }
 
@@ -771,6 +786,12 @@ export default function MessageInput({
                   console.error("❌ [Db Notifications] DM recipient insert failed:", notifErr);
                 } else {
                   console.log("✅ [Db Notifications] DM recipient inserted for:", targetId);
+                  triggerPushNotification(
+                    targetId,
+                    `Message de ${currentUsername}`,
+                    textToSend.slice(0, 200) || (fileToSend ? "📎 Fichier" : "Message"),
+                    `/channels/@me/${channelId}`
+                  );
                 }
               }
             }
