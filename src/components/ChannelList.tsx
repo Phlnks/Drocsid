@@ -114,8 +114,14 @@ export default function ChannelList() {
       if (notifsData) {
         const counts: Record<string, number> = {};
         notifsData.forEach((n) => {
-          if (n.data?.server_id === selectedServerId && n.data?.channel_id) {
-            counts[n.data.channel_id] = (counts[n.data.channel_id] || 0) + 1;
+          let data = n.data;
+          if (typeof data === 'string') {
+            try {
+              data = JSON.parse(data);
+            } catch (e) {}
+          }
+          if (data?.server_id === selectedServerId && data?.channel_id) {
+            counts[data.channel_id] = (counts[data.channel_id] || 0) + 1;
           }
         });
         setChannelMentions(counts);

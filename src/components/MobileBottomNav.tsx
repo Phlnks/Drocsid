@@ -30,8 +30,20 @@ export default function MobileBottomNav() {
         .eq('read', false);
         
       if (notifs) {
-        const dms = notifs.filter(n => n.type === 'dm' || n.data?.is_dm === true);
-        const others = notifs.filter(n => n.type !== 'dm' && n.data?.is_dm !== true);
+        const dms = notifs.filter(n => {
+          let data = n.data;
+          if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch(e) {}
+          }
+          return n.type === 'dm' || data?.is_dm === true;
+        });
+        const others = notifs.filter(n => {
+          let data = n.data;
+          if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch(e) {}
+          }
+          return n.type !== 'dm' && data?.is_dm !== true;
+        });
         
         setUnreadDMsCount(dms.length);
         setHasUnreadMentions(others.length > 0);

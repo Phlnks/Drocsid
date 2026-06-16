@@ -183,10 +183,19 @@ export default function RightSidebar({
         .eq("user_id", currentUser.id)
         .order("created_at", { ascending: false });
       if (notifs) {
-        setNotifications(notifs);
+        const parsedNotifs = notifs.map(n => {
+          let data = n.data;
+          if (typeof data === 'string') {
+            try {
+              data = JSON.parse(data);
+            } catch(e) {}
+          }
+          return { ...n, data };
+        });
+        setNotifications(parsedNotifs);
 
         // Fetch missing profiles for notifications
-        const missingAuthorIds = notifs
+        const missingAuthorIds = parsedNotifs
           .map((n) => n.author_id || n.data?.author_id)
           .filter((id) => id && !globalProfiles[id]);
 

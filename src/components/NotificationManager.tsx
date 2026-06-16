@@ -84,8 +84,15 @@ export default function NotificationManager() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, async (payload) => {
         const n = payload.new as any;
         
+        let nData = n.data;
+        if (typeof nData === 'string') {
+          try {
+            nData = JSON.parse(nData);
+          } catch(e) {}
+        }
+        
         // Don't notify if server is muted
-        const serverId = n.data?.server_id || n.server_id;
+        const serverId = nData?.server_id || n.server_id;
         if (serverId && mutedServers.includes(serverId)) return;
 
         if (!n.notified) {
@@ -101,8 +108,8 @@ export default function NotificationManager() {
             playMessageSound();
           }
           
-          const authorName = n.data?.author_name || n.author_name || 'Utilisateur';
-          const content = n.data?.content || n.content || '';
+          const authorName = nData?.author_name || n.author_name || 'Utilisateur';
+          const content = nData?.content || n.content || '';
           
           let title = 'Notification';
           let finalContent = content;

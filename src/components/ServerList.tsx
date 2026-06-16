@@ -160,15 +160,22 @@ export default function ServerList() {
       let dmsCount = 0;
       if (notifs) {
         notifs.forEach((n) => {
-          const isDm = n.type === "dm" || n.data?.is_dm === true;
+          let data = n.data;
+          if (typeof data === 'string') {
+            try {
+              data = JSON.parse(data);
+            } catch (e) {}
+          }
+          
+          const isDm = n.type === "dm" || data?.is_dm === true;
           if (isDm) {
             dmsCount++;
           } else if (
             (n.type === "mention" || n.type === "reply" || !n.type) &&
-            n.data?.server_id
+            data?.server_id
           ) {
-            mentionsMap[n.data.server_id] =
-              (mentionsMap[n.data.server_id] || 0) + 1;
+            mentionsMap[data.server_id] =
+              (mentionsMap[data.server_id] || 0) + 1;
           }
         });
       }
