@@ -17,14 +17,24 @@ self.addEventListener('push', (event) => {
   } catch (e) {}
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Drocsid', {
-      body: data.body || '...',
-      icon: data.icon || '/logo-192.png',
-      badge: '/logo-192.png',
-      tag: 'drocsid-dm',
-      // @ts-ignore - renotify is supported by most browsers but maybe missing in type definitions
-      renotify: true,
-      data: { url: data.url },
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Si une instance de l'application est ouverte et au premier plan, 
+      // le NotificationManager de l'application gèrera la notification via Supabase Realtime.
+      for (const client of clientList) {
+        if (client.focused) {
+          return;
+        }
+      }
+
+      return self.registration.showNotification(data.title || 'Drocsid', {
+        body: data.body || '...',
+        icon: data.icon || '/logo-192.png',
+        badge: '/logo-192.png',
+        tag: 'drocsid-dm',
+        // @ts-ignore - renotify is supported by most browsers but maybe missing in type definitions
+        renotify: true,
+        data: { url: data.url },
+      });
     })
   );
 });

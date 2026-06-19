@@ -629,29 +629,6 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                     </div>
                   )}
 
-                  {storageStats && (
-                    <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl">
-                      <h3 className="text-lg font-bold text-zinc-100 mb-6 flex items-center gap-2">
-                        <Database className="w-5 h-5 text-indigo-400" />
-                        Storage Audit
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-zinc-950/50 border border-zinc-800 p-4 rounded-lg">
-                          <div className="text-zinc-500 text-xs font-semibold mb-1 uppercase">Total Usage</div>
-                          <div className="text-2xl font-bold text-indigo-400">{formatBytes(storageStats.totalSize)}</div>
-                          <div className="text-zinc-500 text-sm mt-1">{storageStats.totalFiles} files</div>
-                        </div>
-                        {Object.entries(storageStats.buckets).map(([name, data]: [string, any]) => (
-                          <div key={name} className="bg-zinc-950/50 border border-zinc-800 p-4 rounded-lg">
-                            <div className="text-zinc-500 text-xs font-semibold mb-1 uppercase">{name}</div>
-                            <div className="text-xl font-bold text-zinc-200">{formatBytes(data.size)}</div>
-                            <div className="text-zinc-500 text-sm mt-1">{data.count} files</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Global Announcement Section */}
                   <div className="bg-zinc-900/50 border border-zinc-700/50 p-6 rounded-xl flex flex-col gap-4">
                     <div className="flex items-center gap-3 text-indigo-400 mb-2">
