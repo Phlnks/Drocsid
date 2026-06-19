@@ -37,26 +37,7 @@ export default function NotificationManager() {
       if ((window as any).electron) {
          (window as any).electron.showNotification(title, body, '/favicon.png');
       } else if ('Notification' in window && Notification.permission === 'granted') {
-         if ('serviceWorker' in navigator) {
-           navigator.serviceWorker.ready.then(async (swReg) => {
-             const sub = await swReg.pushManager.getSubscription();
-             if (sub) {
-               // Si on a un abonnement Web Push, le Service Worker gère les notifications en arrière-plan.
-               // On n'affiche manuellement ici que si l'application est active et au premier plan 
-               // (notre sw.ts ignore l'affichage si la fenêtre est au premier plan).
-               if (document.hasFocus()) {
-                 new Notification(title, { body, icon: '/favicon.png', badge: '/favicon.png' });
-               }
-             } else {
-               // Aucun abonnement Push, on gère l'affichage normalement
-               new Notification(title, { body, icon: '/favicon.png', badge: '/favicon.png' });
-             }
-           }).catch(() => {
-             new Notification(title, { body, icon: '/favicon.png', badge: '/favicon.png' });
-           });
-         } else {
-           new Notification(title, { body, icon: '/favicon.png', badge: '/favicon.png' });
-         }
+         new Notification(title, { body, icon: '/favicon.png', badge: '/favicon.png' });
       }
     };
 

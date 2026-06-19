@@ -8,8 +8,6 @@ import Layout from './components/Layout';
 import { InstanceSetupScreen } from './components/InstanceSetupScreen';
 import Toaster from './components/ui/Toaster';
 import socket from './lib/socket';
-import { App as CapApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 import ThemeManager from './components/ThemeManager';
 import {
   playMuteSound,
@@ -212,38 +210,6 @@ export default function App() {
   }, [theme, setTheme]);
 
   useEffect(() => {
-    const setupDeeplinks = async () => {
-      CapApp.addListener('appUrlOpen', async (data: any) => {
-        console.log('App opened with URL:', data.url);
-        const url = new URL(data.url);
-
-        const hash = url.hash || (data.url.includes('#') ? data.url.split('#')[1] : null);
-
-        if (hash) {
-          const params = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash);
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
-
-          if (accessToken && refreshToken) {
-            console.log('Found OAuth tokens in URL, setting session...');
-            const { error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-
-            if (!error) {
-              console.log('Session set successfully, closing browser');
-              await Browser.close();
-            } else {
-              console.error('Error setting session:', error);
-            }
-          }
-        }
-      });
-    };
-
-    setupDeeplinks();
-
     const path = window.location.pathname;
     const match = path.match(/\/invite\/([a-zA-Z0-9]+)(?:[\/#?].*)?$/);
     if (match && match[1]) {

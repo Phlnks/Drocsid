@@ -3,17 +3,6 @@ import {createRoot} from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
-import { registerSW } from 'virtual:pwa-register';
-
-registerSW({
-  onNeedRefresh() {
-    // Optionnel : afficher un toast "Nouvelle version disponible"
-    console.log('[PWA] Nouvelle version disponible');
-  },
-  onOfflineReady() {
-    console.log('[PWA] Prêt hors ligne');
-  },
-});
 
 const initApp = async () => {
   if ((window as any).electron) {

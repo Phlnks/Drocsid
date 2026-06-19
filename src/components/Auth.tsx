@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabase';
 import DrocsidLogo from './ui/DrocsidLogo';
-import { Capacitor } from '@capacitor/core';
-import { Browser } from '@capacitor/browser';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,12 +15,8 @@ export default function Auth() {
     setError('');
     try {
       // Déterminer l'URL de redirection
-      let redirectTo = window.location.origin;
+      const redirectTo = window.location.origin;
       
-      if (Capacitor.isNativePlatform()) {
-        redirectTo = 'com.drocsid.app://login-callback';
-      }
-
       const options: any = {
         redirectTo: redirectTo,
         skipBrowserRedirect: true,
@@ -41,11 +35,7 @@ export default function Auth() {
       if (error) throw error;
 
       if (data?.url) {
-        if (Capacitor.isNativePlatform()) {
-          await Browser.open({ url: data.url, windowName: '_self' });
-        } else {
-          window.location.href = data.url;
-        }
+        window.location.href = data.url;
       }
     } catch (err: any) {
       console.error(err);

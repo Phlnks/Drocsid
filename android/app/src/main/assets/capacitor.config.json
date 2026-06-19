@@ -1,9 +1,0 @@
-{
-	"appId": "com.drocsid.app",
-	"appName": "Drocsid",
-	"webDir": "dist",
-	"server": {
-		"androidScheme": "https",
-		"hostname": "drocsid.app"
-	}
-}

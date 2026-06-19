@@ -18,10 +18,6 @@
     "electron:build": "vite build && electron-builder --win",
     "electron:build:linux": "electron-builder --linux",
     "electron:build:mac": "electron-builder --mac",
-    "cap:sync": "npx cap sync",
-    "cap:copy": "npx cap copy",
-    "android:open": "npx cap open android",
-    "android:sync": "npm run build && npx cap sync android",
     "electron:rebuild": "electron-rebuild -f -w @livekit/rtc-node"
   },
   "build": {
@@ -63,12 +59,6 @@
     }
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.1",
-    "@capacitor/app": "^8.1.0",
-    "@capacitor/browser": "^8.0.3",
-    "@capacitor/cli": "^8.3.1",
-    "@capacitor/core": "^8.3.1",
-    "@capacitor/ios": "^8.4.0",
     "@livekit/components-react": "^2.9.21",
     "@livekit/rtc-node": "^0.13.24",
     "@supabase/supabase-js": "^2.103.0",
@@ -106,15 +96,11 @@
     "tsx": "^4.21.0",
     "uiohook-napi": "^1.5.5",
     "vite": "^6.2.0",
-    "vite-plugin-pwa": "^0.21.x",
-    "web-push": "^3.6.7",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
-    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",

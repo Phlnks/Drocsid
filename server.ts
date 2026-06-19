@@ -7,7 +7,6 @@ import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
-import webpush from "web-push";
 import cors from "cors";
 
 dotenv.config();
@@ -45,48 +44,12 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY is perfectly missing in environment variables. Backend will use the anon key which might fail RLS policies for sending push notifications.");
 }
 
-let pushEnabled = false;
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  try {
-    webpush.setVapidDetails(VAPID_CONTACT_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-    pushEnabled = true;
-    console.log("[push] VAPID configured successfully.");
-  } catch (err) {
-    pushEnabled = false;
-    console.warn("[push] Invalid VAPID configuration. Push notifications disabled.");
-    console.warn(err);
-  }
-} else {
-  console.warn("[push] Missing VAPID keys. Push notifications disabled.");
-}
-
 async function sendPushToUser(
   userId: string,
   payload: { title: string; body: string; url: string; icon?: string }
 ) {
   try {
-    // 1. Web Push
-    if (pushEnabled) {
-      const { data, error } = await supabaseAdmin
-        .from("push_subscriptions")
-        .select("subscription")
-        .eq("user_id", userId);
-
-      if (!error && data?.length) {
-        const payloadStr = JSON.stringify(payload);
-        for (const row of data) {
-          try {
-            await webpush.sendNotification(row.subscription, payloadStr);
-          } catch (err: any) {
-            if (err.statusCode === 410 || err.statusCode === 404) {
-              await supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId);
-            }
-          }
-        }
-      }
-    }
-
-    // 2. Expo Push
+    // Expo Push
     const { data: expoData, error: expoError } = await supabaseAdmin
       .from("expo_push_tokens")
       .select("token")
@@ -856,32 +819,6 @@ async function startServer() {
       console.error("[push API] send-notification error:", err);
       res.status(500).json({ error: err.message });
     }
-  });
-
-  app.post("/api/push/subscribe", express.json(), async (req, res) => {
-    const { subscription, userId } = req.body;
-    if (!subscription || !userId) {
-      return res.status(400).json({ error: "subscription and userId are required" });
-    }
-
-    try {
-      const { error } = await supabaseAdmin
-        .from("push_subscriptions")
-        .upsert({ user_id: userId, subscription }, { onConflict: "user_id" });
-
-      if (error) return res.status(500).json({ error: error.message });
-      res.json({ ok: true, pushEnabled });
-    } catch {
-      res.status(500).json({ error: "Failed to save subscription" });
-    }
-  });
-
-  app.delete("/api/push/unsubscribe", express.json(), async (req, res) => {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: "userId required" });
-
-    await supabaseAdmin.from("push_subscriptions").delete().eq("user_id", userId);
-    res.json({ ok: true });
   });
 
   app.post("/api/push/expo-subscribe", express.json(), async (req, res) => {
