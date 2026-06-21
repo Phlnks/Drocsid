@@ -5,7 +5,6 @@ import { useAppStore } from '../store/appStore';
 import { Users, MessageSquare, Check, X, UserPlus, MoreVertical, ArrowLeft } from 'lucide-react';
 import UserAvatar from './ui/UserAvatar';
 import { useTranslation } from 'react-i18next';
-import { triggerPushNotification } from '../lib/usePushNotifications';
 
 type Tab = 'online' | 'all' | 'pending' | 'add';
 
@@ -140,12 +139,6 @@ export default function FriendsDashboard() {
           console.error("❌ [Db Notifications] Friend acceptance insert failed:", notifErr);
         } else {
           console.log("✅ [Db Notifications] Friend acceptance inserted for:", requesterId);
-          triggerPushNotification(
-            requesterId,
-            `Demande d'ami acceptée`,
-            `${currentUserProfile?.username || user?.user_metadata?.username || 'Quelqu\'un'} a accepté votre demande d'ami.`,
-            '/channels/@me'
-          );
         }
       }
     } catch (error) {
@@ -205,12 +198,6 @@ export default function FriendsDashboard() {
         console.error("❌ [Db Notifications] Friend request insert failed:", notifErr);
       } else {
         console.log("✅ [Db Notifications] Friend request inserted for:", targetUserId);
-        triggerPushNotification(
-          targetUserId,
-          `Demande d'ami`,
-          `${currentUserProfile?.username || user.user_metadata?.username || 'Quelqu\'un'} vous a envoyé une demande d'ami.`,
-          '/channels/@me'
-        );
       }
 
       setAddMessage({ type: 'success', text: t('friends.addFriendSuccess') });

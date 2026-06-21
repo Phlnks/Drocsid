@@ -150,6 +150,22 @@ function setupRealtimePushNotifications() {
                 url = payloadData.is_dm 
                    ? `/channels/@me/${payloadData.channel_id}`
                    : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+            } else if (newNotif.type === 'friend_request') {
+                title = `Demande d'ami`;
+                body = `${payloadData.author_name || 'Quelqu\'un'} vous a envoyé une demande d'ami.`;
+                url = `/channels/@me`;
+            } else if (newNotif.type === 'friend_accept') {
+                title = `Demande d'ami acceptée`;
+                body = `${payloadData.author_name || 'Quelqu\'un'} a accepté votre demande d'ami.`;
+                url = `/channels/@me`;
+            } else if (newNotif.type === 'reaction') {
+                title = `Réaction de ${payloadData.author_name || 'Quelqu\'un'}`;
+                body = `A réagi ${payloadData.content} à votre message.`;
+                url = payloadData.is_dm ? `/channels/@me/${payloadData.channel_id}` : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+            } else if (newNotif.type === 'REPORT_UPDATE') {
+                title = `Mise à jour de signalement`;
+                body = newNotif.message || `Votre signalement a été mis à jour.`;
+                url = `/channels/@me`;
             }
             
             await sendPushToUser(newNotif.user_id, {
@@ -534,12 +550,6 @@ async function startServer() {
           message: `Votre signalement a ${statusText}.`,
         });
 
-        await sendPushToUser(report.user_id, {
-          title: "Mise à jour de signalement",
-          body: `Votre signalement a ${statusText}.`,
-          url: "/channels/@me",
-          icon: PUSH_ICON_URL,
-        });
       }
 
       res.json({ ok: true });
@@ -797,26 +807,6 @@ async function startServer() {
       if (error) throw error;
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/push/send-notification", express.json(), async (req, res) => {
-    const { userId, title, body, url, icon } = req.body;
-    if (!userId || !title || !body) {
-      return res.status(400).json({ error: "userId, title, and body are required" });
-    }
-    try {
-      console.log(`[push API] Sending push to user ${userId} with title: "${title}"`);
-      await sendPushToUser(userId, {
-        title,
-        body,
-        url: url || "/",
-        icon: icon || PUSH_ICON_URL
-      });
-      res.json({ ok: true });
-    } catch (err: any) {
-      console.error("[push API] send-notification error:", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1127,40 +1117,6 @@ async function startServer() {
       if (!dm?.participants?.includes(currentUserId)) return;
 
       io.to(message.dm_id).emit("dm-message", message);
-
-      try {
-        const recipients = dm.participants.filter((id: string) => id !== message.author_id);
-        for (const recipientId of recipients) {
-          const { data: subData } = await supabaseAdmin
-            .from("push_subscriptions")
-            .select("subscription")
-            .eq("user_id", recipientId)
-            .maybeSingle();
-
-          if (!subData?.subscription || !pushEnabled) continue;
-
-          const authorName = message.author_name || "Quelqu'un";
-          const body = message.content ? message.content.slice(0, 100) : "Fichier joint";
-
-          try {
-            await webpush.sendNotification(
-              subData.subscription,
-              JSON.stringify({
-                title: authorName,
-                body,
-                icon: PUSH_ICON_URL,
-                url: `${DM_PUSH_BASE_PATH}${message.dm_id}`,
-              })
-            );
-          } catch (pushErr: any) {
-            if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-              await supabaseAdmin.from("push_subscriptions").delete().eq("user_id", recipientId);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Push error", err);
-      }
     });
 
     socket.on("update-message", (message) => {

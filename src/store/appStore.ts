@@ -41,7 +41,9 @@ interface NotificationSettings {
   desktop: boolean;
   sounds: boolean;
   everyone: boolean;
-  preference: 'all' | 'mentions';
+  notifyChatMessages: boolean;
+  notifyDms: boolean;
+  notifyMentions: boolean;
 }
 
 interface Keybinds {
@@ -204,7 +206,7 @@ export const useAppStore = create<AppState>((set) => ({
   isPTTActive: false,
   setIsPTTActive: (active) => set({ isPTTActive: active }),
   voiceSettings: safeParse('drocsid-voice-settings', { echoCancellation: true, noiseSuppression: true, autoGainControl: true, micSensitivity: 25, inputMode: 'voice_activity' }),
-  notificationSettings: safeParse('drocsid-notification-settings', { desktop: true, sounds: true, everyone: true, preference: 'all' }),
+  notificationSettings: safeParse('drocsid-notification-settings', { desktop: true, sounds: true, everyone: true, notifyChatMessages: true, notifyDms: true, notifyMentions: true }),
   mutedServers: safeParse('drocsid-muted-servers', []),
   mutedDms: safeParse('drocsid-muted-dms', []),
   isScreenSharing: false,

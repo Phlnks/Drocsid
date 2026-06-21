@@ -24,7 +24,6 @@ import ImageModal from './ui/ImageModal';
 import PinnedMessagesPopover from './PinnedMessagesPopover';
 import { playMessageSound, playConnectSound } from '../lib/sounds';
 import socket from '../lib/socket';
-import { triggerPushNotification } from '../lib/usePushNotifications';
 
 export default function DMChatArea() {
   const { t, i18n } = useTranslation();
@@ -625,12 +624,6 @@ export default function DMChatArea() {
             console.error("❌ [Db Notifications] DM Reaction insert failed:", notifErr);
           } else {
             console.log("✅ [Db Notifications] DM Reaction inserted for:", targetMsg.author_id);
-            triggerPushNotification(
-              targetMsg.author_id,
-              `Réaction de ${authorName}`,
-              `A réagi ${emoji} à votre message.`,
-              `/channels/@me/${selectedDmId}`
-            );
           }
         }
       }

@@ -1652,36 +1652,117 @@ export default function UserSettingsModal({
                     </h3>
 
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <label className="flex items-center justify-between cursor-pointer group">
                         <div>
-                          <div className="text-zinc-200 font-medium">
-                            {t(
-                              "settings.notificationsSettings.receptionPreference"
-                            )}
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
+                            Message de chat simple
                           </div>
                           <div className="text-xs text-zinc-400">
-                            {t(
-                              "settings.notificationsSettings.receptionPreferenceDesc"
-                            )}
+                            Recevoir des notifications pour les messages dans les salons
                           </div>
                         </div>
-                        <select
-                          value={notificationSettings.preference}
-                          onChange={(e) =>
-                            setNotificationSettings({
-                              preference: e.target.value as any,
-                            })
-                          }
-                          className="bg-zinc-800 border border-zinc-700 rounded p-1 text-sm text-white outline-none focus:border-indigo-500"
+                        <div
+                          className={`w-10 h-6 rounded-full transition-colors relative ${
+                            notificationSettings.notifyChatMessages
+                              ? "bg-emerald-500"
+                              : "bg-zinc-600"
+                          }`}
                         >
-                          <option value="all">
-                            {t("settings.notificationsSettings.allMessages")}
-                          </option>
-                          <option value="mentions">
-                            {t("settings.notificationsSettings.onlyMentions")}
-                          </option>
-                        </select>
-                      </div>
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={notificationSettings.notifyChatMessages}
+                            onChange={(e) =>
+                              setNotificationSettings({
+                                notifyChatMessages: e.target.checked,
+                              })
+                            }
+                          />
+                          <div
+                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                              notificationSettings.notifyChatMessages
+                                ? "translate-x-4"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </label>
+
+                      <div className="h-px bg-zinc-700/50" />
+
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
+                            MP
+                          </div>
+                          <div className="text-xs text-zinc-400">
+                            Recevoir des notifications pour les messages privés
+                          </div>
+                        </div>
+                        <div
+                          className={`w-10 h-6 rounded-full transition-colors relative ${
+                            notificationSettings.notifyDms
+                              ? "bg-emerald-500"
+                              : "bg-zinc-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={notificationSettings.notifyDms}
+                            onChange={(e) =>
+                              setNotificationSettings({
+                                notifyDms: e.target.checked,
+                              })
+                            }
+                          />
+                          <div
+                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                              notificationSettings.notifyDms
+                                ? "translate-x-4"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </label>
+
+                      <div className="h-px bg-zinc-700/50" />
+
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div>
+                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
+                            Mention
+                          </div>
+                          <div className="text-xs text-zinc-400">
+                            Recevoir des notifications lorsque vous êtes mentionné
+                          </div>
+                        </div>
+                        <div
+                          className={`w-10 h-6 rounded-full transition-colors relative ${
+                            notificationSettings.notifyMentions
+                              ? "bg-emerald-500"
+                              : "bg-zinc-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={notificationSettings.notifyMentions}
+                            onChange={(e) =>
+                              setNotificationSettings({
+                                notifyMentions: e.target.checked,
+                              })
+                            }
+                          />
+                          <div
+                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                              notificationSettings.notifyMentions
+                                ? "translate-x-4"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </label>
                     </div>
                   </div>
 
