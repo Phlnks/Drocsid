@@ -132,34 +132,42 @@ function setupRealtimePushNotifications() {
          const payloadData = typeof newNotif.data === 'string' ? JSON.parse(newNotif.data) : newNotif.data;
 
          try {
+            let authorName = payloadData.author_name || 'Quelqu\'un';
+            if (payloadData.author_id) {
+               const { data: profile } = await supabaseAdmin.from('profiles').select('username, display_name').eq('id', payloadData.author_id).maybeSingle();
+               if (profile) {
+                  authorName = profile.display_name || profile.username || authorName;
+               }
+            }
+
             let title = "Nouvelle notification";
             let body = "Vous avez une nouvelle notification.";
             let url = "/";
             
             if (newNotif.type === 'dm') {
-                title = `Message de ${payloadData.author_name || 'Quelqu\'un'}`;
+                title = `Message de ${authorName}`;
                 body = payloadData.content || "Vous avez reçu un message direct.";
                 url = `/channels/@me/${payloadData.dm_id || payloadData.channel_id}`;
             } else if (newNotif.type === 'mention') {
-                title = `Mention de ${payloadData.author_name || 'Quelqu\'un'}`;
+                title = `Mention de ${authorName}`;
                 body = payloadData.content || "Vous avez été mentionné.";
                 url = `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
             } else if (newNotif.type === 'reply') {
-                title = `Réponse de ${payloadData.author_name || 'Quelqu\'un'}`;
+                title = `Réponse de ${authorName}`;
                 body = payloadData.content || "Quelqu'un a répondu à votre message.";
                 url = payloadData.is_dm 
                    ? `/channels/@me/${payloadData.channel_id}`
                    : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
             } else if (newNotif.type === 'friend_request') {
                 title = `Demande d'ami`;
-                body = `${payloadData.author_name || 'Quelqu\'un'} vous a envoyé une demande d'ami.`;
+                body = `${authorName} vous a envoyé une demande d'ami.`;
                 url = `/channels/@me`;
             } else if (newNotif.type === 'friend_accept') {
                 title = `Demande d'ami acceptée`;
-                body = `${payloadData.author_name || 'Quelqu\'un'} a accepté votre demande d'ami.`;
+                body = `${authorName} a accepté votre demande d'ami.`;
                 url = `/channels/@me`;
             } else if (newNotif.type === 'reaction') {
-                title = `Réaction de ${payloadData.author_name || 'Quelqu\'un'}`;
+                title = `Réaction de ${authorName}`;
                 body = `A réagi ${payloadData.content} à votre message.`;
                 url = payloadData.is_dm ? `/channels/@me/${payloadData.channel_id}` : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
             } else if (newNotif.type === 'REPORT_UPDATE') {

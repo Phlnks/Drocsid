@@ -111,7 +111,7 @@ export default function MessageInput({
   onEditLastMessage,
 }: MessageInputProps) {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, currentUserProfile } = useAuthStore();
   const { addNotification, drafts, setDraft } = useAppStore();
   const [content, setContent] = useState(drafts[channelId] || "");
   const [isUploading, setIsUploading] = useState(false);
@@ -619,6 +619,8 @@ export default function MessageInput({
           if (mentionedUserIds.size > 0) {
             const currentProfile = users?.find((u) => u.id === user.id);
             const currentUsername =
+              currentUserProfile?.username ||
+              currentUserProfile?.display_name ||
               currentProfile?.username ||
               currentProfile?.display_name ||
               user?.user_metadata?.username ||
@@ -678,6 +680,8 @@ export default function MessageInput({
         ) {
           const currentProfile = users?.find((u) => u.id === user.id);
           const currentUsername =
+            currentUserProfile?.username ||
+            currentUserProfile?.display_name ||
             currentProfile?.username ||
             currentProfile?.display_name ||
             user?.user_metadata?.username ||
@@ -744,6 +748,8 @@ export default function MessageInput({
             if (recipients.length > 0) {
               const currentProfile = users?.find((u) => u.id === user.id);
               const currentUsername =
+                currentUserProfile?.username ||
+                currentUserProfile?.display_name ||
                 currentProfile?.username ||
                 currentProfile?.display_name ||
                 user?.user_metadata?.username ||

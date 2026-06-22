@@ -344,12 +344,10 @@ export default function App() {
 		}
 	  });
 
-	  // IMPORTANT :
-	  // ne pas brancher l'ancien système globalShortcut/IPC si uiohook est dispo
-	  // (window as any).electron.onToggleMute?.(handleToggleMute);
-	  // (window as any).electron.onToggleDeafen?.(handleToggleDeafen);
-	  // (window as any).electron.onDisconnectVoice?.(handleDisconnectVoice);
-	  // (window as any).electron.updateShortcuts?.(useAppStore.getState().keybinds);
+	  (window as any).electron.onToggleMute?.(handleToggleMute);
+	  (window as any).electron.onToggleDeafen?.(handleToggleDeafen);
+	  (window as any).electron.onDisconnectVoice?.(handleDisconnectVoice);
+	  (window as any).electron.updateShortcuts?.(useAppStore.getState().keybinds);
 	} else if ((window as any).electron) {
 	  // fallback legacy seulement si uiohook indisponible
 	  (window as any).electron.onToggleMute?.(handleToggleMute);
@@ -429,7 +427,7 @@ export default function App() {
     return () => {
 	  cleanupGlobalInput?.();
 
-	  if ((window as any).electron && !(window as any).electron?.onGlobalInputEvent) {
+	  if ((window as any).electron) {
 		(window as any).electron.removeToggleMute?.(handleToggleMute);
 		(window as any).electron.removeToggleDeafen?.(handleToggleDeafen);
 		(window as any).electron.removeDisconnectVoice?.(handleDisconnectVoice);
