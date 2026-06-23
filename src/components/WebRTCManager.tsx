@@ -788,7 +788,7 @@ export default function WebRTCManager() {
         if (finalTokenEndpoint.startsWith('/')) {
           let baseUrl = currentInstance?.socketUrl || window.location.origin;
           if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
-            baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+            baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
           }
           baseUrl = baseUrl.replace(/\/+$/, '');
           finalTokenEndpoint = baseUrl + tokenEndpoint;

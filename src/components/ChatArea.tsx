@@ -762,7 +762,7 @@ export default function ChatArea() {
       const authorData = getUserData(msg.author_id, msg.profiles?.username, msg.profiles?.avatar_url);
 
       let baseUrl = useInstanceStore.getState().getCurrentInstance()?.socketUrl || window.location.origin;
-      if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+      if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
       baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/reports`, {
         method: 'POST',

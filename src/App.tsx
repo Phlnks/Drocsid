@@ -569,7 +569,8 @@ export default function App() {
         if (user.email && data.email !== user.email) {
           updates.email = user.email;
         }
-        if (user.email === 'phinks07@gmail.com' && (!data.is_superadmin || !data.can_create_servers)) {
+        const superadminEmail = import.meta.env.VITE_SUPERADMIN_EMAIL || 'admin@example.com';
+        if (user.email === superadminEmail && (!data.is_superadmin || !data.can_create_servers)) {
           updates.is_superadmin = true;
           updates.can_create_servers = true;
           updates.server_limit = 100;
@@ -579,7 +580,8 @@ export default function App() {
           supabase.from('profiles').update(updates).eq('id', user.id).then();
         }
       } else if (!error || error.code === 'PGRST116') {
-        const isSuperadmin = user.email === 'phinks07@gmail.com';
+        const superadminEmail = import.meta.env.VITE_SUPERADMIN_EMAIL || 'admin@example.com';
+        const isSuperadmin = user.email === superadminEmail;
         const { data: upsertedData } = await supabase
           .from('profiles')
           .upsert({

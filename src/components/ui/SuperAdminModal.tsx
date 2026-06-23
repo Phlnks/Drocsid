@@ -56,7 +56,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
 
       if (activeTab === 'users') {
         const res = await fetch(`${baseUrl}/api/admin/users`, {
@@ -137,7 +137,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       
       let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin;
       if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
-        baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app';
+        baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
       }
       baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/announce`, {
@@ -187,7 +187,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/user/${u.id}`, {
         method: 'PUT',
         headers: { 
@@ -216,7 +216,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/server/${s.id}`, {
         method: 'PUT',
         headers: { 
@@ -244,7 +244,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -263,7 +263,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/messages/${msgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
@@ -280,7 +280,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/reports/${reportId}`, {
         method: 'PUT',
         headers: { 
@@ -320,7 +320,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
@@ -345,7 +345,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ais-pre-fcluti2ud4ygfukrtj5tcb-10217813119.europe-west1.run.app'; baseUrl = baseUrl.replace(/\/+$/, '');
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 

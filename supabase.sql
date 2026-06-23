@@ -347,9 +347,9 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
     new.email,
     new.raw_user_meta_data->>'avatar_url',
-    CASE WHEN new.email = '***@gmail.com' THEN true ELSE false END,
-    CASE WHEN new.email = '***@gmail.com' THEN true ELSE false END,
-    CASE WHEN new.email = '***@gmail.com' THEN 100 ELSE 5 END
+    CASE WHEN new.email = 'admin@example.com' THEN true ELSE false END,
+    CASE WHEN new.email = 'admin@example.com' THEN true ELSE false END,
+    CASE WHEN new.email = 'admin@example.com' THEN 100 ELSE 5 END
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN new;
@@ -399,7 +399,7 @@ CREATE TRIGGER on_profile_update_protect_rights
 -- Promotion si le profil existe déjà
 UPDATE public.profiles
 SET is_super_admin = true, can_create_servers = true, max_servers = 100
-WHERE email = '***@gmail.com';
+WHERE email = 'admin@example.com';
 
 CREATE OR REPLACE FUNCTION public.mark_channel_notifications_read(p_user_id uuid, p_channel_id uuid)
 RETURNS void AS $$
