@@ -63,6 +63,7 @@ Drocsid uses Supabase for database management, user authentication, and real-tim
 
 1. **Deploy Supabase**: You can self-host Supabase using Docker. Clone the [Supabase Docker repository](https://github.com/supabase/supabase/tree/master/docker) and follow their instructions to spin up the containers via `docker-compose up -d`.
 2. **Run the Schema**: Once your Supabase instance is running and accessible via the studio UI (usually `http://localhost:8000`), navigate to the **SQL Editor** tab. Paste and run the entire contents of the `supabase.sql` file located in the root of this repository. This creates all necessary tables, RLS policies, functions, and triggers.
+   > **⚠️ IMPORTANT - Super Admin Setup**: Before running `supabase.sql`, open the file and replace all occurrences of `admin@example.com` with your own email address. This ensures your account is automatically granted Super Admin status and unlimited server creation quotas.
 3. **Configure Authentication (Google)**: Go to **Authentication > Providers**. Enable Google and enter your Client ID and Secret. Ensure the Redirect URL is `https://<your-supabase-domain>/auth/v1/callback`.
 4. **Storage Buckets**: In Supabase Storage, create the following **public** buckets:
    - `avatars` (User profile pictures)
@@ -131,7 +132,14 @@ VAPID_SUBJECT=mailto:admin@yourdomain.com
 # ==== Backend Configuration ====
 VITE_BACKEND_URL=http://localhost:3000
 PORT=3000
+VITE_SUPERADMIN_EMAIL=your_email@domain.com
 ```
+
+> **💡 Understanding Super Admin (`VITE_SUPERADMIN_EMAIL` vs `supabase.sql`)**:
+> - **`supabase.sql`**: Configures PostgreSQL triggers and Row-Level Security (RLS) policies so the database natively trusts your email as an administrator.
+> - **`VITE_SUPERADMIN_EMAIL`**: Tells the React frontend interface which user should see the **Super Admin dashboard button** and triggers automatic profile privilege synchronization upon login.
+> 
+> *Ensure you put the exact same email address in both `supabase.sql` and `.env`.*
 
 4. **Run the Application locally**:
 Start the development server (this runs both the Vite frontend and Express backend concurrently):
