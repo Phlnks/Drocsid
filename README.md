@@ -28,7 +28,7 @@
 - **Backend**: Node.js, Express, Socket.io (Presence & Signaling).
 - **Database & Auth**: Supabase (PostgreSQL, Realtime, Storage).
 - **Communication**: LiveKit (WebRTC for Audio/Video/Screen Share).
-- **Notifications**: Web-Push (VAPID).
+- **Notifications**: Expo Push API (Mobile React Native) & Desktop In-App Alerts.
 - **Multi-Platform**: Electron, Capacitor.
 
 ## ⌨️ Keyboard Shortcuts
@@ -84,10 +84,8 @@ Drocsid relies on LiveKit's robust WebRTC infrastructure for high-quality audio,
 
 ---
 
-### 3. VAPID Keys (Web Push Notifications)
-To enable push notifications for DMs and mentions when the app is running in the background:
-- Open a terminal and run: `npx web-push generate-vapid-keys`
-- Save the generated **Public Key** and **Private Key**.
+### 3. Mobile Push Notifications (Expo Push API)
+Drocsid mobile (React Native / Expo) uses native Expo Push tokens stored automatically in PostgreSQL (`expo_push_tokens` table) to deliver background push alerts. No external VAPID key generation is needed!
 
 ---
 
@@ -122,12 +120,6 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 VITE_LIVEKIT_URL=wss://livekit.yourdomain.com
 LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
-
-# ==== Web Push Notifications ====
-VITE_VAPID_PUBLIC_KEY=your_vapid_public_key
-VAPID_PUBLIC_KEY=your_vapid_public_key
-VAPID_PRIVATE_KEY=your_vapid_private_key
-VAPID_SUBJECT=mailto:admin@yourdomain.com
 
 # ==== Backend Configuration ====
 VITE_BACKEND_URL=http://localhost:3000
@@ -170,6 +162,92 @@ Drocsid implements a "Zero-Trust" mindset for server management:
 - **Permission Inheritance**: Permissions are additive across all roles assigned to a member.
 - **System Constraints**: Even an administrator cannot delete or kick the "Owner" of a server.
 - **Audit Logs**: All sensitive actions (channel creation, member bans, limits, etc.) are securely logged in the `server_logs` table for transparency.
+
+## 🛠️ Troubleshooting
+
+If you encounter issues while setting up or running your private Drocsid instance, consult this troubleshooting guide.
+
+### 1. 🔑 Google Auth / Supabase Auth Redirection Fails
+* **Symptom:** After clicking "Login with Google", you are redirected to a blank page, or get an error message like `Invalid redirect URI`, or you are redirected back to the wrong domain.
+* **Causes:**
+  - The Redirect URLs in your Google Cloud Console do not match your Supabase settings.
+  - The Redirect URL in your Supabase Auth settings doesn't match where your Drocsid client is hosted.
+* **Solutions:**
+  1. Go to your **Supabase Dashboard > Authentication > URL Configuration**.
+  2. Verify that **Site URL** is set to your frontend application's URL (e.g., `http://localhost:3000` for development or `https://your-drocsid-frontend.domain` for production).
+  3. In **Redirect URLs (Additional)**, add your production/dev URLs explicitly (e.g., `http://localhost:3000/**`, `https://your-drocsid-frontend.domain/**`).
+  4. Ensure your Google OAuth Client redirect URI (set in Google Cloud Console) is exactly: `https://<your-supabase-project-ref>.supabase.co/auth/v1/callback` or your custom Supabase domain callback.
+
+---
+
+### 2. 👑 The Super Admin Dashboard Button Does Not Appear
+* **Symptom:** You log in, but you don't see the "Super Admin" settings/dashboard button.
+* **Causes:**
+  - You did not update the default email addresses in `supabase.sql` before running the schema.
+  - The `VITE_SUPERADMIN_EMAIL` variable in your `.env` file does not match your logged-in Google/Supabase account email.
+* **Solutions:**
+  1. Check your `.env` file. Ensure `VITE_SUPERADMIN_EMAIL` is set to your exact email (e.g., `VITE_SUPERADMIN_EMAIL=your_email@gmail.com`).
+  2. If you already ran the SQL schema with `admin@example.com` or another address:
+     - Open the **Supabase SQL Editor** and execute:
+       ```sql
+       UPDATE public.profiles
+       SET is_super_admin = true, can_create_servers = true, max_servers = 100
+       WHERE email = 'your_actual_logged_in_email@domain.com';
+       ```
+  3. Log out of the Drocsid app and log back in to synchronize your profile and force the frontend to refresh state.
+
+---
+
+### 3. 🎙️ Voice / Video Chat Doesn't Work
+* **Symptom:** Connecting to a voice channel fails immediately, is stuck on "Connecting...", or fails to transmit audio/video.
+* **Causes:**
+  - LiveKit credentials (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `VITE_LIVEKIT_URL`) are missing, incorrect, or mismatched.
+  - The LiveKit server URL format is incorrect (e.g., missing the `wss://` protocol).
+  - The LiveKit server is unreachable or offline.
+* **Solutions:**
+  1. **Check your protocol:** In your `.env` (or in the Super Admin / Instance Settings), the `VITE_LIVEKIT_URL` must start with **`wss://`** (e.g., `wss://your-livekit-server.com`). Do not use `https://` for the LiveKit URL.
+  2. **Verify Credentials:** Ensure `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` are properly set in your backend's environmental variables. The backend needs these to sign secure tokens for joining channels.
+  3. **Vite Token Endpoint:** Make sure `VITE_LIVEKIT_TOKEN_ENDPOINT` is set to `/api/livekit/token` (which proxies token generation to your Express backend).
+  4. Check the browser's developer console (F12) for WebSocket or connection errors.
+
+---
+
+### 4. 🗄️ Storage Buckets: Avatar / Attachment Upload Fails
+* **Symptom:** When attempting to upload a server icon, a user avatar, or chat attachments, you get an error message (e.g., "Failed to upload", "Bucket not found", or "403 Forbidden").
+* **Causes:**
+  - The necessary storage buckets (`avatars`, `attachments`, `server-icons`) were not created in Supabase.
+  - The buckets were created but set to "Private" instead of "Public".
+  - The Row Level Security (RLS) policies for storage are missing or misconfigured.
+* **Solutions:**
+  1. Go to **Supabase Storage** in your dashboard.
+  2. Create three new buckets: `avatars`, `attachments`, and `server-icons`.
+  3. **Crucial:** Make sure to toggle on the **"Public"** setting for each bucket.
+  4. Run the storage RLS policies block from `supabase.sql` to ensure authenticated users have permissions to insert/update files in those buckets.
+
+---
+
+### 5. 🔕 Mobile Push Notifications Are Not Delivered
+* **Symptom:** Mobile app users (React Native / Expo) do not receive background notifications when mentioned or receiving DMs.
+* **Causes:**
+  - The user did not grant push notification permissions when prompted on their iOS/Android device.
+  - The backend server cannot reach the Expo Push Service (`https://exp.host/--/api/v2/push/send`).
+  - The user's device token failed to save into the `expo_push_tokens` database table.
+* **Solutions:**
+  1. Check device settings (iOS/Android) and ensure notifications are allowed for the Drocsid app.
+  2. In Supabase table editor, inspect `expo_push_tokens` to verify that a token exists for the target `user_id`.
+  3. Ensure your Node.js backend server has active outgoing internet access so it can communicate with Expo's push relay API.
+
+---
+
+### 6. 🌐 Port & Backend Connection Issues ("Connecting to server..." loop)
+* **Symptom:** The client application loads, but stays stuck on a spinner saying "Connecting to server...".
+* **Causes:**
+  - The `VITE_BACKEND_URL` environment variable is missing, incorrect, or pointing to a different port.
+  - The backend server is not running or crashed.
+* **Solutions:**
+  1. If running locally, check that `VITE_BACKEND_URL` in `.env` is set to `http://localhost:3000` (or whichever port your backend is listening on).
+  2. Ensure your backend and frontend are built and running. Check the terminal logs of your `npm run dev` or `node server.ts` process for crash traces.
+  3. Check the browser Console/Network tab to verify which URL Socket.io is trying to connect to.
 
 ---
 

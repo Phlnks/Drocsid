@@ -30,10 +30,6 @@ const ALLOWED_HOSTS_EXTRA = (process.env.ALLOWED_HOSTS_EXTRA || "")
   .map((s) => s.trim())
   .filter(Boolean);
 
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const VAPID_CONTACT_EMAIL = process.env.VAPID_CONTACT_EMAIL || "mailto:admin@drocsid.com";
-const DM_PUSH_BASE_PATH = process.env.DM_PUSH_BASE_PATH || "/?dm=";
 const PUSH_ICON_URL = process.env.PUSH_ICON_URL || (APP_URL ? `${APP_URL.replace(/\/+$/, "")}/logo-192.png` : "/logo-192.png");
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
