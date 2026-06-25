@@ -11,6 +11,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. Drop propre de l'ancienne structure (CASCADE supprime aussi les policies liées)
+DROP TABLE IF EXISTS public.expo_push_tokens CASCADE;
 DROP TABLE IF EXISTS public.voice_participants CASCADE;
 DROP TABLE IF EXISTS public.server_logs CASCADE;
 DROP TABLE IF EXISTS public.server_bans CASCADE;
@@ -41,7 +42,7 @@ CREATE TABLE public.profiles (
   last_read jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   display_name text,
-  force_voice_move jsonb DEFAULT 'null'::jsonb,
+  force_voice_move boolean DEFAULT false,
   bio text,
   is_super_admin boolean DEFAULT false,
   can_create_servers boolean DEFAULT false, -- Réservé aux admins by default
@@ -58,7 +59,7 @@ CREATE TABLE public.servers (
   created_at timestamp with time zone DEFAULT now(),
   custom_emojis jsonb DEFAULT '[]'::jsonb,
   soundboard_sounds jsonb DEFAULT '[]'::jsonb,
-  default_role_id uuid REFERENCES public.roles(id) ON DELETE SET NULL,
+  default_role_id uuid,
   CONSTRAINT servers_pkey PRIMARY KEY (id)
 );
 
@@ -150,6 +151,7 @@ CREATE TABLE public.notifications (
   read boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   notified boolean DEFAULT false,
+  message text,
   CONSTRAINT notifications_pkey PRIMARY KEY (id)
 );
 
@@ -211,6 +213,18 @@ CREATE TABLE public.voice_participants (
   CONSTRAINT voice_participants_pkey PRIMARY KEY (user_id)
 );
 
+CREATE TABLE public.expo_push_tokens (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  token text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT expo_push_tokens_pkey PRIMARY KEY (user_id, token)
+);
+
+-- Ajouter la contrainte default_role_id sur public.servers maintenant que roles est créée
+ALTER TABLE public.servers 
+  ADD CONSTRAINT servers_default_role_id_fkey 
+  FOREIGN KEY (default_role_id) REFERENCES public.roles(id) ON DELETE SET NULL;
+
 
 -- ==========================================
 -- 4. POLITIQUES DE SECURITE (RLS) ET GRANTS
@@ -238,6 +252,7 @@ ALTER TABLE public.server_bans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.server_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.server_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.voice_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expo_push_tokens ENABLE ROW LEVEL SECURITY;
 
 -- 1. Profiles: Tout le monde peut voir les profils (pour la recherche/username)
 CREATE POLICY "profiles_read_all" ON public.profiles FOR SELECT USING (true);
@@ -290,6 +305,7 @@ CREATE POLICY "Auth_All_server_logs" ON public.server_logs FOR ALL TO authentica
 CREATE POLICY "Auth_All_voice_participants" ON public.voice_participants FOR ALL TO authenticated USING (true);
 CREATE POLICY "Auth_All_relationships" ON public.relationships FOR ALL TO authenticated USING (true);
 CREATE POLICY "Auth_All_calls" ON public.calls FOR ALL TO authenticated USING (true);
+CREATE POLICY "expo_push_tokens_owner" ON public.expo_push_tokens FOR ALL USING (auth.uid() = user_id);
 
 
 -- ==========================================
@@ -409,12 +425,3 @@ BEGIN
   WHERE user_id = p_user_id AND read = false AND data->>'channel_id' = p_channel_id::text;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TABLE IF NOT EXISTS public.expo_push_tokens (
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-  token text NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT expo_push_tokens_pkey PRIMARY KEY (user_id, token)
-);
-ALTER TABLE public.expo_push_tokens ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "expo_push_tokens_owner" ON public.expo_push_tokens FOR ALL USING (auth.uid() = user_id);

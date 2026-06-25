@@ -54,7 +54,13 @@ Drocsid is designed to be fully self-hostable. To run your own instance, you nee
 
 - **Node.js** (v18 or higher)
 - **Docker & Docker Compose** (Highly recommended for self-hosting Supabase and LiveKit)
-- A domain name (for production WebRTC/HTTPS requirements)
+- **Domain Name & Subdomain Architecture (Crucial for Production)**:
+  Modern browsers strictly enforce security rules for WebRTC, microphone, and camera access, which **require a secure HTTPS (`wss://` and `https://`) connection**. You must have a registered domain name and configure the following subdomains:
+  - **App & API Subdomain**: e.g., `drocsid.yourdomain.com` (for serving the React frontend and proxying the Node.js/Socket.io backend server).
+  - **Supabase Subdomain**: e.g., `supabase.yourdomain.com` (for database api, real-time gateways, and authentication).
+  - **Dedicated LiveKit Subdomain**: e.g., `livekit.yourdomain.com` (for managing WebRTC video/audio and signaling).
+    
+    > **💡 Why LiveKit needs a dedicated subdomain**: LiveKit runs a high-performance WebRTC engine that manages its own secure WebSockets. It requires dedicated access to standard HTTP (`80`) and HTTPS (`443`) ports to automatically provision Let's Encrypt SSL certificates and process WebRTC signaling. Giving LiveKit its own subdomain prevents port conflicts with your main web server and ensures seamless SSL verification for real-time media streams.
 
 ---
 
@@ -173,10 +179,21 @@ If you encounter issues while setting up or running your private Drocsid instanc
   - The Redirect URLs in your Google Cloud Console do not match your Supabase settings.
   - The Redirect URL in your Supabase Auth settings doesn't match where your Drocsid client is hosted.
 * **Solutions:**
-  1. Go to your **Supabase Dashboard > Authentication > URL Configuration**.
-  2. Verify that **Site URL** is set to your frontend application's URL (e.g., `http://localhost:3000` for development or `https://your-drocsid-frontend.domain` for production).
-  3. In **Redirect URLs (Additional)**, add your production/dev URLs explicitly (e.g., `http://localhost:3000/**`, `https://your-drocsid-frontend.domain/**`).
-  4. Ensure your Google OAuth Client redirect URI (set in Google Cloud Console) is exactly: `https://<your-supabase-project-ref>.supabase.co/auth/v1/callback` or your custom Supabase domain callback.
+  * **For Supabase Cloud:**
+    1. Go to your **Supabase Dashboard > Authentication > URL Configuration**.
+    2. Verify that **Site URL** is set to your frontend application's URL (e.g., `http://localhost:3000` for development or `https://your-drocsid-frontend.domain` for production).
+    3. In **Redirect URLs (Additional)**, add your production/dev URLs explicitly (e.g., `http://localhost:3000/**`, `https://your-drocsid-frontend.domain/**`).
+  * **For Self-Hosted / Docker Supabase:**
+    1. Do not look in the dashboard GUI; self-hosted Auth is configured via the local config files or environment variables.
+    2. Open your `docker-compose.yml` or `config.toml` file.
+    3. Set/verify the following environment variables (or GoTrue configuration blocks):
+       - `GOTRUE_SITE_URL` to your frontend's base URL (e.g., `http://localhost:3000` or `https://your-domain.com`).
+       - `GOTRUE_URI_ALLOW_LIST` (or additional redirect URIs) to allow your domains (e.g., `http://localhost:3000/**,https://your-domain.com/**`).
+       - `GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID` and `GOTRUE_EXTERNAL_GOOGLE_SECRET` with your Google Cloud credentials.
+       - Ensure `GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI` or the default redirect matches your setup.
+    4. Restart your Docker containers (`docker compose down && docker compose up -d`) to apply config changes.
+  * **General Google Cloud Console Setup:**
+    - Ensure your Google OAuth Client's **Authorized Redirect URIs** is exactly: `https://<your-supabase-ref-or-domain>/auth/v1/callback`.
 
 ---
 
