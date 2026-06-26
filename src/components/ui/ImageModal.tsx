@@ -47,6 +47,21 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
     e.preventDefault();
     if (!currentImage) return;
     const fileName = currentImage.name || currentImage.url.split('/').pop()?.split('?')[0] || 'image.png';
+    
+    // Check if running in Electron environment
+    const electron = (window as any).electron;
+    if (electron && typeof electron.downloadFile === 'function') {
+      try {
+        const result = await electron.downloadFile({ url: currentImage.url, fileName });
+        if (result && !result.ok && !result.canceled) {
+          console.error('Electron download failed:', result.error);
+        }
+      } catch (err) {
+        console.error('Electron download IPC error:', err);
+      }
+      return;
+    }
+
     try {
       const response = await fetch(currentImage.url);
       if (!response.ok) throw new Error('Network response was not ok');

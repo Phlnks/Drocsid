@@ -41,5 +41,8 @@ contextBridge.exposeInMainWorld('electron', {
   // File-backed storage helpers to survive restarts
   getSavedStorage: () => ipcRenderer.invoke('get-saved-storage'),
   saveStorageKey: (key, value) => ipcRenderer.send('save-storage-key', { key, value }),
-  removeStorageKey: (key) => ipcRenderer.send('remove-storage-key', key)
+  removeStorageKey: (key) => ipcRenderer.send('remove-storage-key', key),
+
+  // File download helper
+  downloadFile: (payload) => ipcRenderer.invoke('download-file', payload)
 });

@@ -1,6 +1,8 @@
-const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalShortcut, Notification, nativeImage, protocol } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalShortcut, Notification, nativeImage, protocol, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const http = require('http');
 const { spawn } = require('child_process');
 const { uIOhook, UiohookKey } = require('uiohook-napi');
 
@@ -424,6 +426,69 @@ ipcMain.on('remove-storage-key', (event, key) => {
   const data = readStorage();
   delete data[key];
   writeStorageDebounced();
+});
+
+function downloadUrl(url, filePath, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 5) {
+      reject(new Error('Too many redirects'));
+      return;
+    }
+    const protocol = url.startsWith('https') ? https : http;
+    protocol.get(url, (response) => {
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        let redirectUrl = response.headers.location;
+        if (!redirectUrl.startsWith('http')) {
+          const parsedUrl = new URL(url);
+          redirectUrl = `${parsedUrl.protocol}//${parsedUrl.host}${redirectUrl}`;
+        }
+        downloadUrl(redirectUrl, filePath, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+      if (response.statusCode !== 200) {
+        reject(new Error(`Server returned status ${response.statusCode}`));
+        return;
+      }
+      const fileStream = fs.createWriteStream(filePath);
+      response.pipe(fileStream);
+      fileStream.on('finish', () => {
+        fileStream.close();
+        resolve();
+      });
+      fileStream.on('error', (err) => {
+        fs.unlink(filePath, () => {});
+        reject(err);
+      });
+    }).on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+ipcMain.handle('download-file', async (event, { url, fileName }) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: fileName,
+      title: 'Enregistrer le fichier',
+    });
+    if (canceled || !filePath) {
+      return { ok: false, canceled: true };
+    }
+    
+    if (url.startsWith('data:')) {
+      const parts = url.split(',');
+      const base64Data = parts[1];
+      const buffer = Buffer.from(base64Data, 'base64');
+      await fs.promises.writeFile(filePath, buffer);
+      return { ok: true, filePath };
+    }
+
+    await downloadUrl(url, filePath);
+    return { ok: true, filePath };
+  } catch (error) {
+    console.error('[Download] Failed to download file:', error);
+    return { ok: false, error: error.message };
+  }
 });
 
 //-------ajout livekit
