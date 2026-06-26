@@ -1,176 +1,133 @@
-# Drocsid Self-Hosted Infrastructure Overview
+# Drocsid Infrastructure Overview
 
-This document gives a high-level but technically precise view of the recommended self-hosted Drocsid architecture.
+This document describes the reference self-hosted production architecture for Drocsid. It is meant to stay consistent with the main README and the service-specific installation guides.
 
-It is aligned with these documentation choices:
+## Core architecture
 
-- **Supabase public access goes through Kong on local port 8000**
-- **Nginx + Certbot** handle public HTTP/HTTPS
-- **LiveKit uses built-in TURN** in the recommended open-source path
-- Drocsid keeps a separate app domain, Supabase domain, and LiveKit domain
+Drocsid separates the platform into dedicated layers:
 
-This overview is meant to help self-hosters understand how the pieces fit together before following the installation guides.
+- Drocsid web app and backend
+- self-hosted Supabase stack
+- LiveKit media/signaling stack
+- Nginx reverse proxy and TLS termination
 
----
+Reference public domains:
 
-## 1. Main components
+- `drocsid.yourdomain.com`
+- `supabase.yourdomain.com`
+- `livekit.yourdomain.com`
 
-Drocsid is split into three main service families.
+Reference local upstreams:
 
-### Drocsid application
+- `127.0.0.1:3000` → Drocsid web/backend
+- `127.0.0.1:8000` → Supabase Kong gateway
+- `127.0.0.1:7880` → LiveKit signaling/API
+- `127.0.0.1:3001` → dedicated LiveKit token endpoint
 
-- frontend served from the Drocsid app domain
-- Node/Express backend for app APIs
-- Socket.io or other realtime app-layer features
-- optional token-signing route for LiveKit
+## Component roles
+
+### Drocsid app server
+
+The Drocsid app server serves the web frontend and backend APIs. It also handles Socket.io traffic, application business logic, and integration with Supabase and LiveKit.
 
 ### Supabase stack
 
-- PostgreSQL database
-- GoTrue authentication service
-- Storage API
-- Realtime services
-- Kong as the public entrypoint, proxied locally on `127.0.0.1:8000`
+The self-hosted Supabase stack provides:
+
+- PostgreSQL as the main relational database
+- GoTrue for auth and OAuth handling
+- Realtime for subscription-based updates
+- Storage for avatars, attachments, and similar media
+- Kong as the public API gateway on local port `8000`
 
 ### LiveKit stack
 
-- LiveKit signaling/API on `127.0.0.1:7880`
-- built-in TURN for NAT traversal in the reference open-source setup
-- media UDP port range on the host
+The LiveKit stack provides:
 
----
+- HTTPS API and WSS signaling
+- media routing for voice, video, and screen share
+- built-in TURN for NAT traversal in the recommended deployment model
+- token validation using the same API key and secret used by the token service
 
-## 2. Domain model
+### Client surfaces
 
-Recommended public DNS layout:
+Drocsid currently has three client surfaces in the public documentation model:
 
-| Public domain | Purpose | Local upstream |
+- Web client
+- Electron desktop app
+- separate React Native + Expo mobile app
+
+The infrastructure described here is shared backend infrastructure. The mobile app is not described as a Capacitor target and is treated as a separate project consuming the same backend platform.
+
+## Reverse proxy model
+
+Nginx is the recommended public edge entrypoint.
+
+Recommended routing:
+
+- `drocsid.yourdomain.com` → `http://127.0.0.1:3000`
+- `supabase.yourdomain.com` → `http://127.0.0.1:8000`
+- `livekit.yourdomain.com` → `http://127.0.0.1:7880` for LiveKit signaling/API
+- `livekit.yourdomain.com/api/livekit/token` → `http://127.0.0.1:3001` for token issuance
+
+Nginx and Certbot together provide public HTTPS and certificate management.
+
+## Ports and firewall rules
+
+Open the following ports at both host firewall and cloud firewall level:
+
+| Port range | Protocol | Purpose |
 | --- | --- | --- |
-| `drocsid.yourdomain.com` | Drocsid web app and backend | `127.0.0.1:3000` |
-| `supabase.yourdomain.com` | Supabase public API through Kong | `127.0.0.1:8000` |
-| `livekit.yourdomain.com` | LiveKit HTTPS API and WSS signaling | `127.0.0.1:7880` |
+| 80 | TCP | HTTP and Certbot challenges |
+| 443 | TCP | HTTPS, API, WSS |
+| 3478 | TCP/UDP | TURN/STUN negotiation |
+| 50000-60000 | UDP | LiveKit media traffic |
 
-Optional variant:
+Without the UDP media range and TURN port, signaling may succeed while media fails.
 
-- a dedicated token service on `127.0.0.1:3001`, exposed either on the Drocsid domain or the LiveKit domain
+## Auth flow
 
----
+Google OAuth is handled through Supabase GoTrue.
 
-## 3. Request flow
+Important rules:
 
-### Standard web app flow
+- `GOTRUE_SITE_URL` must point to `https://drocsid.yourdomain.com`
+- the Google OAuth redirect URI must point to `https://supabase.yourdomain.com/auth/v1/callback`
+- the GoTrue allow list should include your expected web, desktop, and local development URLs
 
-1. the browser loads Drocsid from `https://drocsid.yourdomain.com`
-2. the app talks to Supabase at `https://supabase.yourdomain.com`
-3. Nginx proxies that traffic to Kong on `127.0.0.1:8000`
-4. Kong forwards requests to the relevant Supabase services
+This split matters because Supabase handles the callback, but the user should return to the Drocsid app domain after authentication.
 
-### Google OAuth flow
+## LiveKit token flow
 
-1. the user starts sign-in from the Drocsid app
-2. Supabase handles the OAuth provider exchange
-3. Google redirects back to `https://supabase.yourdomain.com/auth/v1/callback`
-4. Supabase completes the session flow
-5. the user is returned to the Drocsid app URL defined by `GOTRUE_SITE_URL`
+Clients do not connect to LiveKit with the master secret. They request a short-lived signed access token.
 
-Critical rule:
+Reference flow:
 
-- `GOTRUE_SITE_URL` must point to the **Drocsid app domain**, not the Supabase domain
+1. client requests permission to join a room
+2. token endpoint validates the user session and authorization
+3. token endpoint signs a short-lived LiveKit token
+4. client connects to `wss://livekit.yourdomain.com`
+5. LiveKit validates the token and admits the client
 
-### Voice/video flow
+Reference public token endpoint:
 
-1. the client asks the app server for a signed LiveKit token
-2. the server validates access and signs a short-lived JWT
-3. the client connects to `wss://livekit.yourdomain.com`
-4. Nginx proxies HTTPS/WSS signaling to `127.0.0.1:7880`
-5. media and TURN traffic flow through the exposed UDP/TCP ports on the host
+- `https://livekit.yourdomain.com/api/livekit/token`
 
----
+Reference local token service:
 
-## 4. Port map
+- `127.0.0.1:3001`
 
-| Port / Range | Protocol | Used by |
-| --- | --- | --- |
-| `80` | TCP | Nginx, Certbot HTTP challenge |
-| `443` | TCP | Nginx HTTPS and WSS signaling |
-| `8000` | TCP | Kong local upstream for Supabase |
-| `3000` | TCP | Drocsid local app upstream |
-| `3001` | TCP | Optional dedicated token service |
-| `7880` | TCP | LiveKit local signaling/API |
-| `3478` | TCP and UDP | LiveKit TURN/STUN |
-| `50000-60000` | UDP | LiveKit media |
+## Storage expectations
 
-Important distinction:
+Typical storage buckets used by Drocsid:
 
-- ports `3000`, `3001`, `7880`, and `8000` are usually local/private upstream ports
-- ports `80`, `443`, `3478`, and the media UDP range must be considered at the host and cloud firewall levels
+- `avatars`
+- `attachments`
+- `server-icons`
+- `emojis` if enabled in your build
 
----
+Storage policies and visibility should match your schema and application expectations.
 
-## 5. Reverse proxy role
+## Operational note
 
-Nginx is the public entrypoint for HTTP, HTTPS, and WSS.
-
-It typically handles:
-
-- TLS certificates via Certbot
-- HTTP to HTTPS redirect
-- proxying the Drocsid app domain to `127.0.0.1:3000`
-- proxying the Supabase domain to `127.0.0.1:8000`
-- proxying the LiveKit domain to `127.0.0.1:7880`
-- optional proxying of `/api/livekit/token` to `127.0.0.1:3001`
-
-Nginx does **not** proxy the actual UDP media plane the same way it proxies HTTP requests.
-
----
-
-## 6. Security model
-
-### Supabase
-
-- browser clients use the public Supabase HTTPS domain
-- server-only actions use the service role key on trusted backend code only
-- Google OAuth callback lands on the Supabase domain
-- final authenticated app navigation returns to the Drocsid domain
-
-### LiveKit
-
-- clients never receive the LiveKit API secret
-- the backend signs access tokens server-side
-- tokens should be short-lived
-- room/channel authorization should be checked before token issuance
-
-### Public repository hygiene
-
-- publish placeholders only in `.env.example`
-- never publish real secrets, JWT keys, service role keys, or private certificates
-- document which values are public URLs versus private server-side secrets
-
----
-
-## 7. Recommended documentation set
-
-A clean open-source Drocsid repository should include:
-
-- `INFRASTRUCTURE_OVERVIEW.md`
-- `SUPABASE_SELF_HOSTED.md`
-- `LIVEKIT_SELF_HOSTED.md`
-- `.env.example`
-- a short install order in the main README
-
-Suggested install order:
-
-1. DNS + Nginx + Certbot
-2. Supabase self-hosted
-3. Drocsid app deployment
-4. LiveKit deployment
-5. OAuth setup and validation
-6. final end-to-end voice/video tests
-
----
-
-## 8. Practical design choice
-
-This documentation keeps **Kong on local port 8000** to stay aligned with the current Drocsid model, but uses **LiveKit built-in TURN** because it is simpler for self-hosters than managing a separate coTURN service.
-
-That gives you a setup that stays close to your current routing model while reducing operational complexity for people who want to run their own Drocsid instance.
+The observed deployment currently uses `livekit/livekit-server:latest`. For a cleaner public open-source deployment guide, pinning a fixed LiveKit image tag is recommended before final publication.

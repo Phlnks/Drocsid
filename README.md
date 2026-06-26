@@ -1,272 +1,426 @@
-# Drocsid 🚀
+# Drocsid
 
-![Drocsid Logo](public/logo.png)
+Drocsid is a self-hostable real-time communication platform for communities, teams, and private groups. It combines text chat, voice, video, screen sharing, permissions, notifications, and multi-platform clients on top of a stack built around React, Node.js, Supabase, Socket.io, and LiveKit.
 
-**Drocsid** is a modern communication platform, designed to provide a fluid, secure, and highly customizable experience. Whether for gaming communities, work teams, or groups of friends, Drocsid offers a robust infrastructure built on React, Supabase, and Socket.io.
+The public documentation set is organized so the main README stays aligned with the infrastructure and service-specific installation guides.
 
-## ✨ Key Features
+## Features
 
-- **💬 Real-Time Messaging**: Instant chat with Markdown support, syntax highlighting, emojis, GIFs, and file sharing.
-- **🔊 Voice Channels & Video**: Connect instantly via voice and video with your friends, powered by LiveKit WebRTC.
-- **🖥️ Screen Sharing**: Share your screen or a specific window directly in voice channels or DMs.
-- **🛡️ Granular Permissions**:
-    - **Private Channels**: Make any channel invisible to everyone except specific roles.
-    - **Read-Only Channels**: Create announcement-only channels where only specific roles can write.
-    - **Visual Indicators**: Clear "Lock" (Read-only) and "Eye-Off" (Private) icons in settings for easy management.
-- **📊 Interactive Polls**: Create and participate in polls within text channels and DMs.
-- **🎵 Soundboard**: Express yourself with sounds in voice channels (curated and server-specific).
-- **🛡️ Role Hierarchy**: Advanced role system with priority ordering. A member with a lower-ranked role cannot perform administrative actions on a higher-ranked member.
-- **🔗 Invite System**: Generate unique invitation codes to grow your community.
-- **🔔 Smart Notifications**: Web Push Notifications, desktop notifications, and sound alerts.
-- **🎨 Custom Themes**: Multiple themes (Dark, Indigo, Nature, Matrix, etc.) to adapt the application to your preferences.
-- **📱 Cross-Platform**: Works in your browser, and includes support for **Electron** (Desktop) and **Capacitor** (Android).
-- **📝 Personal Notes**: A dedicated space in your DMs to keep track of your own thoughts.
+- Real-time messaging with Markdown, syntax highlighting, emojis, GIFs, and file sharing
+- Voice channels, video calls, and screen sharing powered by LiveKit WebRTC
+- Role hierarchy and granular permissions for channels and moderation
+- Private channels and read-only channels
+- Polls, notifications, themes, and personal notes
+- Web client, Electron desktop app, and a separate React Native + Expo mobile app
+- Self-hostable architecture with separate app, database/auth, and media services
 
-## 🛠️ Tech Stack
+## Tech stack
 
-- **Frontend**: React 19, Vite 6, Tailwind CSS 4, Motion, Zustand.
-- **Backend**: Node.js, Express, Socket.io (Presence & Signaling).
-- **Database & Auth**: Supabase (PostgreSQL, Realtime, Storage).
-- **Communication**: LiveKit (WebRTC for Audio/Video/Screen Share).
-- **Notifications**: Expo Push API (Mobile React Native) & Desktop In-App Alerts.
-- **Multi-Platform**: Electron, Capacitor.
+| Layer | Technology |
+| --- | --- |
+| Frontend web | React 19, Vite 6, Tailwind CSS 4, Zustand, Motion |
+| Backend | Node.js, Express, Socket.io |
+| Database and auth | Supabase (PostgreSQL, GoTrue, Realtime, Storage) |
+| Voice/video | LiveKit |
+| Desktop | Electron |
+| Mobile | React Native + Expo |
+| Notifications | Web push and Expo-based mobile push |
 
-## ⌨️ Keyboard Shortcuts
+## Documentation map
 
-Speed up your workflow with these native shortcuts:
-- **`Ctrl + K` (or `Cmd + K`)**: Quick access to the Global Search bar.
-- **`Arrow Up (↑)`**: Edit your last sent message (when the input is empty).
-- **`Esc`**: Cancel the current action (cancel reply, cancel edit, or close modals/gallery).
-- **`Arrows (←/→)`**: Navigate between images in the Media Gallery.
+Recommended public docs:
 
-## 🌍 Internationalization
+- `README.md` → project overview and main setup path
+- `INFRASTRUCTURE_OVERVIEW.md` → architecture, domains, ports, and request flow
+- `SUPABASE_SELF_HOSTED.md` → self-hosted Supabase, Kong, auth, Google OAuth
+- `LIVEKIT_SELF_HOSTED.md` → LiveKit, TURN, token endpoint, firewall rules
+- `.env.example` → environment variable template for the web/backend deployment
 
-Drocsid is built with global reach in mind, using **i18next** for a localized experience:
-- **Supported Languages**: English, French, and Spanish.
-- **Automatic Detection**: The app detects your browser's language on the first visit.
-- **Manual Switching**: Easily switch languages in the **User Settings** menu.
+## Keyboard shortcuts
 
-## 🛠️ Self-Hosted Deployment & Prerequisites
+- `Ctrl + K` or `Cmd + K` → global search
+- `Arrow Up` → edit the last sent message when the input is empty
+- `Esc` → cancel the current action or close open UI layers
+- `Arrow Left / Arrow Right` → navigate images in the media gallery
 
-Drocsid is designed to be fully self-hostable. To run your own instance, you need a database (Supabase), a WebRTC server (LiveKit), and a Node.js environment to host the web app and signaling server.
+## Internationalization
 
-### Prerequisites Ecosystem
+Drocsid uses `i18next` and currently supports:
 
-- **Node.js** (v18 or higher)
-- **Docker & Docker Compose** (Highly recommended for self-hosting Supabase and LiveKit)
-- **Domain Name & Subdomain Architecture (Crucial for Production)**:
-  Modern browsers strictly enforce security rules for WebRTC, microphone, and camera access, which **require a secure HTTPS (`wss://` and `https://`) connection**. You must have a registered domain name and configure the following subdomains:
-  - **App & API Subdomain**: e.g., `drocsid.yourdomain.com` (for serving the React frontend and proxying the Node.js/Socket.io backend server).
-  - **Supabase Subdomain**: e.g., `supabase.yourdomain.com` (for database api, real-time gateways, and authentication).
-  - **Dedicated LiveKit Subdomain**: e.g., `livekit.yourdomain.com` (for managing WebRTC video/audio and signaling).
-    
-    > **💡 Why LiveKit needs a dedicated subdomain**: LiveKit runs a high-performance WebRTC engine that manages its own secure WebSockets. It requires dedicated access to standard HTTP (`80`) and HTTPS (`443`) ports to automatically provision Let's Encrypt SSL certificates and process WebRTC signaling. Giving LiveKit its own subdomain prevents port conflicts with your main web server and ensures seamless SSL verification for real-time media streams.
+- English
+- French
+- Spanish
 
----
+## Self-hosting overview
 
-### 1. Supabase (Database, Auth, Storage) - Self-Hosted
-Drocsid uses Supabase for database management, user authentication, and real-time database updates.
+The recommended production deployment uses three public domains routed through Nginx:
 
-1. **Deploy Supabase**: You can self-host Supabase using Docker. Clone the [Supabase Docker repository](https://github.com/supabase/supabase/tree/master/docker) and follow their instructions to spin up the containers via `docker-compose up -d`.
-2. **Run the Schema**: Once your Supabase instance is running and accessible via the studio UI (usually `http://localhost:8000`), navigate to the **SQL Editor** tab. Paste and run the entire contents of the `supabase.sql` file located in the root of this repository. This creates all necessary tables, RLS policies, functions, and triggers.
-   > **⚠️ IMPORTANT - Super Admin Setup**: Before running `supabase.sql`, open the file and replace all occurrences of `admin@example.com` with your own email address. This ensures your account is automatically granted Super Admin status and unlimited server creation quotas.
-3. **Configure Authentication (Google)**: Go to **Authentication > Providers**. Enable Google and enter your Client ID and Secret. Ensure the Redirect URL is `https://<your-supabase-domain>/auth/v1/callback`.
-4. **Storage Buckets**: In Supabase Storage, create the following **public** buckets:
-   - `avatars` (User profile pictures)
-   - `server-icons` (Server logos)
-   - `attachments` (File sharing in messages)
-   - `emojis` (Custom server emojis)
-5. **Enable Realtime**: Ensure realtime broadcasting is enabled for the `channels`, `messages`, `profiles`, `roles`, and `server_members` tables within the Supabase Database settings.
+- `https://drocsid.yourdomain.com` → Drocsid web app and backend
+- `https://supabase.yourdomain.com` → Supabase public API entrypoint
+- `https://livekit.yourdomain.com` → LiveKit HTTPS API, WSS signaling, and token endpoint
 
----
+Recommended local upstreams on the host:
 
-### 2. LiveKit (Voice, Video & Screen Sharing) - Self-Hosted
-Drocsid relies on LiveKit's robust WebRTC infrastructure for high-quality audio, video, and screen sharing.
+- `127.0.0.1:3000` → Drocsid app/backend
+- `127.0.0.1:8000` → Supabase Kong gateway
+- `127.0.0.1:7880` → LiveKit signaling/API
+- `127.0.0.1:3001` → dedicated LiveKit token endpoint service
 
-1. **Deploy LiveKit Server**: Use the LiveKit deployment tools (like `livekit-cli generate-config`) or docker-compose to self-host LiveKit. 
-2. **Configure TURN Server**: It is **critical** to configure and enable the integrated TURN server feature in LiveKit. WebRTC requires TURN servers to bypass strict enterprise firewalls and NATs for reliable voice/video communication. Ensure your `livekit.yaml` config has `turn` enabled and proper UDP/TCP ports exposed (typically 3478/5349).
-3. **Token Generation API**: The Drocsid Node.js backend handles LiveKit token generation. You do not need a separate token server, but you *must* provide the LiveKit API Key and Secret to the Node.js backend so it can generate secure tokens for connecting users.
-4. Note down your **API Key**, **API Secret**, and your **WebSocket URL** (e.g., `wss://livekit.your-domain.com`).
+Reference choices used throughout the docs:
 
----
+- Kong stays on local port `8000`
+- Nginx + Certbot are the recommended public entrypoint
+- LiveKit built-in TURN is the recommended TURN path
+- the public token endpoint is `https://livekit.yourdomain.com/api/livekit/token`
 
-### 3. Mobile Push Notifications (Expo Push API)
-Drocsid mobile (React Native / Expo) uses native Expo Push tokens stored automatically in PostgreSQL (`expo_push_tokens` table) to deliver background push alerts. No external VAPID key generation is needed!
+## Prerequisites
 
----
+Before installing Drocsid, prepare:
 
-### 4. Application Installation & Startup
+- Node.js 18 or newer
+- npm
+- Docker and Docker Compose
+- Nginx
+- Certbot
+- a VPS or Linux server with public DNS records
+- a real domain name with at least three subdomains
 
-Once your prerequisites are running, install and configure the Drocsid app:
+For production use, HTTPS is strongly recommended across the public stack because auth redirects, browser mic/camera access, secure cookies, and WebRTC signaling all behave more reliably in a secure context.
 
-1. **Clone the repository**:
+## Installation order
+
+Recommended order:
+
+1. Configure DNS records
+2. Install Nginx and Certbot
+3. Deploy self-hosted Supabase
+4. Configure Google OAuth for Supabase auth
+5. Deploy LiveKit
+6. Deploy the Drocsid web/backend app
+7. Validate auth, uploads, realtime, and voice/video end to end
+
+## Supabase setup
+
+Drocsid uses Supabase for PostgreSQL storage, authentication, realtime features, and storage buckets.
+
+Recommended setup path:
+
+1. Deploy Supabase from the official self-hosted Docker stack
+2. Put Nginx in front of it and proxy the public Supabase domain to Kong on `127.0.0.1:8000`
+3. Load the Drocsid SQL schema
+4. Create the storage buckets expected by the app
+5. Configure Google OAuth correctly
+
+Important auth rule:
+
+- `GOTRUE_SITE_URL` must point to the Drocsid app URL, not the Supabase domain
+
+Example public split:
+
+- `https://supabase.yourdomain.com/auth/v1/callback` → Google OAuth callback handled by Supabase
+- `https://drocsid.yourdomain.com` → final app destination after auth flow
+
+Typical storage buckets used by Drocsid:
+
+- `avatars`
+- `attachments`
+- `server-icons`
+- `emojis` if your build includes custom emoji storage
+
+See `SUPABASE_SELF_HOSTED.md` for the detailed installation guide.
+
+## LiveKit setup
+
+Drocsid uses LiveKit for voice, video, and screen sharing.
+
+Reference deployment model:
+
+- LiveKit signaling/API behind Nginx
+- public endpoint on `https://livekit.yourdomain.com`
+- client WSS endpoint on `wss://livekit.yourdomain.com`
+- public token endpoint on `https://livekit.yourdomain.com/api/livekit/token`
+- local token service on `127.0.0.1:3001`
+- built-in TURN enabled in LiveKit
+
+Required host and cloud firewall ports:
+
+- `80/tcp`
+- `443/tcp`
+- `3478/tcp`
+- `3478/udp`
+- `50000-60000/udp`
+
+Without the TURN and UDP media ports, users may be able to join a room but still fail to transmit audio or video.
+
+See `LIVEKIT_SELF_HOSTED.md` for the detailed installation guide.
+
+## Application setup
+
+Clone the repository and install dependencies:
+
 ```bash
-git clone https://github.com/your-repo/drocsid.git
+git clone https://github.com/your-org/drocsid.git
 cd drocsid
-```
-
-2. **Install Dependencies**:
-```bash
 npm install
 ```
 
-3. **Configure Environment Variables**:
-Copy the example environment file and fill in your self-hosted instance details.
+Create your environment file:
+
 ```bash
 cp .env.example .env
 ```
-Edit the `.env` file with your credentials:
-```env
-# ==== Supabase (Self-hosted or Cloud) ====
-VITE_SUPABASE_URL=http://localhost:8000 # Your Supabase API URL
-VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# ==== LiveKit (Self-hosted or Cloud) ====
-VITE_LIVEKIT_URL=wss://livekit.yourdomain.com
+Example variables for the web/backend deployment:
+
+```env
+APP_URL=https://drocsid.yourdomain.com
+VITE_BACKEND_URL=https://drocsid.yourdomain.com
+
+VITE_SUPABASE_URL=https://supabase.yourdomain.com
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
 LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
 
-# ==== Backend Configuration ====
-VITE_BACKEND_URL=http://localhost:3000
-PORT=3000
+VITE_LIVEKIT_URL=wss://livekit.yourdomain.com
+VITE_LIVEKIT_TOKEN_ENDPOINT=https://livekit.yourdomain.com/api/livekit/token
+
 VITE_SUPERADMIN_EMAIL=your_email@domain.com
 ```
 
-> **💡 Understanding Super Admin (`VITE_SUPERADMIN_EMAIL` vs `supabase.sql`)**:
-> - **`supabase.sql`**: Configures PostgreSQL triggers and Row-Level Security (RLS) policies so the database natively trusts your email as an administrator.
-> - **`VITE_SUPERADMIN_EMAIL`**: Tells the React frontend interface which user should see the **Super Admin dashboard button** and triggers automatic profile privilege synchronization upon login.
-> 
-> *Ensure you put the exact same email address in both `supabase.sql` and `.env`.*
+Notes:
 
-4. **Run the Application locally**:
-Start the development server (this runs both the Vite frontend and Express backend concurrently):
+- `VITE_SUPABASE_URL` must use the public HTTPS Supabase domain, not an internal container address
+- `SUPABASE_SERVICE_ROLE_KEY` must remain server-side only
+- `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` must match the values configured in LiveKit
+- the token endpoint path should stay consistent with the reverse proxy and LiveKit documentation
+
+## Development
+
+Run the web/backend app locally with:
+
 ```bash
 npm run dev
 ```
-The application will be accessible at `http://localhost:3000`.
 
-5. **Building for Production**:
-To deploy the app to production, build the platform and start the Node process:
+Typical local values:
+
+```env
+VITE_BACKEND_URL=http://localhost:3000
+VITE_SUPABASE_URL=http://localhost:8000
+```
+
+If you test Google auth locally, make sure the local app URL is allowed in both Supabase auth configuration and your Google OAuth client settings.
+
+## Production
+
+Build and start the web/backend app:
+
 ```bash
 npm run build
 npm start
 ```
 
-## 🏗️ Multi-Instance Architecture
+In production, the app is typically exposed behind Nginx, which proxies the public Drocsid domain to the local Node process.
 
-Drocsid is built with a **decentralized mindset**. Unlike platforms that lock you into a single database, Drocsid supports **Multiple Instances**:
-- **Switch Backends**: Effortlessly switch between different Supabase backends (e.g., Private, Corporate, Community) via the **Instance Settings** (bottom-left gear icon next to your profile).
-- **Independent Data**: Each instance has its own users, servers, and history.
-- **Portability**: Your application remains the same, but the "home" it connects to follows you.
-- **Local Persistence**: Instances are securely stored in your local browser storage, allowing you to jump between communities in seconds.
+## Desktop and mobile
 
-## 🛡️ Advanced Security & Hierarchy
+Drocsid’s public-facing documentation should distinguish clearly between the three client surfaces:
 
-Drocsid implements a "Zero-Trust" mindset for server management:
-- **Strict Role Ordering**: Roles have an `order` field. Users can only perform actions (Kick, Ban, Mute, Move) on members whose highest role has a *numerically higher* order (lower priority) than their own.
-- **Permission Inheritance**: Permissions are additive across all roles assigned to a member.
-- **System Constraints**: Even an administrator cannot delete or kick the "Owner" of a server.
-- **Audit Logs**: All sensitive actions (channel creation, member bans, limits, etc.) are securely logged in the `server_logs` table for transparency.
+- Web → the main self-hosted deployment covered by this README
+- Desktop → Electron app built from the Drocsid codebase
+- Mobile → separate React Native + Expo project
 
-## 🛠️ Troubleshooting
+That means this repository’s infrastructure docs describe the shared backend services used by all clients, but the mobile app has its own project, build pipeline, and release process.
 
-If you encounter issues while setting up or running your private Drocsid instance, consult this troubleshooting guide.
+## Super admin model
 
-### 1. 🔑 Google Auth / Supabase Auth Redirection Fails
-* **Symptom:** After clicking "Login with Google", you are redirected to a blank page, or get an error message like `Invalid redirect URI`, or you are redirected back to the wrong domain.
-* **Causes:**
-  - The Redirect URLs in your Google Cloud Console do not match your Supabase settings.
-  - The Redirect URL in your Supabase Auth settings doesn't match where your Drocsid client is hosted.
-* **Solutions:**
-  * **For Supabase Cloud:**
-    1. Go to your **Supabase Dashboard > Authentication > URL Configuration**.
-    2. Verify that **Site URL** is set to your frontend application's URL (e.g., `http://localhost:3000` for development or `https://your-drocsid-frontend.domain` for production).
-    3. In **Redirect URLs (Additional)**, add your production/dev URLs explicitly (e.g., `http://localhost:3000/**`, `https://your-drocsid-frontend.domain/**`).
-  * **For Self-Hosted / Docker Supabase:**
-    1. Do not look in the dashboard GUI; self-hosted Auth is configured via the local config files or environment variables.
-    2. Open your `docker-compose.yml` or `config.toml` file.
-    3. Set/verify the following environment variables (or GoTrue configuration blocks):
-       - `GOTRUE_SITE_URL` to your frontend's base URL (e.g., `http://localhost:3000` or `https://your-domain.com`).
-       - `GOTRUE_URI_ALLOW_LIST` (or additional redirect URIs) to allow your domains (e.g., `http://localhost:3000/**,https://your-domain.com/**`).
-       - `GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID` and `GOTRUE_EXTERNAL_GOOGLE_SECRET` with your Google Cloud credentials.
-       - Ensure `GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI` or the default redirect matches your setup.
-    4. Restart your Docker containers (`docker compose down && docker compose up -d`) to apply config changes.
-  * **General Google Cloud Console Setup:**
-    - Ensure your Google OAuth Client's **Authorized Redirect URIs** is exactly: `https://<your-supabase-ref-or-domain>/auth/v1/callback`.
+Drocsid includes a super admin concept that depends on both backend/database logic and frontend expectations.
 
----
+Recommended alignment:
 
-### 2. 👑 The Super Admin Dashboard Button Does Not Appear
-* **Symptom:** You log in, but you don't see the "Super Admin" settings/dashboard button.
-* **Causes:**
-  - You did not update the default email addresses in `supabase.sql` before running the schema.
-  - The `VITE_SUPERADMIN_EMAIL` variable in your `.env` file does not match your logged-in Google/Supabase account email.
-* **Solutions:**
-  1. Check your `.env` file. Ensure `VITE_SUPERADMIN_EMAIL` is set to your exact email (e.g., `VITE_SUPERADMIN_EMAIL=your_email@gmail.com`).
-  2. If you already ran the SQL schema with `admin@example.com` or another address:
-     - Open the **Supabase SQL Editor** and execute:
-       ```sql
-       UPDATE public.profiles
-       SET is_super_admin = true, can_create_servers = true, max_servers = 100
-       WHERE email = 'your_actual_logged_in_email@domain.com';
-       ```
-  3. Log out of the Drocsid app and log back in to synchronize your profile and force the frontend to refresh state.
+- the email embedded in your SQL bootstrap logic should be your real admin email
+- `VITE_SUPERADMIN_EMAIL` should match that same email
+- if those values differ, the database and UI may disagree about who should be treated as a super admin
 
----
+If needed, you can repair a user profile manually with SQL after first login.
 
-### 3. 🎙️ Voice / Video Chat Doesn't Work
-* **Symptom:** Connecting to a voice channel fails immediately, is stuck on "Connecting...", or fails to transmit audio/video.
-* **Causes:**
-  - LiveKit credentials (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `VITE_LIVEKIT_URL`) are missing, incorrect, or mismatched.
-  - The LiveKit server URL format is incorrect (e.g., missing the `wss://` protocol).
-  - The LiveKit server is unreachable or offline.
-* **Solutions:**
-  1. **Check your protocol:** In your `.env` (or in the Super Admin / Instance Settings), the `VITE_LIVEKIT_URL` must start with **`wss://`** (e.g., `wss://your-livekit-server.com`). Do not use `https://` for the LiveKit URL.
-  2. **Verify Credentials:** Ensure `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` are properly set in your backend's environmental variables. The backend needs these to sign secure tokens for joining channels.
-  3. **Vite Token Endpoint:** Make sure `VITE_LIVEKIT_TOKEN_ENDPOINT` is set to `/api/livekit/token` (which proxies token generation to your Express backend).
-  4. Check the browser's developer console (F12) for WebSocket or connection errors.
+## Multi-instance model
 
----
+Drocsid is designed with a multi-instance mindset.
 
-### 4. 🗄️ Storage Buckets: Avatar / Attachment Upload Fails
-* **Symptom:** When attempting to upload a server icon, a user avatar, or chat attachments, you get an error message (e.g., "Failed to upload", "Bucket not found", or "403 Forbidden").
-* **Causes:**
-  - The necessary storage buckets (`avatars`, `attachments`, `server-icons`) were not created in Supabase.
-  - The buckets were created but set to "Private" instead of "Public".
-  - The Row Level Security (RLS) policies for storage are missing or misconfigured.
-* **Solutions:**
-  1. Go to **Supabase Storage** in your dashboard.
-  2. Create three new buckets: `avatars`, `attachments`, and `server-icons`.
-  3. **Crucial:** Make sure to toggle on the **"Public"** setting for each bucket.
-  4. Run the storage RLS policies block from `supabase.sql` to ensure authenticated users have permissions to insert/update files in those buckets.
+A client can be configured to point to different Drocsid-compatible backends over time, as long as the expected backend services and schema are present. Each instance keeps its own users, communities, and history.
 
----
+## Troubleshooting
 
-### 5. 🔕 Mobile Push Notifications Are Not Delivered
-* **Symptom:** Mobile app users (React Native / Expo) do not receive background notifications when mentioned or receiving DMs.
-* **Causes:**
-  - The user did not grant push notification permissions when prompted on their iOS/Android device.
-  - The backend server cannot reach the Expo Push Service (`https://exp.host/--/api/v2/push/send`).
-  - The user's device token failed to save into the `expo_push_tokens` database table.
-* **Solutions:**
-  1. Check device settings (iOS/Android) and ensure notifications are allowed for the Drocsid app.
-  2. In Supabase table editor, inspect `expo_push_tokens` to verify that a token exists for the target `user_id`.
-  3. Ensure your Node.js backend server has active outgoing internet access so it can communicate with Expo's push relay API.
+### Google auth redirects to the wrong place or fails
 
----
+Symptoms:
 
-### 6. 🌐 Port & Backend Connection Issues ("Connecting to server..." loop)
-* **Symptom:** The client application loads, but stays stuck on a spinner saying "Connecting to server...".
-* **Causes:**
-  - The `VITE_BACKEND_URL` environment variable is missing, incorrect, or pointing to a different port.
-  - The backend server is not running or crashed.
-* **Solutions:**
-  1. If running locally, check that `VITE_BACKEND_URL` in `.env` is set to `http://localhost:3000` (or whichever port your backend is listening on).
-  2. Ensure your backend and frontend are built and running. Check the terminal logs of your `npm run dev` or `node server.ts` process for crash traces.
-  3. Check the browser Console/Network tab to verify which URL Socket.io is trying to connect to.
+- Google login ends on a blank page
+- Google reports an invalid redirect URI
+- the flow returns to the wrong domain
+- the user lands on the Supabase host instead of inside Drocsid
 
----
+Checks:
 
-*Drocsid - Communicate without limits.*
+1. Verify that `GOTRUE_SITE_URL` points to the Drocsid app URL.
+2. Verify that the Google OAuth callback is the public Supabase callback URL:
+   - `https://supabase.yourdomain.com/auth/v1/callback`
+3. Verify that `GOTRUE_URI_ALLOW_LIST` includes all expected web, desktop, and local development URLs.
+4. Verify that the Google Cloud OAuth client contains the exact authorized redirect URI.
+5. Restart the Supabase stack after changing auth-related environment variables.
 
+Common mistake:
+
+- setting `GOTRUE_SITE_URL` to the Supabase domain instead of the Drocsid app URL
+
+### Super admin UI does not appear
+
+Symptoms:
+
+- login works
+- the account exists
+- but the expected super admin UI is missing
+
+Checks:
+
+1. Verify that `VITE_SUPERADMIN_EMAIL` matches your real admin email exactly.
+2. Verify that your SQL bootstrap or manual SQL update marked the correct profile as super admin.
+3. Log out and log back in after changing admin-related data.
+4. Check the user row in `public.profiles` if your schema stores admin flags there.
+
+Example repair query:
+
+```sql
+UPDATE public.profiles
+SET is_super_admin = true,
+    can_create_servers = true,
+    max_servers = 100
+WHERE email = 'your_actual_email@domain.com';
+```
+
+### Voice or video does not work
+
+Symptoms:
+
+- joining a room fails
+- the UI stays on `Connecting...`
+- the token request fails
+- connection succeeds but no audio/video passes
+
+Checks:
+
+1. Verify `VITE_LIVEKIT_URL` uses `wss://livekit.yourdomain.com`.
+2. Verify the public token endpoint is `https://livekit.yourdomain.com/api/livekit/token`.
+3. Verify the token service is running on `127.0.0.1:3001` and reachable through Nginx.
+4. Verify `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` match the values configured in LiveKit.
+5. Verify ports `3478/tcp`, `3478/udp`, and `50000-60000/udp` are open on both the host firewall and the cloud firewall.
+6. Check browser console logs, token service logs, and LiveKit logs.
+
+Important distinction:
+
+- if token generation fails, the problem is usually backend config or reverse proxying
+- if signaling works but no audio/video passes, the problem is usually TURN, NAT traversal, or blocked UDP ports
+
+### Uploads fail for avatars, attachments, or server icons
+
+Symptoms:
+
+- upload requests fail
+- storage returns bucket not found
+- storage returns 403 or permission errors
+
+Checks:
+
+1. Verify the required storage buckets exist.
+2. Verify their names exactly match what the app expects.
+3. Verify bucket visibility and storage policies match your schema logic.
+4. Verify your SQL and storage policy bootstrap completed successfully.
+5. Verify `VITE_SUPABASE_URL` points to the correct public Supabase endpoint.
+
+Typical buckets:
+
+- `avatars`
+- `attachments`
+- `server-icons`
+- `emojis` if enabled in your build
+
+### The app is stuck on “Connecting to server…”
+
+Symptoms:
+
+- the frontend loads
+- the app does not fully initialize
+- Socket.io or API requests fail repeatedly
+
+Checks:
+
+1. Verify the Drocsid backend process is running.
+2. Verify Nginx proxies the public app domain to the local backend correctly.
+3. Verify `VITE_BACKEND_URL` matches the expected public backend URL.
+4. Check browser network requests and console errors.
+5. Check server logs for crashes, CORS issues, or rejected hosts.
+
+### Push notifications are not delivered
+
+Symptoms:
+
+- users do not receive push notifications
+- Expo device tokens or web push subscriptions are missing
+- notifications fail server-side
+
+Checks:
+
+1. Verify users granted notification permission on the device or browser.
+2. Verify the relevant Expo device token or web push subscription is stored correctly.
+3. Verify the backend has outbound internet access if a relay service is used.
+4. Verify your push-related environment variables are configured on the server.
+5. Check backend logs when a notification should have been sent.
+
+### Supabase works partly but realtime seems broken
+
+Symptoms:
+
+- data is inserted correctly
+- refresh shows the new state
+- but live updates do not appear immediately
+
+Checks:
+
+1. Verify the realtime service is healthy in the Supabase stack.
+2. Verify the relevant tables are included in realtime publication if your schema requires that setup.
+3. Check browser console and websocket/network logs.
+4. Verify the public Supabase endpoint is the one used by the client.
+
+## Security notes
+
+Before making the repository public, verify that you do not commit:
+
+- real `SUPABASE_SERVICE_ROLE_KEY`
+- real JWT secrets
+- real `LIVEKIT_API_SECRET`
+- real Google OAuth secrets
+- TLS private keys
+- production `.env` files
+
+Only placeholders should appear in `.env.example`.
+
+## Current LiveKit version status
+
+The observed host currently runs:
+
+- `livekit/livekit-server:latest`
+
+That means the deployment is not yet pinned to an explicit LiveKit image tag. For a production-grade open-source release, it is better to replace `latest` with a fixed version once you choose the release you want to standardize on.
+
+## Contributing
+
+Contributions, bug reports, and suggestions are welcome.
+
+If you change infrastructure assumptions, keep `README.md`, `INFRASTRUCTURE_OVERVIEW.md`, `SUPABASE_SELF_HOSTED.md`, `LIVEKIT_SELF_HOSTED.md`, and `.env.example` synchronized.
+
+## License
+
+Add your project license here before publishing the repository publicly.

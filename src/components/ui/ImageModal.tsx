@@ -42,6 +42,29 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
 
   const currentImage = images[currentIndex];
 
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!currentImage) return;
+    const fileName = currentImage.name || currentImage.url.split('/').pop()?.split('?')[0] || 'image.png';
+    try {
+      const response = await fetch(currentImage.url);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.warn('Direct blob download failed, opening in new tab/window as fallback:', err);
+      window.open(currentImage.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   if (!currentImage) return null;
 
   return (
@@ -55,17 +78,15 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
           <span className="ml-3 text-zinc-400 font-normal">({currentIndex + 1} / {images.length})</span>
         </div>
         <div className="flex items-center gap-4">
-          <a
-            href={currentImage.url}
-            download={currentImage.name || 'image'}
-            onClick={(e) => e.stopPropagation()}
-            className="p-2 text-zinc-400 hover:text-white transition-colors"
+          <button
+            onClick={handleDownload}
+            className="p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
             title="Télécharger"
           >
             <Download className="w-5 h-5" />
-          </a>
+          </button>
           <button 
-            className="p-2 text-zinc-400 hover:text-white transition-colors"
+            className="p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
             onClick={onClose}
             title="Fermer"
           >

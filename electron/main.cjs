@@ -105,6 +105,13 @@ function createWindow() {
       const urlObj = new URL(url);
       const finalUrl = `${startUrl}${urlObj.search}${urlObj.hash}`;
       mainWindow.loadURL(finalUrl);
+      return;
+    }
+
+    // Safety fallback: Prevent navigating mainWindow away to raw external media/archive files
+    if (url.match(/\.(png|jpg|jpeg|gif|webp|svg|mp4|webm|mp3|wav|ogg|pdf|zip|exe|tar|gz)$/i)) {
+      event.preventDefault();
+      shell.openExternal(url);
     }
   };
 
