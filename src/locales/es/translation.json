@@ -686,12 +686,20 @@
     "downloadButton": "Descargar",
     "windowsBtn": "Descargar para Windows",
     "windowsVersion": "Windows 10/11 - 64 bits",
+    "macOSBtn": "Descargar para macOS",
+    "macOSVersion": "macOS 11+ - DMG Universal",
     "linuxBtn": "Descargar para Linux",
     "linuxVersion": "Linux - AppImage (zip)",
+    "androidBtn": "Descargar para Android",
+    "androidVersion": "Android 8.0+ - APK nativo",
     "otherPlatforms": "Otras plataformas",
     "macOSMobile": "Nuestra versión web es totalmente adaptable y funciona perfectamente para macOS y dispositivos móviles.",
     "webVersion": "Acceder por la Web",
     "webVersionDesc": "Mantente conectado en cualquier navegador sin instalación.",
+    "windowsAudio": {
+      "title": "Compartir pantalla supercargado en Windows",
+      "desc": "Con nuestros componentes nativos integrados (WindowsPIDResolver y ApplicationLoopback), la aplicación de Windows captura directamente el sonido de la aplicación compartida. ¡Sonido de alta fidelidad!"
+    },
     "features": {
       "title": "¿Por qué descargar la aplicación?",
       "voice": "Llamadas de voz y video optimizadas con baja latencia.",

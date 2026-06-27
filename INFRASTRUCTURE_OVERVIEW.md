@@ -59,6 +59,8 @@ Drocsid currently has three client surfaces in the public documentation model:
 
 The infrastructure described here is shared backend infrastructure. The mobile app is not described as a Capacitor target and is treated as a separate project consuming the same backend platform.
 
+For Windows desktop streaming, Drocsid can also rely on native helper executables to improve per-application audio capture during screen/application sharing. This is a client-side Windows capability, not a server infrastructure dependency.
+
 ## Reverse proxy model
 
 Nginx is the recommended public edge entrypoint.
@@ -116,6 +118,17 @@ Reference public token endpoint:
 Reference local token service:
 
 - `127.0.0.1:3001`
+
+## Windows desktop stream audio note
+
+For Windows desktop application streaming, Drocsid can use two helper executables stored in `/bin`:
+
+- `WindowsPIDResolver.exe`
+- `ApplicationLoopback.exe`
+
+These helpers are used to resolve the exact PID of the selected application and capture that application’s audio so it can be injected into the stream sent through LiveKit.
+
+This improves viewer experience across platforms, but it remains a Windows desktop client feature. It does not change the server-side LiveKit deployment requirements.
 
 ## Storage expectations
 

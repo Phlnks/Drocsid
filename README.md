@@ -234,6 +234,39 @@ Drocsid’s public-facing documentation should distinguish clearly between the t
 
 That means this repository’s infrastructure docs describe the shared backend services used by all clients, but the mobile app has its own project, build pipeline, and release process.
 
+## Windows stream audio support
+
+Drocsid includes two native Windows helper executables in the `/bin` directory to improve application streaming from the Windows desktop app.
+
+These helpers are used only on Windows and are specifically intended to make application sharing behave better when a user streams a selected app window from the Electron desktop client.
+
+### Included binaries
+
+- `WindowsPIDResolver.exe` identifies and returns the exact PID of the application selected in the Drocsid screen sharing UI on Windows.
+- `ApplicationLoopback.exe` receives that PID, captures the audio output of the target process, and forwards it into the stream pipeline.
+
+### How it works
+
+When a Windows user shares a specific application, Drocsid resolves the real process ID of the selected target and passes it to the audio loopback helper.
+
+The loopback helper then captures the audio of that target application and injects it into the stream sent through LiveKit. This makes the stream include the sound of the shared application instead of being limited to video only.
+
+### Result for viewers
+
+When the streamer uses the Windows desktop app, viewers on any supported platform can watch the stream with audio, including:
+
+- Windows
+- Linux
+- macOS
+- Web browser
+- Mobile clients
+
+### Important limitation
+
+Application audio streaming through these helpers is currently available only when the person sharing the stream uses the Windows desktop app.
+
+If the streamer uses another platform, viewers may still receive the video stream, but the stream can remain silent because the Windows-specific process audio capture path is not available.
+
 ## Super admin model
 
 Drocsid includes a super admin concept that depends on both backend/database logic and frontend expectations.
@@ -324,6 +357,24 @@ Important distinction:
 - if token generation fails, the problem is usually backend config or reverse proxying
 - if signaling works but no audio/video passes, the problem is usually TURN, NAT traversal, or blocked UDP ports
 
+### Windows stream has video but no application audio
+
+Symptoms:
+
+- a Windows desktop user can start a stream
+- viewers receive the video correctly
+- but the streamed application sound is missing
+
+Checks:
+
+1. Verify the stream is being started from the Windows desktop app, not from another platform.
+2. Verify the helper executables are present in the `/bin` directory:
+   - `WindowsPIDResolver.exe`
+   - `ApplicationLoopback.exe`
+3. Verify the selected target is an application window and not a capture mode that bypasses the process-based audio path.
+4. Check the desktop app logs or process launch behavior to confirm both helper executables are being invoked correctly.
+5. If viewers are on other platforms, remember that playback support is cross-platform, but the audio capture path itself depends on the Windows streamer.
+
 ### Uploads fail for avatars, attachments, or server icons
 
 Symptoms:
@@ -347,7 +398,7 @@ Typical buckets:
 - `server-icons`
 - `emojis` if enabled in your build
 
-### The app is stuck on “Connecting to server…”
+### The app is stuck on “Connecting to server...” 
 
 Symptoms:
 

@@ -689,12 +689,20 @@
     "downloadButton": "Download",
     "windowsBtn": "Download for Windows",
     "windowsVersion": "Windows 10/11 - 64 bits",
+    "macOSBtn": "Download for macOS",
+    "macOSVersion": "macOS 11+ - Universal DMG",
     "linuxBtn": "Download for Linux",
     "linuxVersion": "Linux - AppImage (zip)",
+    "androidBtn": "Download for Android",
+    "androidVersion": "Android 8.0+ - Native APK",
     "otherPlatforms": "Other platforms",
     "macOSMobile": "Our web version is fully adaptive and works perfectly for macOS and mobile.",
     "webVersion": "Access on the Web",
     "webVersionDesc": "Stay connected on any browser without installation.",
+    "windowsAudio": {
+      "title": "Supercharged Screen Sharing on Windows",
+      "desc": "Using our native helpers (WindowsPIDResolver and ApplicationLoopback), the Windows app directly captures the audio of the shared application for your viewers. High fidelity stream sound!"
+    },
     "features": {
       "title": "Why download the app?",
       "voice": "Optimized low-latency voice and video calls.",
