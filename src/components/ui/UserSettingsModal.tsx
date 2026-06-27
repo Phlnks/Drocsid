@@ -2075,7 +2075,7 @@ export default function UserSettingsModal({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
                       <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
-                        {t("settings.about.architecture", "Architecture")}
+                        {t("settings.about_architecture", "Architecture")}
                       </span>
                       <span className="text-sm font-medium text-white block">
                         React &amp; Electron
@@ -2083,7 +2083,7 @@ export default function UserSettingsModal({
                     </div>
                     <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
                       <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
-                        {t("settings.about.database", "Base de données")}
+                        {t("settings.about_database", "Base de données")}
                       </span>
                       <span className="text-sm font-medium text-white block">
                         Supabase Realtime
@@ -2091,7 +2091,7 @@ export default function UserSettingsModal({
                     </div>
                     <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
                       <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
-                        {t("settings.about.voice", "Voix & Vidéo")}
+                        {t("settings.about_voice", "Voix & Vidéo")}
                       </span>
                       <span className="text-sm font-medium text-white block">
                         LiveKit WebRTC
@@ -2099,10 +2099,10 @@ export default function UserSettingsModal({
                     </div>
                     <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
                       <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
-                        {t("settings.about.security", "Sécurité")}
+                        {t("settings.about_security", "Sécurité")}
                       </span>
                       <span className="text-sm font-medium text-white block">
-                        Chiffrement de bout en bout
+                        {t("settings.about_security_desc", "Chiffrement de bout en bout")}
                       </span>
                     </div>
                   </div>

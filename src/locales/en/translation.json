@@ -205,7 +205,14 @@
       "overlayDesc": "Toggles the application overlay.",
       "pressToRecord": "Press a key to record",
       "escToCancel": "Esc to cancel"
-    }
+    },
+    "about": "About",
+    "version": "Version",
+    "about_architecture": "Architecture",
+    "about_database": "Database",
+    "about_voice": "Voice & Video",
+    "about_security": "Security",
+    "about_security_desc": "End-to-end encryption"
   },
   "polls": {
     "singleChoice": "SINGLE CHOICE",

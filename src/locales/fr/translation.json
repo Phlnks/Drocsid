@@ -205,7 +205,14 @@
       "overlayDesc": "Affiche ou cache l'overlay de l'application.",
       "pressToRecord": "Appuyez sur une touche",
       "escToCancel": "Esc pour annuler"
-    }
+    },
+    "about": "À propos",
+    "version": "Version",
+    "about_architecture": "Architecture",
+    "about_database": "Base de données",
+    "about_voice": "Voix & Vidéo",
+    "about_security": "Sécurité",
+    "about_security_desc": "Chiffrement de bout en bout"
   },
   "polls": {
     "singleChoice": "CHOIX UNIQUE",

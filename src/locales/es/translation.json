@@ -205,7 +205,14 @@
       "overlayDesc": "Activa o desactiva la superposición de la aplicación.",
       "pressToRecord": "Pulsa una tecla para grabar",
       "escToCancel": "Esc para cancelar"
-    }
+    },
+    "about": "Acerca de",
+    "version": "Versión",
+    "about_architecture": "Arquitectura",
+    "about_database": "Base de datos",
+    "about_voice": "Voz y video",
+    "about_security": "Seguridad",
+    "about_security_desc": "Cifrado de extremo a extremo"
   },
   "polls": {
     "singleChoice": "ELECCIÓN ÚNICA",
