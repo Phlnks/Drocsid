@@ -2060,23 +2060,50 @@ export default function UserSettingsModal({
                   {t("settings.about", "À propos")}
                 </h2>
                 <div className="space-y-6">
-                  <div className="bg-zinc-900 rounded-lg p-6 flex flex-col items-center border border-zinc-700/50">
+                  <div className="bg-zinc-900 rounded-lg p-8 flex flex-col items-center border border-zinc-700/50 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 via-indigo-500 to-blue-500"></div>
                     <img
-                      src="/logo-192.png"
+                      src="/logo-big.png"
                       alt="Drocsid Logo"
-                      className="w-24 h-24 object-contain mb-4"
+                      className="w-72 md:w-80 h-auto object-contain my-4 transition-transform duration-300 hover:scale-102"
                     />
-                    <h3 className="text-2xl font-bold text-white mb-1">
-                      Drocsid
-                    </h3>
-                    <p className="text-zinc-400 mb-4">
+                    <div className="mt-4 px-4 py-1.5 bg-zinc-800 rounded-full border border-zinc-700 text-xs font-semibold text-zinc-300 tracking-wider uppercase shadow-inner">
                       {t("settings.version", "Version")} {APP_VERSION}
-                    </p>
-                    <div className="text-sm text-zinc-500 text-center max-w-sm">
-                      {t(
-                        "settings.aboutDescription",
-                        "Une plateforme de communication fluide, sécurisée et hautement personnalisable."
-                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
+                      <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+                        {t("settings.about.architecture", "Architecture")}
+                      </span>
+                      <span className="text-sm font-medium text-white block">
+                        React &amp; Electron
+                      </span>
+                    </div>
+                    <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
+                      <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+                        {t("settings.about.database", "Base de données")}
+                      </span>
+                      <span className="text-sm font-medium text-white block">
+                        Supabase Realtime
+                      </span>
+                    </div>
+                    <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
+                      <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+                        {t("settings.about.voice", "Voix & Vidéo")}
+                      </span>
+                      <span className="text-sm font-medium text-white block">
+                        LiveKit WebRTC
+                      </span>
+                    </div>
+                    <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-800/80 flex flex-col justify-between">
+                      <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-1">
+                        {t("settings.about.security", "Sécurité")}
+                      </span>
+                      <span className="text-sm font-medium text-white block">
+                        Chiffrement de bout en bout
+                      </span>
                     </div>
                   </div>
                 </div>
