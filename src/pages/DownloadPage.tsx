@@ -247,10 +247,10 @@ export default function DownloadPage() {
               <div className="flex-1 text-center md:text-left">
                 <h4 className="text-xl font-bold text-white mb-2 flex items-center justify-center md:justify-start gap-2">
                   <span className="px-2 py-0.5 bg-blue-500/15 border border-blue-500/30 text-[10px] uppercase tracking-wider font-extrabold text-blue-400 rounded-md">Windows Exclusive</span>
-                  {t('windowsAudio.title')}
+                  {t('download.windowsAudio.title')}
                 </h4>
                 <p className="text-zinc-400 text-sm leading-relaxed">
-                  {t('windowsAudio.desc')}
+                  {t('download.windowsAudio.desc')}
                 </p>
               </div>
             </div>
