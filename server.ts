@@ -243,6 +243,35 @@ async function startServer() {
     next();
   });
 
+  app.get("/api/download", async (req, res) => {
+    const { url, name } = req.query;
+    if (!url || typeof url !== "string" || !url.startsWith("http")) {
+      return res.status(400).send("Invalid URL");
+    }
+    const fileName = typeof name === "string" ? name : url.split("/").pop()?.split("?")[0] || "download";
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        return res.status(response.status).send(`Failed to fetch file: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "application/octet-stream";
+      res.setHeader("Content-Type", contentType);
+
+      const safeFileName = fileName.replace(/"/g, '\\"');
+      const encodedFileName = encodeURIComponent(fileName);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return res.send(buffer);
+    } catch (err: any) {
+      console.error("[Download API Proxy] Error downloading file:", err);
+      return res.status(500).send(`Download failed: ${err.message}`);
+    }
+  });
+
   app.post("/api/livekit/token", express.json({ limit: "50mb" }), async (req, res) => {
     const { roomName, participantIdentity, participantName, userProfile } = req.body;
 

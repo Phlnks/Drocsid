@@ -63,7 +63,8 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
     }
 
     try {
-      const response = await fetch(currentImage.url);
+      const downloadUrl = `/api/download?url=${encodeURIComponent(currentImage.url)}&name=${encodeURIComponent(fileName)}`;
+      const response = await fetch(downloadUrl);
       if (!response.ok) throw new Error('Network response was not ok');
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
@@ -75,8 +76,17 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      console.warn('Direct blob download failed, opening in new tab/window as fallback:', err);
-      window.open(currentImage.url, '_blank', 'noopener,noreferrer');
+      console.warn('Proxy download failed, trying direct link trigger as fallback:', err);
+      try {
+        const link = document.createElement('a');
+        link.href = `/api/download?url=${encodeURIComponent(currentImage.url)}&name=${encodeURIComponent(fileName)}`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (fallbackErr) {
+        console.error('All download attempts failed:', fallbackErr);
+      }
     }
   };
 
