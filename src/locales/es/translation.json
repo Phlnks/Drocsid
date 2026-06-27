@@ -699,6 +699,16 @@
     "linuxVersion": "Linux - AppImage (zip)",
     "androidBtn": "Descargar para Android",
     "androidVersion": "Android 8.0+ - APK nativo",
+    "choosePlatform": "Selecciona tu plataforma a continuación",
+    "badge": {
+      "recommended": "Recomendado"
+    },
+    "tech": {
+      "audio": "Audio de compartición de aplicación nativo incluido",
+      "macos": "Optimizado para Apple Silicon e Intel",
+      "linux": "Ejecutable portátil sin instalación",
+      "android": "Notificaciones push y canales de voz"
+    },
     "otherPlatforms": "Otras plataformas",
     "macOSMobile": "Nuestra versión web es totalmente adaptable y funciona perfectamente para macOS y dispositivos móviles.",
     "webVersion": "Acceder por la Web",
