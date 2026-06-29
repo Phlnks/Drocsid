@@ -95,10 +95,11 @@ In Google Cloud Console:
 
 After Supabase is running:
 
-1. open Supabase Studio
-2. load the Drocsid SQL schema
-3. replace any default admin placeholder email before running the schema if your SQL bootstrap expects that step
-4. execute the schema
+1. Open Supabase Studio.
+2. Navigate to the **SQL Editor**.
+3. Load the contents of the `supabase.sql` schema file (located at the root of this project).
+4. Replace "admin@example.com" placeholder value in the `supabase.sql` by your email before running it.
+5. Run the entire script to execute and apply the schema (tables, foreign keys, functions, and real-time triggers) to your database.
 
 ## Storage buckets
 

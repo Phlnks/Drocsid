@@ -57,12 +57,6 @@ You can run LiveKit with host networking or explicit port mappings depending on 
 
 For Linux VPS deployments, host networking is often the simplest path for UDP-heavy WebRTC traffic, but explicit port publishing can also work if your environment requires it.
 
-The currently observed deployment uses:
-
-- `livekit/livekit-server:latest`
-
-For a public open-source deployment guide, replacing `latest` with a fixed image tag is recommended when you decide which release to standardize on.
-
 ## Reverse proxy model
 
 Nginx should expose:
