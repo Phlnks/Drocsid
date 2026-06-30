@@ -125,7 +125,7 @@ function setupRealtimePushNotifications() {
          console.log("[push realtime] notification intercepted", newNotif.id);
          if (!newNotif || !newNotif.user_id) return;
          
-         const payloadData = typeof newNotif.data === 'string' ? JSON.parse(newNotif.data) : newNotif.data;
+         const payloadData = (typeof newNotif.data === 'string' ? JSON.parse(newNotif.data) : newNotif.data) || {};
 
          try {
             let authorName = payloadData.author_name || 'Quelqu\'un';

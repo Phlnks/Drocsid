@@ -34,4 +34,3 @@ jobs:
         with:
           name: drocsid-linux
           path: dist-electron/*.AppImage
-          retention-days: 1
