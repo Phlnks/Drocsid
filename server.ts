@@ -34,7 +34,15 @@ const PUSH_ICON_URL = process.env.PUSH_ICON_URL || (APP_URL ? `${APP_URL.replace
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false
+  },
+  realtime: {
+    timeout: 60000 // 60 secondes pour éviter les TIMED_OUT sur serveurs lents/self-hosted
+  }
+});
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY is perfectly missing in environment variables. Backend will use the anon key which might fail RLS policies for sending push notifications.");
@@ -57,6 +65,8 @@ async function sendPushToUser(
         sound: 'default',
         title: payload.title,
         body: payload.body,
+        priority: 'high',
+        channelId: 'default',
         data: { url: payload.url }
       }));
       
@@ -114,86 +124,102 @@ async function requireSuperAdmin(req: express.Request, res: express.Response) {
 }
 
 function setupRealtimePushNotifications() {
-  const pushChannel = supabaseAdmin.channel('backend-push-notifications');
+  let pushChannel = supabaseAdmin.channel('backend-push-notifications');
 
-  pushChannel
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications' },
-      async (payload) => {
-         const newNotif = payload.new;
-         console.log("[push realtime] notification intercepted", newNotif.id);
-         if (!newNotif || !newNotif.user_id) return;
-         
-         const payloadData = (typeof newNotif.data === 'string' ? JSON.parse(newNotif.data) : newNotif.data) || {};
+  function subscribeChannel() {
+    pushChannel
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        async (payload) => {
+           const newNotif = payload.new;
+           console.log("[push realtime] notification intercepted", newNotif.id);
+           if (!newNotif || !newNotif.user_id) return;
+           
+           const payloadData = (typeof newNotif.data === 'string' ? JSON.parse(newNotif.data) : newNotif.data) || {};
 
-         try {
-            let authorName = payloadData.author_name || 'Quelqu\'un';
-            if (payloadData.author_id) {
-               const { data: profile } = await supabaseAdmin.from('profiles').select('username, display_name').eq('id', payloadData.author_id).maybeSingle();
-               if (profile) {
-                  authorName = profile.display_name || profile.username || authorName;
-               }
-            }
+           try {
+              let authorName = payloadData.author_name || 'Quelqu\'un';
+              if (payloadData.author_id) {
+                 const { data: profile } = await supabaseAdmin.from('profiles').select('username, display_name').eq('id', payloadData.author_id).maybeSingle();
+                 if (profile) {
+                    authorName = profile.display_name || profile.username || authorName;
+                 }
+              }
 
-            let title = "Nouvelle notification";
-            let body = "Vous avez une nouvelle notification.";
-            let url = "/";
-            
-            if (newNotif.type === 'dm') {
-                title = `Message de ${authorName}`;
-                body = payloadData.content || "Vous avez reçu un message direct.";
-                url = `/channels/@me/${payloadData.dm_id || payloadData.channel_id}`;
-            } else if (newNotif.type === 'mention') {
-                title = `Mention de ${authorName}`;
-                body = payloadData.content || "Vous avez été mentionné.";
-                url = `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
-            } else if (newNotif.type === 'reply') {
-                title = `Réponse de ${authorName}`;
-                body = payloadData.content || "Quelqu'un a répondu à votre message.";
-                url = payloadData.is_dm 
-                   ? `/channels/@me/${payloadData.channel_id}`
-                   : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
-            } else if (newNotif.type === 'friend_request') {
-                title = `Demande d'ami`;
-                body = `${authorName} vous a envoyé une demande d'ami.`;
-                url = `/channels/@me`;
-            } else if (newNotif.type === 'friend_accept') {
-                title = `Demande d'ami acceptée`;
-                body = `${authorName} a accepté votre demande d'ami.`;
-                url = `/channels/@me`;
-            } else if (newNotif.type === 'reaction') {
-                title = `Réaction de ${authorName}`;
-                body = `A réagi ${payloadData.content} à votre message.`;
-                url = payloadData.is_dm ? `/channels/@me/${payloadData.channel_id}` : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
-            } else if (newNotif.type === 'REPORT_UPDATE') {
-                title = `Mise à jour de signalement`;
-                body = newNotif.message || `Votre signalement a été mis à jour.`;
-                url = `/channels/@me`;
-            }
-            
-            await sendPushToUser(newNotif.user_id, {
-                title,
-                body,
-                url,
-                icon: PUSH_ICON_URL
-            });
-            
-            await supabaseAdmin.from('notifications').update({ notified: true }).eq('id', newNotif.id);
-         } catch (err) {
-           console.error("Error processing notifications realtime event:", err);
+              let title = "Nouvelle notification";
+              let body = "Vous avez une nouvelle notification.";
+              let url = "/";
+              
+              if (newNotif.type === 'dm') {
+                  title = `Message de ${authorName}`;
+                  body = payloadData.content || "Vous avez reçu un message direct.";
+                  url = `/channels/@me/${payloadData.dm_id || payloadData.channel_id}`;
+              } else if (newNotif.type === 'mention') {
+                  title = `Mention de ${authorName}`;
+                  body = payloadData.content || "Vous avez été mentionné.";
+                  url = `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+              } else if (newNotif.type === 'reply') {
+                  title = `Réponse de ${authorName}`;
+                  body = payloadData.content || "Quelqu'un a répondu à votre message.";
+                  url = payloadData.is_dm 
+                     ? `/channels/@me/${payloadData.channel_id}`
+                     : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+              } else if (newNotif.type === 'friend_request') {
+                  title = `Demande d'ami`;
+                  body = `${authorName} vous a envoyé une demande d'ami.`;
+                  url = `/channels/@me`;
+              } else if (newNotif.type === 'friend_accept') {
+                  title = `Demande d'ami acceptée`;
+                  body = `${authorName} a accepté votre demande d'ami.`;
+                  url = `/channels/@me`;
+              } else if (newNotif.type === 'reaction') {
+                  title = `Réaction de ${authorName}`;
+                  body = `A réagi ${payloadData.content} à votre message.`;
+                  url = payloadData.is_dm ? `/channels/@me/${payloadData.channel_id}` : `/channels/${payloadData.server_id}/${payloadData.channel_id}`;
+              } else if (newNotif.type === 'REPORT_UPDATE') {
+                  title = `Mise à jour de signalement`;
+                  body = newNotif.message || `Votre signalement a été mis à jour.`;
+                  url = `/channels/@me`;
+              }
+              
+              await sendPushToUser(newNotif.user_id, {
+                  title,
+                  body,
+                  url,
+                  icon: PUSH_ICON_URL
+              });
+              
+              await supabaseAdmin.from('notifications').update({ notified: true }).eq('id', newNotif.id);
+           } catch (err) {
+             console.error("Error processing notifications realtime event:", err);
+           }
+        }
+      )
+      .subscribe((status, err) => {
+         console.log('[push] backend realtime notifications listener status:', status);
+         if (err) {
+           console.error('[push] backend realtime notifications listener error:', err);
          }
-      }
-    )
-    .subscribe((status, err) => {
-       console.log('[push] backend realtime notifications listener status:', status);
-       if (err) {
-         console.error('[push] backend realtime notifications listener error:', err);
-       }
-       if (status === 'SUBSCRIBED') {
-          console.log('[push] backend realtime notifications listener successfully subscribed.');
-       }
-    });
+         if (status === 'SUBSCRIBED') {
+            console.log('[push] backend realtime notifications listener successfully subscribed.');
+         } else if (status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.log('[push] backend realtime channel closed or timed out. Re-subscribing in 5 seconds...');
+            setTimeout(() => {
+               supabaseAdmin.removeChannel(pushChannel).then(() => {
+                  pushChannel = supabaseAdmin.channel('backend-push-notifications');
+                  subscribeChannel();
+               }).catch((removeErr) => {
+                  console.error('[push] Error removing channel during reconnect:', removeErr);
+                  pushChannel = supabaseAdmin.channel('backend-push-notifications');
+                  subscribeChannel();
+               });
+            }, 5000);
+         }
+      });
+  }
+
+  subscribeChannel();
 }
 
 async function startServer() {
@@ -890,6 +916,8 @@ async function startServer() {
         sound: 'default',
         title: "Test de push API",
         body: "Corps du test push",
+        priority: 'high',
+        channelId: 'default',
         data: { url: "/channels/@me" }
       }));
 
@@ -929,6 +957,8 @@ async function startServer() {
         sound: 'default',
         title: "Test Global Push API",
         body: "Ceci est un test envoyé à tous les terminaux enregistrés.",
+        priority: 'high',
+        channelId: 'default',
         data: { url: "/channels/@me" }
       }));
 
