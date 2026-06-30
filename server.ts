@@ -6,6 +6,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import WebSocket from "ws";
+
+// Polyfill global WebSocket for Node.js environment
+globalThis.WebSocket = WebSocket as any;
 import { AccessToken, WebhookReceiver } from "livekit-server-sdk";
 import cors from "cors";
 
@@ -40,7 +44,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     autoRefreshToken: false
   },
   realtime: {
-    timeout: 60000 // 60 secondes pour éviter les TIMED_OUT sur serveurs lents/self-hosted
+    timeout: 60000, // 60 secondes pour éviter les TIMED_OUT sur serveurs lents/self-hosted
+    websocket: WebSocket
   }
 });
 
@@ -203,18 +208,6 @@ function setupRealtimePushNotifications() {
          }
          if (status === 'SUBSCRIBED') {
             console.log('[push] backend realtime notifications listener successfully subscribed.');
-         } else if (status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.log('[push] backend realtime channel closed or timed out. Re-subscribing in 5 seconds...');
-            setTimeout(() => {
-               supabaseAdmin.removeChannel(pushChannel).then(() => {
-                  pushChannel = supabaseAdmin.channel('backend-push-notifications');
-                  subscribeChannel();
-               }).catch((removeErr) => {
-                  console.error('[push] Error removing channel during reconnect:', removeErr);
-                  pushChannel = supabaseAdmin.channel('backend-push-notifications');
-                  subscribeChannel();
-               });
-            }, 5000);
          }
       });
   }
