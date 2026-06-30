@@ -418,7 +418,7 @@ export default function UserSettingsModal({
 
           <button
             onClick={() => setActiveTab("application")}
-            className={`hidden md:flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 md:gap-3 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
               activeTab === "application"
                 ? "bg-zinc-700/50 text-zinc-100"
                 : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300"
@@ -1510,132 +1510,241 @@ export default function UserSettingsModal({
                 </h2>
 
                 <div className="space-y-6">
-                  {/* Startup - Only show if Electron */}
-                  {!!(window as any).electron && (
-                    <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
-                      <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
-                        {t("settings.applicationSettings.windowStartup")}
-                      </h3>
+                  {!(window as any).electron ? (
+                    <div className="space-y-6">
+                      {/* Premium Mobile-Optimized Brand Download Card */}
+                      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900/40 via-purple-900/20 to-zinc-900/50 p-6 sm:p-8 rounded-2xl border border-indigo-500/30 shadow-xl shadow-indigo-950/20 flex flex-col items-center text-center gap-6">
+                        {/* Background glowing gradients */}
+                        <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-                      <label className="flex items-center justify-between cursor-pointer group">
-                        <div className="flex-1 pr-4">
-                          <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
-                            {t("settings.applicationSettings.launchAtStartup")}
+                        {/* Central Icon container */}
+                        <div className="relative w-16 h-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 shadow-inner">
+                          <div className="absolute inset-0 bg-indigo-500/10 rounded-2xl animate-pulse"></div>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-indigo-400 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </div>
+
+                        {/* Text Content */}
+                        <div className="max-w-sm space-y-2">
+                          <h3 className="text-xl font-extrabold text-white tracking-tight sm:text-2xl">
+                            {t("download.title")}
+                          </h3>
+                          <p className="text-sm text-zinc-300 leading-relaxed">
+                            {t("download.subtitle")}
+                          </p>
+                        </div>
+
+                        {/* Features list */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md text-left text-xs text-zinc-400 mt-2">
+                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span>{t("download.tech.android") || "Notifications Push & Salons Vocaux"}</span>
                           </div>
-                          <div className="text-xs text-zinc-400">
-                            {t(
-                              "settings.applicationSettings.launchAtStartupDesc"
-                            )}
+                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span>{t("download.tech.audio") || "Audio de partage d'écran natif"}</span>
+                          </div>
+                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
+                            <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span>
+                            <span>Plus fluide & rapide sur mobile</span>
+                          </div>
+                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
+                            <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span>
+                            <span>Intégration système complète</span>
                           </div>
                         </div>
-                        <div
-                          className={`w-10 h-6 shrink-0 rounded-full transition-colors relative ${
-                            appSettings.launchAtStartup
-                              ? "bg-emerald-500"
-                              : "bg-zinc-600"
-                          }`}
+
+                        {/* Highly Styled CTA Button */}
+                        <button
+                          onClick={() => window.open("/download", "_blank")}
+                          className="w-full max-w-xs bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-indigo-600/30 hover:shadow-indigo-500/50 flex items-center justify-center gap-2 group transform active:scale-95"
                         >
-                          <input
-                            type="checkbox"
-                            className="sr-only"
-                            checked={appSettings.launchAtStartup}
-                            onChange={(e) =>
-                              setAppSettings({
-                                launchAtStartup: e.target.checked,
-                              })
-                            }
-                          />
-                          <div
-                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                              appSettings.launchAtStartup ? "translate-x-4" : ""
-                            }`}
-                          />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 transition-transform group-hover:translate-y-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          <span>{t("download.downloadButton")}</span>
+                        </button>
+                      </div>
+
+                      {/* Clean date and time format settings underneath */}
+                      <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-700/50">
+                        <h4 className="text-xs font-bold text-zinc-400 mb-3 uppercase tracking-wider">
+                          {t("settings.applicationSettings.dateTimeFormat")}
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                              {t("settings.applicationSettings.dateFormat")}
+                            </label>
+                            <select
+                              className="w-full bg-zinc-800/80 text-zinc-200 border border-zinc-700 rounded-lg p-2 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              value={appSettings.dateFormat}
+                              onChange={(e) =>
+                                setAppSettings({
+                                  dateFormat: e.target.value as any,
+                                })
+                              }
+                            >
+                              <option value="dd/MM/yyyy">
+                                {t("settings.applicationSettings.example", {
+                                  value: "28/04/2026",
+                                })}
+                              </option>
+                              <option value="MM/dd/yyyy">
+                                {t("settings.applicationSettings.example", {
+                                  value: "04/28/2026",
+                                })}
+                              </option>
+                              <option value="yyyy-MM-dd">
+                                {t("settings.applicationSettings.example", {
+                                  value: "2026-04-28",
+                                })}
+                              </option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
+                              {t("settings.applicationSettings.timeFormat")}
+                            </label>
+                            <select
+                              className="w-full bg-zinc-800/80 text-zinc-200 border border-zinc-700 rounded-lg p-2 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              value={appSettings.timeFormat}
+                              onChange={(e) =>
+                                setAppSettings({
+                                  timeFormat: e.target.value as any,
+                                })
+                              }
+                            >
+                              <option value="HH:mm">
+                                {t("settings.applicationSettings.example", {
+                                  value: "16:45",
+                                })}
+                              </option>
+                              <option value="hh:mm a">
+                                {t("settings.applicationSettings.example", {
+                                  value: "04:45 PM",
+                                })}
+                              </option>
+                            </select>
+                          </div>
                         </div>
-                      </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Startup - Only show if Electron */}
+                      <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                        <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
+                          {t("settings.applicationSettings.windowStartup")}
+                        </h3>
+
+                        <label className="flex items-center justify-between cursor-pointer group">
+                          <div className="flex-1 pr-4">
+                            <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
+                              {t("settings.applicationSettings.launchAtStartup")}
+                            </div>
+                            <div className="text-xs text-zinc-400">
+                              {t(
+                                "settings.applicationSettings.launchAtStartupDesc"
+                              )}
+                            </div>
+                          </div>
+                          <div
+                            className={`w-10 h-6 shrink-0 rounded-full transition-colors relative ${
+                              appSettings.launchAtStartup
+                                ? "bg-emerald-500"
+                                : "bg-zinc-600"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={appSettings.launchAtStartup}
+                              onChange={(e) =>
+                                setAppSettings({
+                                  launchAtStartup: e.target.checked,
+                                })
+                              }
+                            />
+                            <div
+                              className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                                appSettings.launchAtStartup ? "translate-x-4" : ""
+                              }`}
+                            />
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
+                        <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
+                          {t("settings.applicationSettings.dateTimeFormat")}
+                        </h3>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                              {t("settings.applicationSettings.dateFormat")}
+                            </label>
+                            <select
+                              className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
+                              value={appSettings.dateFormat}
+                              onChange={(e) =>
+                                setAppSettings({
+                                  dateFormat: e.target.value as any,
+                                })
+                              }
+                            >
+                              <option value="dd/MM/yyyy">
+                                {t("settings.applicationSettings.example", {
+                                  value: "28/04/2026",
+                                })}
+                              </option>
+                              <option value="MM/dd/yyyy">
+                                {t("settings.applicationSettings.example", {
+                                  value: "04/28/2026",
+                                })}
+                              </option>
+                              <option value="yyyy-MM-dd">
+                                {t("settings.applicationSettings.example", {
+                                  value: "2026-04-28",
+                                })}
+                              </option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                              {t("settings.applicationSettings.timeFormat")}
+                            </label>
+                            <select
+                              className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
+                              value={appSettings.timeFormat}
+                              onChange={(e) =>
+                                setAppSettings({
+                                  timeFormat: e.target.value as any,
+                                })
+                              }
+                            >
+                              <option value="HH:mm">
+                                {t("settings.applicationSettings.example", {
+                                  value: "16:45",
+                                })}
+                              </option>
+                              <option value="hh:mm a">
+                                {t("settings.applicationSettings.example", {
+                                  value: "04:45 PM",
+                                })}
+                              </option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
-
-                  <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
-                    <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
-                      {t("settings.applicationSettings.dateTimeFormat")}
-                    </h3>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          {t("settings.applicationSettings.dateFormat")}
-                        </label>
-                        <select
-                          className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
-                          value={appSettings.dateFormat}
-                          onChange={(e) =>
-                            setAppSettings({
-                              dateFormat: e.target.value as any,
-                            })
-                          }
-                        >
-                          <option value="dd/MM/yyyy">
-                            {t("settings.applicationSettings.example", {
-                              value: "28/04/2026",
-                            })}
-                          </option>
-                          <option value="MM/dd/yyyy">
-                            {t("settings.applicationSettings.example", {
-                              value: "04/28/2026",
-                            })}
-                          </option>
-                          <option value="yyyy-MM-dd">
-                            {t("settings.applicationSettings.example", {
-                              value: "2026-04-28",
-                            })}
-                          </option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          {t("settings.applicationSettings.timeFormat")}
-                        </label>
-                        <select
-                          className="w-full bg-zinc-800 text-zinc-100 border border-zinc-600 rounded p-2 outline-none focus:border-indigo-500"
-                          value={appSettings.timeFormat}
-                          onChange={(e) =>
-                            setAppSettings({
-                              timeFormat: e.target.value as any,
-                            })
-                          }
-                        >
-                          <option value="HH:mm">
-                            {t("settings.applicationSettings.example", {
-                              value: "16:45",
-                            })}
-                          </option>
-                          <option value="hh:mm a">
-                            {t("settings.applicationSettings.example", {
-                              value: "04:45 PM",
-                            })}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-indigo-600/10 p-5 rounded-xl border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-center sm:text-left">
-                      <h3 className="text-base font-bold text-indigo-100 mb-1">
-                        {t("download.title")}
-                      </h3>
-                      <p className="text-xs text-indigo-300/80 leading-relaxed">
-                        {t("download.subtitle")}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => window.open("/download", "_blank")}
-                      className="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 shrink-0"
-                    >
-                      {t("download.downloadButton")}
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
