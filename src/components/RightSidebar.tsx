@@ -196,7 +196,7 @@ export default function RightSidebar({
 
         // Fetch missing profiles for notifications
         const missingAuthorIds = parsedNotifs
-          .map((n) => n.author_id || n.data?.author_id)
+          .map((n) => n.author_id || n.data?.author_id || n.sender_id || n.data?.sender_id || n.data?.senderId || n.data?.authorId)
           .filter((id) => id && !globalProfiles[id]);
 
         if (missingAuthorIds.length > 0) {
@@ -302,13 +302,13 @@ export default function RightSidebar({
       data.channelId ||
       result.channel_id ||
       result.channelId;
-    const messageId = data.message_id || data.messageId || result.id;
+    const messageId = data.message_id || data.messageId || result.message_id || result.messageId;
 
-    if (result.type === "mention" || result.type === "channel") {
+    if (result.type === "mention" || result.type === "channel" || result.type === "reply" || result.type === "reaction" || (!result.type && !data.is_dm && channelId)) {
       if (serverId) setSelectedServerId(serverId);
       if (channelId) setSelectedChannelId(channelId);
       if (messageId) setHighlightedMessageId(messageId);
-    } else if (result.type === "dm") {
+    } else if (result.type === "dm" || data.is_dm) {
       setSelectedServerId(null);
       if (channelId) setSelectedDmId(channelId);
       if (messageId) setHighlightedMessageId(messageId);
@@ -587,6 +587,17 @@ export default function RightSidebar({
 
                     const isDM = isDm && !isReply && !isReaction && !isMention;
 
+                    const authorId = notif.author_id || notif.data?.author_id || notif.sender_id || notif.data?.sender_id || notif.data?.senderId || notif.data?.authorId;
+                    const resolvedName = globalProfiles[authorId]?.display_name ||
+                      globalProfiles[authorId]?.username ||
+                      notif.data?.author_name ||
+                      notif.author_name ||
+                      notif.data?.sender_name ||
+                      notif.sender_name ||
+                      notif.data?.authorName ||
+                      notif.data?.senderName ||
+                      t("common.user");
+
                     return (
                       <div
                         key={notif.id}
@@ -628,11 +639,7 @@ export default function RightSidebar({
                                   {t("notifications.mentionedBy")}
                                   <span className="font-medium text-zinc-300">
                                     {" "}
-                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
-                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
-                                      notif.data?.author_name ||
-                                      notif.author_name ||
-                                      t("common.user")}
+                                    {resolvedName}
                                   </span>
                                   {notif.data?.server_name && (
                                     <span className="text-[10px] text-zinc-500 block mt-0.5">
@@ -645,11 +652,7 @@ export default function RightSidebar({
                               {isReply && (
                                 <>
                                   <span className="font-medium text-emerald-400">
-                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
-                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
-                                      notif.data?.author_name ||
-                                      notif.author_name ||
-                                      t("common.user")}
+                                    {resolvedName}
                                   </span>{" "}
                                   a répondu
                                   {notif.data?.server_name && (
@@ -663,11 +666,7 @@ export default function RightSidebar({
                               {isReaction && (
                                 <>
                                   <span className="font-medium text-amber-400">
-                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
-                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
-                                      notif.data?.author_name ||
-                                      notif.author_name ||
-                                      t("common.user")}
+                                    {resolvedName}
                                   </span>{" "}
                                   a réagi
                                 </>
@@ -679,22 +678,14 @@ export default function RightSidebar({
                                   }).trim()}
                                   <span className="font-medium text-zinc-300">
                                     {" "}
-                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
-                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
-                                      notif.data?.author_name ||
-                                      notif.author_name ||
-                                      t("common.user")}
+                                    {resolvedName}
                                   </span>
                                 </>
                               )}
                               {isFriendRequest && (
                                 <>
                                   <span className="font-medium text-zinc-300">
-                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
-                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
-                                      notif.data?.author_name ||
-                                      notif.author_name ||
-                                      t("common.user")}{" "}
+                                    {resolvedName}{" "}
                                   </span>
                                   {t("friends.incomingRequest")}
                                 </>
@@ -702,11 +693,7 @@ export default function RightSidebar({
                               {isFriendAccept && (
                                 <>
                                   <span className="font-medium text-zinc-300">
-                                    {globalProfiles[notif.author_id || notif.data?.author_id]?.username ||
-                                      globalProfiles[notif.author_id || notif.data?.author_id]?.display_name ||
-                                      notif.data?.author_name ||
-                                      notif.author_name ||
-                                      t("common.user")}{" "}
+                                    {resolvedName}{" "}
                                   </span>
                                   {t("friends.notificationFriendAccepted")}
                                 </>
