@@ -303,14 +303,15 @@ export default function RightSidebar({
       result.channel_id ||
       result.channelId;
     const messageId = data.message_id || data.messageId || result.message_id || result.messageId;
+    const authorId = result.author_id || data.author_id || result.sender_id || data.sender_id || data.senderId || data.authorId;
 
     if (result.type === "mention" || result.type === "channel" || result.type === "reply" || result.type === "reaction" || (!result.type && !data.is_dm && serverId && channelId)) {
       if (serverId) setSelectedServerId(serverId);
       if (channelId) setSelectedChannelId(channelId);
       if (messageId) setHighlightedMessageId(messageId);
-    } else if (result.type === "dm" || data.is_dm || (!serverId && channelId)) {
+    } else if (result.type === "dm" || data.is_dm || (!serverId && (channelId || authorId))) {
       setSelectedServerId(null);
-      if (channelId) setSelectedDmId(channelId);
+      if (channelId || authorId) setSelectedDmId(channelId || authorId);
       if (messageId) setHighlightedMessageId(messageId);
     } else if (
       result.type === "friend" ||
