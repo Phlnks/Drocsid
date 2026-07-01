@@ -304,11 +304,11 @@ export default function RightSidebar({
       result.channelId;
     const messageId = data.message_id || data.messageId || result.message_id || result.messageId;
 
-    if (result.type === "mention" || result.type === "channel" || result.type === "reply" || result.type === "reaction" || (!result.type && !data.is_dm && channelId)) {
+    if (result.type === "mention" || result.type === "channel" || result.type === "reply" || result.type === "reaction" || (!result.type && !data.is_dm && serverId && channelId)) {
       if (serverId) setSelectedServerId(serverId);
       if (channelId) setSelectedChannelId(channelId);
       if (messageId) setHighlightedMessageId(messageId);
-    } else if (result.type === "dm" || data.is_dm) {
+    } else if (result.type === "dm" || data.is_dm || (!serverId && channelId)) {
       setSelectedServerId(null);
       if (channelId) setSelectedDmId(channelId);
       if (messageId) setHighlightedMessageId(messageId);
@@ -318,6 +318,13 @@ export default function RightSidebar({
       result.type === "friend_accept"
     ) {
       jumpToFriend();
+    } else {
+      if (serverId) setSelectedServerId(serverId);
+      if (channelId) {
+        if (!serverId) setSelectedDmId(channelId);
+        else setSelectedChannelId(channelId);
+      }
+      if (messageId) setHighlightedMessageId(messageId);
     }
 
     if (!result.read) {
@@ -575,17 +582,23 @@ export default function RightSidebar({
               {notifications.length > 0 ? (
                 <div className="space-y-3">
                   {notifications.map((notif) => {
+                    const typeLower = notif.type?.toLowerCase();
                     const isDm =
-                      notif.type === "dm" || notif.data?.is_dm === true;
+                      typeLower === "dm" || 
+                      typeLower === "message" ||
+                      notif.data?.is_dm === true ||
+                      (!notif.type && !notif.data?.server_id && !notif.data?.serverId);
                     const isMention =
-                      notif.type === "mention" || (!notif.type && !isDm);
-                    const isReply = notif.type === "reply";
-                    const isReaction = notif.type === "reaction";
-                    const isFriendRequest = notif.type === "friend_request";
-                    const isFriendAccept = notif.type === "friend_accept";
-                    const isReportUpdate = notif.type === "REPORT_UPDATE";
+                      typeLower === "mention" || (!notif.type && !isDm);
+                    const isReply = typeLower === "reply";
+                    const isReaction = typeLower === "reaction";
+                    const isFriendRequest = typeLower === "friend_request";
+                    const isFriendAccept = typeLower === "friend_accept";
+                    const isReportUpdate = typeLower === "report_update";
 
                     const isDM = isDm && !isReply && !isReaction && !isMention;
+
+                    const isUnhandled = !isDM && !isMention && !isReply && !isReaction && !isFriendRequest && !isFriendAccept && !isReportUpdate;
 
                     const authorId = notif.author_id || notif.data?.author_id || notif.sender_id || notif.data?.sender_id || notif.data?.senderId || notif.data?.authorId;
                     const resolvedName = globalProfiles[authorId]?.display_name ||
@@ -626,6 +639,9 @@ export default function RightSidebar({
                             )}
                             {isDM && (
                               <MessageSquare className="w-3 h-3 text-indigo-400" />
+                            )}
+                            {isUnhandled && (
+                              <Bell className="w-3 h-3 text-zinc-400" />
                             )}
                             {(isFriendRequest || isFriendAccept) && (
                               <Bell className="w-3 h-3 text-indigo-400" />
@@ -702,6 +718,14 @@ export default function RightSidebar({
                                 <span className="font-medium text-amber-400">
                                   Mise à jour de signalement
                                 </span>
+                              )}
+                              {isUnhandled && (
+                                <>
+                                  <span className="font-medium text-zinc-300">
+                                    {resolvedName}{" "}
+                                  </span>
+                                  {notif.type ? `(${notif.type})` : t("notifications.newNotification", { defaultValue: "Nouvelle notification" })}
+                                </>
                               )}
                             </span>
                           </div>
