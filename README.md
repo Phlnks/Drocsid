@@ -87,18 +87,6 @@ Before installing Drocsid, prepare:
 
 For production use, HTTPS is strongly recommended across the public stack because auth redirects, browser mic/camera access, secure cookies, and WebRTC signaling all behave more reliably in a secure context.
 
-## Installation order
-
-Recommended order:
-
-1. Configure DNS records
-2. Install Nginx and Certbot
-3. Deploy self-hosted Supabase
-4. Configure Google OAuth for Supabase auth
-5. Deploy LiveKit
-6. Deploy the Drocsid web/backend app
-7. Validate auth, uploads, realtime, and voice/video end to end
-
 ## Supabase setup
 
 Drocsid uses Supabase for PostgreSQL storage, authentication, realtime features, and storage buckets.
@@ -233,6 +221,88 @@ Drocsid’s public-facing documentation should distinguish clearly between the t
 - Mobile → separate React Native + Expo project
 
 That means this repository’s infrastructure docs describe the shared backend services used by all clients, but the mobile app has its own project, build pipeline, and release process.
+
+## Mobile push notifications
+
+Drocsid mobile uses React Native with Expo and relies on the Expo Push Service for smartphone push notifications. The mobile app is the device-side recipient, Expo is the relay layer, Apple APNs and Google FCM are the operating-system delivery providers, and the Drocsid backend decides when a notification should be sent.
+
+### Push architecture
+
+The end-to-end push flow involves four actors:
+
+- The smartphone app, which requests notification permission from the user
+- Apple APNs or Google FCM, which are the only services allowed to wake a device and display a push notification
+- Expo Push Service, which acts as the unified relay between your app ecosystem and the platform-specific push providers
+- The Drocsid backend and Supabase database, which store device tokens and trigger notifications when application events occur
+
+### Android and Firebase Console
+
+Android push notifications require a Firebase project because Expo ultimately relays Android notifications through Firebase Cloud Messaging. For Drocsid, the Android package name should match the mobile app package, for example `com.drocsid.app`.
+
+What to configure in Firebase Console:
+
+1. Create a Firebase project.
+2. Add an Android application to that project using the exact package name used by the mobile app.
+3. Download the `google-services.json` file.
+4. Place that file in the Expo mobile project and reference it from the Android config, typically through `app.json` or the project’s Expo configuration.
+5. Retrieve the Firebase Cloud Messaging Server Key if your Expo workflow requires it for Android push delivery.
+
+### Expo configuration
+
+Expo must be configured so it can generate and register push tokens correctly. The mobile app should:
+
+- request notification permission from the user
+- initialize push notification support with the correct Expo configuration
+- include the Android Firebase config through `google-services.json`
+- generate an `ExpoPushToken` for the device
+- send that token to the backend or to Supabase for storage
+
+For Android, the Expo mobile project must be aligned with the Firebase configuration so Expo can hand notifications off to FCM correctly. For iOS, Expo relays through APNs, so the corresponding Apple push configuration must also be valid in the mobile project.
+
+### Token lifecycle
+
+The mobile push flow works like this:
+
+1. The user opens the React Native app.
+2. The app requests push notification permission from the operating system.
+3. The app obtains a device-specific push identity through the native platform flow and Expo returns an `ExpoPushToken`.
+4. The mobile app sends that token to your backend or directly to Supabase.
+5. The token is stored in the `expo_push_tokens` table and linked to the authenticated user.
+6. When an event occurs, such as a direct message or mention, the backend loads the recipient’s Expo push tokens from Supabase.
+7. The backend sends the notification payload to `https://exp.host/--/api/v2/push/send`.
+8. Expo relays the notification to APNs or FCM, which deliver it to the device.
+
+### What must be in place
+
+For mobile push notifications to work end to end, you need the following:
+
+- A React Native + Expo mobile app build that requests notification permission correctly
+- Logic in the mobile app to retrieve an `ExpoPushToken` and send it to your backend or database
+- A Supabase table such as `expo_push_tokens` that stores device tokens per user
+- Backend logic that reacts to events and sends push payloads to the Expo Push API
+- Outbound internet access from the backend to `https://exp.host/--/api/v2/push/send`
+- Valid platform-side push configuration in the mobile project for Android and iOS, because Expo ultimately relays through FCM and APNs
+
+### Backend expectations
+
+The backend is responsible for deciding when to notify users. A typical flow is:
+
+- detect an event such as a DM, mention, or reply
+- load all Expo push tokens associated with the target user
+- send a title, body, and any required metadata to the Expo Push API
+- handle delivery responses, invalid tokens, or retry logic if needed
+
+### Troubleshooting focus
+
+If mobile push notifications do not work, check these points first:
+
+- the user granted notification permission on the device
+- the app successfully generated an `ExpoPushToken`
+- the token was saved correctly in `expo_push_tokens`
+- the backend can reach the Expo Push API over the public internet
+- the mobile project’s Android and iOS push configuration is valid
+
+This README documents the server-side and integration expectations. The exact native mobile build configuration remains part of the separate React Native + Expo mobile project.
 
 ## Windows stream audio support
 
@@ -398,7 +468,7 @@ Typical buckets:
 - `server-icons`
 - `emojis` if enabled in your build
 
-### The app is stuck on “Connecting to server...” 
+### The app is stuck on “Connecting to server...”
 
 Symptoms:
 
