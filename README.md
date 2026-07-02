@@ -1,4 +1,4 @@
-# Drocsid
+<img src="public/logo-big.png" alt="Drocsid Logo" />
 
 Drocsid is a self-hostable real-time communication platform for communities, teams, and private groups. It combines text chat, voice, video, screen sharing, permissions, notifications, and multi-platform clients on top of a stack built around React, Node.js, Supabase, Socket.io, and LiveKit.
 
@@ -147,7 +147,7 @@ See `LIVEKIT_SELF_HOSTED.md` for the detailed installation guide.
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/your-org/drocsid.git
+git clone https://github.com/dr0csid/drocsid.git
 cd drocsid
 npm install
 ```
@@ -514,34 +514,3 @@ Checks:
 2. Verify the relevant tables are included in realtime publication if your schema requires that setup.
 3. Check browser console and websocket/network logs.
 4. Verify the public Supabase endpoint is the one used by the client.
-
-## Security notes
-
-Before making the repository public, verify that you do not commit:
-
-- real `SUPABASE_SERVICE_ROLE_KEY`
-- real JWT secrets
-- real `LIVEKIT_API_SECRET`
-- real Google OAuth secrets
-- TLS private keys
-- production `.env` files
-
-Only placeholders should appear in `.env.example`.
-
-## Current LiveKit version status
-
-The observed host currently runs:
-
-- `livekit/livekit-server:latest`
-
-That means the deployment is not yet pinned to an explicit LiveKit image tag. For a production-grade open-source release, it is better to replace `latest` with a fixed version once you choose the release you want to standardize on.
-
-## Contributing
-
-Contributions, bug reports, and suggestions are welcome.
-
-If you change infrastructure assumptions, keep `README.md`, `INFRASTRUCTURE_OVERVIEW.md`, `SUPABASE_SELF_HOSTED.md`, `LIVEKIT_SELF_HOSTED.md`, and `.env.example` synchronized.
-
-## License
-
-Add your project license here before publishing the repository publicly.

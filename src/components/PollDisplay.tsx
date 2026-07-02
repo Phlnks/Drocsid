@@ -22,20 +22,26 @@ interface PollDisplayProps {
 export default function PollDisplay({ messageId, pollData: initialPollData, isDM = false, isAuthor = false }: PollDisplayProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const [pollData, setPollData] = useState(initialPollData);
-  const [votes, setVotes] = useState<Record<string, number | number[]>>(initialPollData.votes || {});
+  
+  // Safety check for initialPollData
+  const safeInitialData = initialPollData || { question: '', options: [], votes: {} };
+  
+  const [pollData, setPollData] = useState(safeInitialData);
+  const [votes, setVotes] = useState<Record<string, number | number[]>>(safeInitialData.votes || {});
   const [showDetails, setShowDetails] = useState<Record<number, boolean>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, any>>({});
 
   const toggleDetails = (index: number) => {
-    if (pollData.anonymous) return;
+    if (pollData?.anonymous) return;
     setShowDetails(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
   useEffect(() => {
-    setPollData(initialPollData);
-    setVotes(initialPollData.votes || {});
+    if (initialPollData) {
+      setPollData(initialPollData);
+      setVotes(initialPollData.votes || {});
+    }
   }, [initialPollData]);
 
   // Pre-load current user profile
@@ -53,7 +59,7 @@ export default function PollDisplay({ messageId, pollData: initialPollData, isDM
   }, [user]);
 
   useEffect(() => {
-    if (!pollData.anonymous && votes) {
+    if (pollData && !pollData.anonymous && votes) {
       const userIds = Object.keys(votes).filter(uid => !profiles[uid]);
       if (userIds.length > 0) {
         const fetchProfiles = async () => {
@@ -66,15 +72,15 @@ export default function PollDisplay({ messageId, pollData: initialPollData, isDM
         fetchProfiles();
       }
     }
-  }, [votes, pollData.anonymous]);
+  }, [votes, pollData?.anonymous]);
 
-  const totalParticipants = Object.keys(votes).length;
+  const totalParticipants = votes ? Object.keys(votes).length : 0;
 
   const handleToggleVote = async (optionIndex: number) => {
-    if (!user) return;
+    if (!user || !pollData) return;
 
     let newUserVote: number | number[];
-    const currentVote = votes[user.id];
+    const currentVote = votes ? votes[user.id] : undefined;
 
     if (pollData.multipleChoices) {
       const currentIndices = Array.isArray(currentVote) ? currentVote : (currentVote !== undefined ? [currentVote] : []);
@@ -91,7 +97,7 @@ export default function PollDisplay({ messageId, pollData: initialPollData, isDM
       }
     }
 
-    const newVotes = { ...votes, [user.id]: newUserVote };
+    const newVotes = { ...(votes || {}), [user.id]: newUserVote };
     if (Array.isArray(newUserVote) && newUserVote.length === 0) {
       delete newVotes[user.id];
     }
@@ -128,19 +134,21 @@ export default function PollDisplay({ messageId, pollData: initialPollData, isDM
       }
     } catch (err) {
       console.error("Error voting:", err);
-      setVotes(initialPollData.votes || {});
-      setPollData(prev => ({ ...prev, votes: initialPollData.votes }));
+      setVotes(initialPollData?.votes || {});
+      setPollData(prev => ({ ...prev, votes: initialPollData?.votes || {} }));
     }
   };
 
   const isSelected = (index: number) => {
-    const userVote = votes[user?.id || ''];
+    if (!votes || !user) return false;
+    const userVote = votes[user.id || ''];
     if (userVote === undefined) return false;
     if (Array.isArray(userVote)) return userVote.includes(index);
     return userVote === index;
   };
 
   const getOptionStats = (index: number) => {
+    if (!votes) return { count: 0, percentage: 0, votersForThis: [] };
     const votersForThis = Object.entries(votes)
       .filter(([_, v]) => Array.isArray(v) ? v.includes(index) : v === index)
       .map(([uid, _]) => uid);
