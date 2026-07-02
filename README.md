@@ -2,7 +2,7 @@
 
 Drocsid is a self-hostable real-time communication platform for communities, teams, and private groups. It combines text chat, voice, video, screen sharing, permissions, notifications, and multi-platform clients on top of a stack built around React, Node.js, Supabase, Socket.io, and LiveKit.
 
-The public documentation set is organized so the main README stays aligned with the infrastructure and service-specific installation guides.
+The public documentation set is organized so the main README stays aligned with the infrastructure and service-specific installation guides (see below).
 
 ## Features
 
@@ -27,8 +27,6 @@ The public documentation set is organized so the main README stays aligned with 
 | Notifications | Web push and Expo-based mobile push |
 
 ## Documentation map
-
-Recommended public docs:
 
 - `README.md` → project overview and main setup path
 - `INFRASTRUCTURE_OVERVIEW.md` → architecture, domains, ports, and request flow
@@ -272,37 +270,14 @@ The mobile push flow works like this:
 7. The backend sends the notification payload to `https://exp.host/--/api/v2/push/send`.
 8. Expo relays the notification to APNs or FCM, which deliver it to the device.
 
-### What must be in place
-
-For mobile push notifications to work end to end, you need the following:
-
-- A React Native + Expo mobile app build that requests notification permission correctly
-- Logic in the mobile app to retrieve an `ExpoPushToken` and send it to your backend or database
-- A Supabase table such as `expo_push_tokens` that stores device tokens per user
-- Backend logic that reacts to events and sends push payloads to the Expo Push API
-- Outbound internet access from the backend to `https://exp.host/--/api/v2/push/send`
-- Valid platform-side push configuration in the mobile project for Android and iOS, because Expo ultimately relays through FCM and APNs
-
-### Backend expectations
-
-The backend is responsible for deciding when to notify users. A typical flow is:
-
-- detect an event such as a DM, mention, or reply
-- load all Expo push tokens associated with the target user
-- send a title, body, and any required metadata to the Expo Push API
-- handle delivery responses, invalid tokens, or retry logic if needed
-
 ### Troubleshooting focus
 
 If mobile push notifications do not work, check these points first:
 
 - the user granted notification permission on the device
-- the app successfully generated an `ExpoPushToken`
-- the token was saved correctly in `expo_push_tokens`
+- the app successfully generated an `ExpoPushToken` (could be checked in the supabase DB - expo_push_tokens table)
 - the backend can reach the Expo Push API over the public internet
 - the mobile project’s Android and iOS push configuration is valid
-
-This README documents the server-side and integration expectations. The exact native mobile build configuration remains part of the separate React Native + Expo mobile project.
 
 ## Windows stream audio support
 
@@ -514,3 +489,5 @@ Checks:
 2. Verify the relevant tables are included in realtime publication if your schema requires that setup.
 3. Check browser console and websocket/network logs.
 4. Verify the public Supabase endpoint is the one used by the client.
+
+Enjoy
