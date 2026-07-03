@@ -1539,25 +1539,7 @@ export default function UserSettingsModal({
                           </p>
                         </div>
 
-                        {/* Features list */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md text-left text-xs text-zinc-400 mt-2">
-                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span>{t("download.tech.android") || "Notifications Push & Salons Vocaux"}</span>
-                          </div>
-                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span>{t("download.tech.audio") || "Audio de partage d'écran natif"}</span>
-                          </div>
-                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
-                            <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span>
-                            <span>Plus fluide & rapide sur mobile</span>
-                          </div>
-                          <div className="flex items-center gap-2 bg-zinc-900/40 px-3 py-2 rounded-lg border border-zinc-800">
-                            <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span>
-                            <span>Intégration système complète</span>
-                          </div>
-                        </div>
+
 
                         {/* Highly Styled CTA Button */}
                         <button
