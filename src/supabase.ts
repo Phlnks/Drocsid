@@ -56,7 +56,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.log(`Supabase initialized for project: ${projectRef}`);
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+const DUMMY_URL = 'https://dummy.supabase.co';
+const DUMMY_KEY = 'dummy-key';
+
+export const supabase = createClient(supabaseUrl || DUMMY_URL, supabaseAnonKey || DUMMY_KEY, {
   auth: {
     storageKey: storageKey,
     autoRefreshToken: true,
