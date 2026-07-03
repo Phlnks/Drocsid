@@ -134,6 +134,10 @@
     "language": "Language",
     "languageDescription": "Choose the application language.",
     "application": "Application",
+    "appSettings": "Application Settings",
+    "languageNoteLabel": "Note:",
+    "languageNoteText": "The application will restart to apply language changes optimally.",
+    "pinnedMessages": "Pinned Messages",
     "applicationSettings": {
       "windowStartup": "WINDOW STARTUP",
       "launchAtStartup": "Open Drocsid on startup",
@@ -164,7 +168,14 @@
       "micSensitivityDesc": "The lower the value, the more sensitive. (0-100)",
       "verySensitive": "Very Sensitive",
       "lessSensitive": "Less Sensitive",
-      "voiceChangeNote": "Note: Changes will apply when you next join a voice channel."
+      "voiceChangeNote": "Note: Changes will apply when you next join a voice channel.",
+      "inputModeTitle": "INPUT MODE (VOICE MODE)",
+      "voiceActivity": "Voice Activity",
+      "pushToTalk": "Push to Talk",
+      "pushToTalkDesc": "The microphone activates only when the key defined in keybinds is held down.",
+      "voiceActivityDesc": "The microphone opens automatically when you speak (or is always open).",
+      "pushToTalkShortcut": "PTT Shortcut",
+      "pushToTalkPlaceholder": "Click here and press a key..."
     },
     "appearanceSettings": {
       "activeTheme": "THEME",
@@ -177,7 +188,14 @@
       "synthwave": "Synthwave",
       "nord": "Nord Frost",
       "monokai": "Monokai",
-      "cyberpunk": "Cyberpunk"
+      "cyberpunk": "Cyberpunk",
+      "customThemeTitle": "Create your own theme",
+      "customThemeDesc": "Style your space with endless color combinations.",
+      "customThemeBtn": "Go ahead, try it!",
+      "surpriseMe": "Surprise me!",
+      "appearance": "Appearance",
+      "colors": "Colors",
+      "intensity": "Color intensity"
     },
     "notificationsSettings": {
       "notificationType": "NOTIFICATION TYPE",
@@ -192,7 +210,13 @@
       "messageSoundsDesc": "Play a sound when a new message is received.",
       "mentions": "MENTIONS",
       "everyoneNotifications": "Notifications for @everyone",
-      "everyoneNotificationsDesc": "Receive notifications for general mentions."
+      "everyoneNotificationsDesc": "Receive notifications for general mentions.",
+      "chatMessage": "Simple chat message",
+      "chatMessageDesc": "Receive notifications for messages in channels",
+      "dm": "DM",
+      "dmDesc": "Receive notifications for direct messages",
+      "mention": "Mention",
+      "mentionDesc": "Receive notifications when you are mentioned"
     },
     "keybindsSettings": {
       "title": "Keyboard Shortcuts",
@@ -204,7 +228,10 @@
       "overlay": "Toggle Overlay",
       "overlayDesc": "Toggles the application overlay.",
       "pressToRecord": "Press a key to record",
-      "escToCancel": "Esc to cancel"
+      "escToCancel": "Esc to cancel",
+      "pushToTalkTitle": "Push-to-Talk",
+      "pushToTalkDesc": "Hold this key to open your microphone in push-to-talk mode.",
+      "clickToBind": "Click here and press a key..."
     },
     "about": "About",
     "version": "Version",
@@ -258,6 +285,7 @@
     "pinnedAt": "at",
     "voiceChannelNoText": "Voice channels do not have text chat.",
     "pinnedMessages": "Pinned Messages",
+    "noPinnedMessages": "No pinned messages in this channel.",
     "toggleMemberList": "Toggle member list",
     "today": "Today",
     "yesterday": "Yesterday",
@@ -339,6 +367,8 @@
       "username": "Username",
       "status": "Status",
       "email": "Email",
+      "customStatus": "Custom status",
+      "customStatusPlaceholder": "Ex: 💻 Coding",
       "sendMessage": "Send Message",
       "calling": "Creating...",
       "call": "Call",
@@ -416,6 +446,11 @@
     "emojiDeleted": "Emoji deleted",
     "serverProfile": "SERVER PROFILE",
     "serverName": "SERVER NAME",
+    "defaultRole": "Default Role",
+    "defaultRoleDescription": "This role will be automatically assigned to new members joining the server.",
+    "noDefaultRole": "None (Default Role)",
+    "filterByAction": "Filter by action",
+    "actions": "Actions",
     "saveChanges": "Save Changes",
     "saving": "Saving...",
     "customEmojis": "Custom Emojis",
@@ -567,6 +602,24 @@
       "MUTE_MEMBERS": {
         "label": "Mute Members",
         "description": "Allows muting members in voice channels."
+      }
+    },
+    "soundboard": "Soundboard",
+    "soundboardTitle": "Soundboard",
+    "soundboardDesc": "Add sounds that everyone can play in voice channels.",
+    "addSound": "Add a sound",
+    "noSounds": "No sounds in the soundboard",
+    "maxSoundSize": "Max size: 5 MB",
+    "soundAdded": "Sound added to the soundboard",
+    "deleteSound": "Delete sound",
+    "perms": {
+      "MANAGE_SOUNDBOARD": {
+        "label": "Manage Soundboard",
+        "description": "Allows adding and deleting soundboard sounds."
+      },
+      "USE_SOUNDBOARD": {
+        "label": "Use Soundboard",
+        "description": "Allows playing soundboard sounds."
       }
     }
   },

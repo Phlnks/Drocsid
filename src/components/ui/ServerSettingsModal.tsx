@@ -1861,7 +1861,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                           onClick={() => setIsLogFilterOpen(!isLogFilterOpen)}
                           className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-xs text-zinc-100 hover:bg-zinc-800 transition-colors"
                         >
-                          Filtrer par action
+                          {t('serverSettings.filterByAction', 'Filtrer par action')}
                           <Settings className="w-3 h-3" />
                         </button>
                         
@@ -1871,7 +1871,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                             <div className="absolute right-0 mt-2 w-64 bg-zinc-950 border border-zinc-700 rounded-md shadow-xl z-50 overflow-hidden max-h-80 flex flex-col">
                               <div className="p-2 border-b border-zinc-800 bg-zinc-900/50">
                                 <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                                  Actions
+                                  {t('serverSettings.actions', 'Actions')}
                                 </div>
                               </div>
                               <div className="overflow-y-auto custom-scrollbar p-1">

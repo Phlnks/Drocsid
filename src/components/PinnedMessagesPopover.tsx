@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Pin, X, MessageSquare, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import UserAvatar from './ui/UserAvatar';
+import { useTranslation } from 'react-i18next';
 
 interface PinnedMessagesPopoverProps {
   channelId: string;
@@ -14,6 +15,7 @@ interface PinnedMessagesPopoverProps {
 }
 
 export default function PinnedMessagesPopover({ channelId, isDM = false, onClose, onJumpToMessage, usersMap }: PinnedMessagesPopoverProps) {
+  const { t } = useTranslation();
   const [pinnedMessages, setPinnedMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,7 +68,7 @@ export default function PinnedMessagesPopover({ channelId, isDM = false, onClose
       <div className="p-3 border-b border-zinc-700 flex items-center justify-between">
         <div className="flex items-center gap-2 text-zinc-100 font-semibold">
           <Pin className="w-4 h-4 text-indigo-400" />
-          <span>Messages épinglés</span>
+          <span>{t("settings.pinnedMessages", "Messages épinglés")}</span>
         </div>
         <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100 p-1">
           <X className="w-4 h-4" />
@@ -83,7 +85,7 @@ export default function PinnedMessagesPopover({ channelId, isDM = false, onClose
             <div className="w-12 h-12 bg-zinc-700/50 rounded-full flex items-center justify-center mb-3">
               <Pin className="w-6 h-6 opacity-20" />
             </div>
-            <p className="text-sm">Aucun message épinglé dans ce salon.</p>
+            <p className="text-sm">{t("chatArea.noPinnedMessages", "Aucun message épinglé dans ce salon.")}</p>
           </div>
         ) : (
           pinnedMessages.map(msg => {

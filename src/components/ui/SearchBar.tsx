@@ -4,6 +4,7 @@ import { supabase } from '../../supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import UserAvatar from './UserAvatar';
+import { useTranslation } from 'react-i18next';
 
 interface SearchBarProps {
   channelId: string;
@@ -14,6 +15,7 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ channelId, serverId, isDM = false, onJumpToMessage, usersMap }: SearchBarProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
@@ -154,7 +156,7 @@ export default function SearchBar({ channelId, serverId, isDM = false, onJumpToM
           <input
             ref={inputRef}
             type="text"
-            placeholder="Rechercher..."
+            placeholder={t("chatArea.searchPlaceholder", "Rechercher...")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setIsOpen(true)}

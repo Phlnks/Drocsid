@@ -134,6 +134,10 @@
     "language": "Idioma",
     "languageDescription": "Elige el idioma de la aplicación.",
     "application": "Aplicación",
+    "appSettings": "Ajustes de la aplicación",
+    "languageNoteLabel": "Nota:",
+    "languageNoteText": "La aplicación se reiniciará para aplicar los cambios de idioma de forma óptima.",
+    "pinnedMessages": "Mensajes fijados",
     "applicationSettings": {
       "windowStartup": "INICIO DE WINDOWS",
       "launchAtStartup": "Abrir Drocsid al iniciar",
@@ -164,7 +168,14 @@
       "micSensitivityDesc": "Cuanto menor sea el valor, más sensible será. (0-100)",
       "verySensitive": "Muy sensible",
       "lessSensitive": "Menos sensible",
-      "voiceChangeNote": "Nota: Los cambios se aplicarán la próxima vez que te unas a un canal de voz."
+      "voiceChangeNote": "Nota: Los cambios se aplicarán la próxima vez que te unas a un canal de voz.",
+      "inputModeTitle": "MODO DE ENTRADA (MODO DE VOZ)",
+      "voiceActivity": "Actividad de voz",
+      "pushToTalk": "Pulsar para hablar",
+      "pushToTalkDesc": "El micrófono se activa solo cuando se mantiene presionada la tecla definida en los accesos directos.",
+      "voiceActivityDesc": "El micrófono se abre automáticamente cuando hablas (o siempre está abierto).",
+      "pushToTalkShortcut": "Atajo de teclado PTT",
+      "pushToTalkPlaceholder": "Haz clic aquí y presiona una tecla..."
     },
     "appearanceSettings": {
       "activeTheme": "TEMA",
@@ -177,7 +188,14 @@
       "synthwave": "Synthwave",
       "nord": "Nórdico",
       "monokai": "Monokai",
-      "cyberpunk": "Cyberpunk"
+      "cyberpunk": "Cyberpunk",
+      "customThemeTitle": "Crea tu propio tema",
+      "customThemeDesc": "Dale estilo a tu espacio con infinitas combinaciones de colores.",
+      "customThemeBtn": "¡Adelante, pruébalo!",
+      "surpriseMe": "¡Sorpréndeme!",
+      "appearance": "Apariencia",
+      "colors": "Colores",
+      "intensity": "Intensidad del color"
     },
     "notificationsSettings": {
       "notificationType": "TIPO DE NOTIFICACIÓN",
@@ -192,7 +210,13 @@
       "messageSoundsDesc": "Reproducir un sonido cuando se reciba un nuevo mensaje.",
       "mentions": "MENCIONES",
       "everyoneNotifications": "Notificaciones para @everyone",
-      "everyoneNotificationsDesc": "Recibir notificaciones para menciones generales."
+      "everyoneNotificationsDesc": "Recibir notificaciones para menciones generales.",
+      "chatMessage": "Mensaje de chat simple",
+      "chatMessageDesc": "Recibir notificaciones de mensajes en los canales",
+      "dm": "MD",
+      "dmDesc": "Recibir notificaciones de mensajes privados",
+      "mention": "Mención",
+      "mentionDesc": "Recibir notificaciones cuando seas mencionado"
     },
     "keybindsSettings": {
       "title": "Atajos de teclado",
@@ -204,7 +228,10 @@
       "overlay": "Activar/desactivar superposición",
       "overlayDesc": "Activa o desactiva la superposición de la aplicación.",
       "pressToRecord": "Pulsa una tecla para grabar",
-      "escToCancel": "Esc para cancelar"
+      "escToCancel": "Esc para cancelar",
+      "pushToTalkTitle": "Pulsar para hablar (Push-to-Talk)",
+      "pushToTalkDesc": "Mantén presionada esta tecla para abrir el micrófono en modo Pulsar para hablar.",
+      "clickToBind": "Haz clic aquí y presiona una tecla..."
     },
     "about": "Acerca de",
     "version": "Versión",
@@ -258,6 +285,7 @@
     "pinnedAt": "a las",
     "voiceChannelNoText": "Los canales de voz no tienen chat de texto.",
     "pinnedMessages": "Mensajes fijados",
+    "noPinnedMessages": "No hay mensajes fijados en este canal.",
     "toggleMemberList": "Alternar lista de miembros",
     "today": "Hoy",
     "yesterday": "Ayer",
@@ -339,6 +367,8 @@
       "username": "Nombre de usuario",
       "status": "Estado",
       "email": "Correo electrónico",
+      "customStatus": "Estado personalizado",
+      "customStatusPlaceholder": "Ej: 💻 Programando",
       "sendMessage": "Enviar mensaje",
       "calling": "Creando...",
       "call": "Llamada",
@@ -413,6 +443,11 @@
     "emojiDeleted": "Emoji eliminado",
     "serverProfile": "PERFIL DEL SERVIDOR",
     "serverName": "NOMBRE DEL SERVIDOR",
+    "defaultRole": "Rol por defecto",
+    "defaultRoleDescription": "Este rol se asignará automáticamente a los nuevos miembros que se unan al servidor.",
+    "noDefaultRole": "Ninguno (Rol por defecto)",
+    "filterByAction": "Filtrar por acción",
+    "actions": "Acciones",
     "saveChanges": "Guardar cambios",
     "saving": "Guardando...",
     "customEmojis": "Emojis personalizados",
@@ -562,8 +597,26 @@
         "description": "Permite mover miembros entre canales de voz."
       },
       "MUTE_MEMBERS": {
-        "label": "Mute Members",
-        "description": "Allows muting members in voice channels."
+        "label": "Silenciar miembros",
+        "description": "Permitir silenciar miembros en canales de voz."
+      }
+    },
+    "soundboard": "Tablero de sonido",
+    "soundboardTitle": "Tablero de sonido",
+    "soundboardDesc": "Añade sonidos que todos puedan reproducir en los canales de voz.",
+    "addSound": "Añadir un sonido",
+    "noSounds": "No hay sonidos en el tablero de sonido",
+    "maxSoundSize": "Tamaño máx: 5 MB",
+    "soundAdded": "Sonido añadido al tablero de sonido",
+    "deleteSound": "Eliminar sonido",
+    "perms": {
+      "MANAGE_SOUNDBOARD": {
+        "label": "Gestionar tablero de sonido",
+        "description": "Permite añadir y eliminar sonidos del tablero de sonido."
+      },
+      "USE_SOUNDBOARD": {
+        "label": "Usar tablero de sonido",
+        "description": "Permite reproducir sonidos del tablero de sonido."
       }
     }
   },

@@ -134,6 +134,10 @@
     "language": "Langue",
     "languageDescription": "Choisissez la langue de l'application.",
     "application": "Application",
+    "appSettings": "Paramètres de l'application",
+    "languageNoteLabel": "Note:",
+    "languageNoteText": "L'application redémarrera pour appliquer les changements de langue de manière optimale.",
+    "pinnedMessages": "Messages épinglés",
     "applicationSettings": {
       "windowStartup": "DÉMARRAGE WINDOWS",
       "launchAtStartup": "Lancer Drocsid au démarrage",
@@ -164,7 +168,14 @@
       "micSensitivityDesc": "Plus la valeur est basse, plus le micro est sensible. (0-100)",
       "verySensitive": "Très sensible",
       "lessSensitive": "Peu sensible",
-      "voiceChangeNote": "Note : Les modifications s'appliqueront lors de votre prochaine connexion à un salon vocal."
+      "voiceChangeNote": "Note : Les modifications s'appliqueront lors de votre prochaine connexion à un salon vocal.",
+      "inputModeTitle": "MODE DE SAISIE (MODE VOCAL)",
+      "voiceActivity": "Détection de la voix",
+      "pushToTalk": "Appuyer pour parler",
+      "pushToTalkDesc": "Le micro s'active uniquement lorsque la touche définie dans les raccourcis est maintenue enfoncée.",
+      "voiceActivityDesc": "Le micro s'ouvre automatiquement quand vous parlez (ou est toujours ouvert).",
+      "pushToTalkShortcut": "Raccourci clavier PTT",
+      "pushToTalkPlaceholder": "Cliquez ici et appuyez sur une touche..."
     },
     "appearanceSettings": {
       "activeTheme": "THÈME",
@@ -177,7 +188,14 @@
       "synthwave": "Rétrowayve",
       "nord": "Froid Polaire",
       "monokai": "Sombres Nuances",
-      "cyberpunk": "Cyberpunk"
+      "cyberpunk": "Cyberpunk",
+      "customThemeTitle": "Crée ton propre thème",
+      "customThemeDesc": "Donne du style à ton espace avec une infinité de combinaisons de couleurs.",
+      "customThemeBtn": "Vas-y, essaie !",
+      "surpriseMe": "Surprends-moi !",
+      "appearance": "Apparence",
+      "colors": "Couleurs",
+      "intensity": "Intensité de la couleur"
     },
     "notificationsSettings": {
       "notificationType": "TYPE DE NOTIFICATIONS",
@@ -192,7 +210,13 @@
       "messageSoundsDesc": "Jouer un son lors de la réception d'un nouveau message.",
       "mentions": "MENTIONS",
       "everyoneNotifications": "Notifications pour @everyone",
-      "everyoneNotificationsDesc": "Recevoir des notifications pour les mentions générales."
+      "everyoneNotificationsDesc": "Recevoir des notifications pour les mentions générales.",
+      "chatMessage": "Message de chat simple",
+      "chatMessageDesc": "Recevoir des notifications pour les messages dans les salons",
+      "dm": "MP",
+      "dmDesc": "Recevoir des notifications pour les messages privés",
+      "mention": "Mention",
+      "mentionDesc": "Recevoir des notifications lorsque vous êtes mentionné"
     },
     "keybindsSettings": {
       "title": "Raccourcis clavier",
@@ -204,7 +228,10 @@
       "overlay": "Afficher / Cacher l'Overlay",
       "overlayDesc": "Affiche ou cache l'overlay de l'application.",
       "pressToRecord": "Appuyez sur une touche",
-      "escToCancel": "Esc pour annuler"
+      "escToCancel": "Esc pour annuler",
+      "pushToTalkTitle": "Appuyer pour Parler (Push-to-Talk)",
+      "pushToTalkDesc": "Maintenez cette touche pour ouvrir votre micro en mode \"Appuyer pour parler\".",
+      "clickToBind": "Cliquez ici et appuyez sur une touche..."
     },
     "about": "À propos",
     "version": "Version",
@@ -258,6 +285,7 @@
     "pinnedAt": "à",
     "voiceChannelNoText": "Les salons vocaux n'ont pas de chat textuel.",
     "pinnedMessages": "Messages épinglés",
+    "noPinnedMessages": "Aucun message épinglé dans ce salon.",
     "toggleMemberList": "Afficher la liste des membres",
     "today": "Aujourd'hui",
     "yesterday": "Hier",
@@ -339,6 +367,8 @@
       "username": "Nom d'utilisateur",
       "status": "Statut",
       "email": "E-mail",
+      "customStatus": "Statut personnalisé",
+      "customStatusPlaceholder": "Ex: 💻 En train de coder",
       "sendMessage": "Envoyer un message",
       "calling": "Création...",
       "call": "Appeler",
@@ -416,6 +446,11 @@
     "emojiDeleted": "Émoji supprimé",
     "serverProfile": "PROFIL DU SERVEUR",
     "serverName": "NOM DU SERVEUR",
+    "defaultRole": "Rôle par défaut",
+    "defaultRoleDescription": "Ce rôle sera automatiquement attribué aux nouveaux membres rejoignant le serveur.",
+    "noDefaultRole": "Aucun (Rôle par défaut)",
+    "filterByAction": "Filtrer par action",
+    "actions": "Actions",
     "saveChanges": "Enregistrer les modifications",
     "saving": "Enregistrement...",
     "customEmojis": "Émojis Personnalisés",
@@ -567,6 +602,24 @@
       "MUTE_MEMBERS": {
         "label": "Rendre muet les membres",
         "description": "Permet de rendre muet des membres dans les salons vocaux."
+      }
+    },
+    "soundboard": "Soundboard",
+    "soundboardTitle": "Soundboard",
+    "soundboardDesc": "Ajoute des sons que tout le monde peut jouer dans les salons vocaux.",
+    "addSound": "Ajouter un son",
+    "noSounds": "Aucun son dans le soundboard",
+    "maxSoundSize": "Taille max: 5 Mo",
+    "soundAdded": "Son ajouté au soundboard",
+    "deleteSound": "Supprimer le son",
+    "perms": {
+      "MANAGE_SOUNDBOARD": {
+        "label": "Gérer le soundboard",
+        "description": "Permet d'ajouter et supprimer des sons au soundboard."
+      },
+      "USE_SOUNDBOARD": {
+        "label": "Utiliser le soundboard",
+        "description": "Permet de jouer des sons du soundboard."
       }
     }
   },

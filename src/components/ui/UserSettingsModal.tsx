@@ -575,7 +575,7 @@ export default function UserSettingsModal({
 
                   <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
                     <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
-                      Mode de saisie (Mode vocal)
+                      {t("settings.voiceVideo.inputModeTitle", "Mode de saisie (Mode vocal)")}
                     </h3>
                     <div className="space-y-4">
                       <div className="flex bg-zinc-800 rounded-md p-1">
@@ -587,7 +587,7 @@ export default function UserSettingsModal({
                               : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50'
                           }`}
                         >
-                          Détection de la voix
+                          {t("settings.voiceVideo.voiceActivity", "Détection de la voix")}
                         </button>
                         <button
                            onClick={() => setVoiceSettings({ inputMode: 'push_to_talk' })}
@@ -597,24 +597,24 @@ export default function UserSettingsModal({
                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50'
                            }`}
                         >
-                          Appuyer pour parler
+                          {t("settings.voiceVideo.pushToTalk", "Appuyer pour parler")}
                         </button>
                       </div>
                       <p className="text-xs text-zinc-500">
                         {voiceSettings.inputMode === 'push_to_talk' 
-                          ? 'Le micro s\'active uniquement lorsque la touche définie dans les raccourcis est maintenue enfoncée.' 
-                          : 'Le micro s\'ouvre automatiquement quand vous parlez (ou est toujours ouvert).'}
+                          ? t("settings.voiceVideo.pushToTalkDesc", "Le micro s'active uniquement lorsque la touche définie dans les raccourcis est maintenue enfoncée.") 
+                          : t("settings.voiceVideo.voiceActivityDesc", "Le micro s'ouvre automatiquement quand vous parlez (ou est toujours ouvert).")}
                       </p>
 
                       {voiceSettings.inputMode === 'push_to_talk' && (
                         <div className="mt-4 space-y-2">
                           <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                            Raccourci clavier PTT
+                            {t("settings.voiceVideo.pushToTalkShortcut", "Raccourci clavier PTT")}
                           </label>
                           <input
                             type="text"
                             readOnly
-                            placeholder="Cliquez ici et appuyez sur une touche..."
+                            placeholder={t("settings.voiceVideo.pushToTalkPlaceholder", "Cliquez ici et appuyez sur une touche...")}
                             value={keybinds.pushToTalk || ""}
                             className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded p-2 text-sm text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
                             onKeyDown={(e) => {
@@ -962,7 +962,7 @@ export default function UserSettingsModal({
                           </option>
                         </select>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          Statut personnalisé
+                          {t("modals.userProfile.customStatus", "Statut personnalisé")}
                         </label>
                         <div className="relative flex items-center gap-2">
                           <div className="relative">
@@ -1012,7 +1012,7 @@ export default function UserSettingsModal({
                                 custom_status: e.target.value,
                               })
                             }
-                            placeholder="Ex: 💻 En train de coder"
+                            placeholder={t("modals.userProfile.customStatusPlaceholder", "Ex: 💻 En train de coder")}
                             className="flex-1 bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
                           />
                         </div>
@@ -1496,8 +1496,11 @@ export default function UserSettingsModal({
 
                 <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                   <p className="text-xs text-amber-200">
-                    <strong>Note:</strong> L'application redémarrera pour
-                    appliquer les changements de langue de manière optimale.
+                    <strong>{t("settings.languageNoteLabel", "Note:")}</strong>{" "}
+                    {t(
+                      "settings.languageNoteText",
+                      "L'application redémarrera pour appliquer les changements de langue de manière optimale."
+                    )}
                   </p>
                 </div>
               </div>
@@ -1764,10 +1767,10 @@ export default function UserSettingsModal({
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
                           <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
-                            Message de chat simple
+                            {t("settings.notificationsSettings.chatMessage", "Message de chat simple")}
                           </div>
                           <div className="text-xs text-zinc-400">
-                            Recevoir des notifications pour les messages dans les salons
+                            {t("settings.notificationsSettings.chatMessageDesc", "Recevoir des notifications pour les messages dans les salons")}
                           </div>
                         </div>
                         <div
@@ -1802,10 +1805,10 @@ export default function UserSettingsModal({
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
                           <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
-                            MP
+                            {t("settings.notificationsSettings.dm", "MP")}
                           </div>
                           <div className="text-xs text-zinc-400">
-                            Recevoir des notifications pour les messages privés
+                            {t("settings.notificationsSettings.dmDesc", "Recevoir des notifications pour les messages privés")}
                           </div>
                         </div>
                         <div
@@ -1840,10 +1843,10 @@ export default function UserSettingsModal({
                       <label className="flex items-center justify-between cursor-pointer group">
                         <div>
                           <div className="text-zinc-200 font-medium group-hover:text-zinc-100">
-                            Mention
+                            {t("settings.notificationsSettings.mention", "Mention")}
                           </div>
                           <div className="text-xs text-zinc-400">
-                            Recevoir des notifications lorsque vous êtes mentionné
+                            {t("settings.notificationsSettings.mentionDesc", "Recevoir des notifications lorsque vous êtes mentionné")}
                           </div>
                         </div>
                         <div
@@ -2108,16 +2111,16 @@ export default function UserSettingsModal({
                   {/* Push To Talk Keybind */}
                   <div className="bg-zinc-900/50 p-4 rounded-lg border border-zinc-700/50">
                     <h3 className="text-sm font-semibold text-zinc-300 mb-4 uppercase tracking-wider">
-                      Appuyer pour Parler (Push-to-Talk)
+                      {t("settings.keybindsSettings.pushToTalkTitle", "Appuyer pour Parler (Push-to-Talk)")}
                     </h3>
                     <div className="group">
                       <div className="text-xs text-zinc-400 mb-2">
-                        Maintenez cette touche pour ouvrir votre micro en mode "Appuyer pour parler".
+                        {t("settings.keybindsSettings.pushToTalkDesc", "Maintenez cette touche pour ouvrir votre micro en mode \"Appuyer pour parler\".")}
                       </div>
                       <input
                         type="text"
                         readOnly
-                        placeholder="Cliquez ici et appuyez sur une touche..."
+                        placeholder={t("settings.keybindsSettings.clickToBind", "Cliquez ici et appuyez sur une touche...")}
                         value={keybinds.pushToTalk || ""}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
                         onKeyDown={(e) => {
