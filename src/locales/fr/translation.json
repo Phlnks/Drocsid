@@ -673,6 +673,7 @@
     "share": "Partager",
     "streamPaused": "Stream en pause — fenêtre minimisée",
     "browserAudioNote": "🖥️ Écran entier uniquement — l'audio système sera proposé dans la boîte de dialogue du navigateur.",
+    "browserWarning": "Limitation du navigateur : il n'y a pas de son sur les partages d'écran et il est conseillé de partager tout l'écran pour éviter les coupures. Installer l'application pour profiter d'un partage d'écran optimal.",
     "firefoxWarning": "⚠️ Firefox : préférez partager un écran entier pour éviter les coupures.",
     "electronAudioNote": "🎵 L'audio système est capturé automatiquement lors d'un partage d'écran entier.",
     "yourScreenShare": "Votre partage d'écran",

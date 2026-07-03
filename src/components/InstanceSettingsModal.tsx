@@ -253,6 +253,18 @@ interface InstanceCardProps {
   t: any;
 }
 
+const getSafeHostname = (urlStr: string) => {
+  try {
+    if (!urlStr) return '';
+    if (!/^https?:\/\//i.test(urlStr) && !/^wss?:\/\//i.test(urlStr)) {
+      return urlStr.split('/')[0].split(':')[0];
+    }
+    return new URL(urlStr).hostname;
+  } catch (e) {
+    return urlStr || '';
+  }
+};
+
 const InstanceCard: React.FC<InstanceCardProps> = ({ instance, isCurrent, onSwitch, onEdit, onDelete, onFavorite, t }) => {
   return (
     <div 
@@ -276,11 +288,11 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, isCurrent, onSwit
           <div className="flex items-center gap-3 mt-1">
             <div className="flex items-center gap-1 text-[10px] text-[#949ba4]">
               <Globe className="w-3 h-3" />
-              <span className="truncate max-w-[120px]">{new URL(instance.socketUrl).hostname}</span>
+              <span className="truncate max-w-[120px]">{getSafeHostname(instance.socketUrl)}</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-[#949ba4]">
               <Database className="w-3 h-3" />
-              <span className="truncate max-w-[120px]">{new URL(instance.supabaseUrl).hostname}</span>
+              <span className="truncate max-w-[120px]">{getSafeHostname(instance.supabaseUrl)}</span>
             </div>
           </div>
         </div>

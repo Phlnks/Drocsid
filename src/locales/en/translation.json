@@ -673,6 +673,7 @@
     "share": "Share",
     "streamPaused": "Stream paused — window minimized",
     "browserAudioNote": "🖥️ Full screen only — system audio will be prompted in the browser dialog.",
+    "browserWarning": "Browser limitation: there is no audio on screen shares and it is recommended to share the entire screen to avoid cut-offs. Install the application to enjoy optimal screen sharing.",
     "firefoxWarning": "⚠️ Firefox: prefer sharing a full screen to avoid interruptions.",
     "electronAudioNote": "🎵 System audio is automatically captured during full screen sharing.",
     "yourScreenShare": "Your Screen Share",

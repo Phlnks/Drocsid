@@ -670,6 +670,7 @@
     "share": "Compartir",
     "streamPaused": "Stream en pausa — ventana minimizada",
     "browserAudioNote": "🖥️ Solo pantalla completa — el audio del sistema se solicitará en el navegador.",
+    "browserWarning": "Limitación del navegador: no hay sonido en el contenido compartido de pantalla y se recomienda compartir la pantalla completa para evitar cortes. Instale la aplicación para disfrutar de un uso compartido de pantalla óptimo.",
     "firefoxWarning": "⚠️ Firefox: prefiere compartir una pantalla completa para evitar cortes.",
     "electronAudioNote": "🎵 El audio del sistema se captura automáticamente durante el uso compartido de pantalla completa.",
     "yourScreenShare": "Tu pantalla compartida",

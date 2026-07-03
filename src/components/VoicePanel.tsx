@@ -707,20 +707,12 @@ export default function VoicePanel() {
             <Settings2 className="w-4 h-4 text-zinc-400" />
             <span className="text-xs font-medium text-zinc-300">{t('voice.qualityTitle')}</span>
           </div>
-          {/* Note audio — uniquement sur navigateur web où displaySurface: 'monitor' est utilisé */}
+          {/* Note audio — uniquement sur navigateur web */}
           {!isElectron && (
             <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
-              {t('voice.browserAudioNote')}
-              {/firefox/i.test(navigator.userAgent) && (
-                <span className="block mt-1 text-yellow-500/80">
-                  {t('voice.firefoxWarning')}
-                </span>
-              )}
-            </div>
-          )}
-          {isElectron && (
-            <div className="px-3 py-2 text-[10px] text-zinc-500 border-b border-zinc-700 leading-tight">
-              {t('voice.electronAudioNote')}
+              <span className="block text-yellow-500/80">
+                {t('voice.browserWarning')}
+              </span>
             </div>
           )}
           <button onClick={() => startScreenShareFlow({ width: 1280, height: 720, frameRate: 30 })} className="w-full text-left px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors">{t('voice.standard')}</button>
