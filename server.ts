@@ -45,8 +45,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   },
   realtime: {
     timeout: 60000, // 60 secondes pour éviter les TIMED_OUT sur serveurs lents/self-hosted
-    websocket: WebSocket
-  }
+  } as any
 });
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {

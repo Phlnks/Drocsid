@@ -314,6 +314,7 @@ CREATE POLICY "expo_push_tokens_owner" ON public.expo_push_tokens FOR ALL USING 
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('chat-attachments', 'chat-attachments', true) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('server-icons', 'server-icons', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('soundboard', 'soundboard', true) ON CONFLICT DO NOTHING;
 
 -- Configuration Storage permissive
 -- Nettoyage de l'existant
@@ -349,6 +350,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.voice_participants;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.relationships;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.roles;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.invites;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.server_bans;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.server_logs;
 
 
 -- ==========================================
