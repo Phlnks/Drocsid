@@ -791,6 +791,19 @@
     "reportReceived": "Signalement reçu",
     "reasonPrompt": "Raison du signalement :",
     "reportSuccess": "Message signalé aux modérateurs.",
-    "reportError": "Erreur lors du signalement: "
+    "reportError": "Erreur lors du signalement: ",
+    "menuTitle": "Signalements",
+    "headerTitle": "Signalements Utilisateurs"
+  },
+  "superAdmin": {
+    "title": "Super Admin",
+    "usersMgmt": "Gest. Utilisateurs",
+    "userManagement": "Gestion des utilisateurs",
+    "serversMgmt": "Gest. Serveurs",
+    "serverManagement": "Gestion des serveurs",
+    "dashboard": "Tableau de bord",
+    "globalMod": "Modération globale",
+    "auditLogs": "Journaux d'audit",
+    "globalMessagesSearch": "Recherche globale de messages"
   }
 }

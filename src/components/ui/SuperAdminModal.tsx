@@ -462,7 +462,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         <div className="w-full md:w-60 bg-zinc-900/50 flex md:flex-col p-4 border-b md:border-b-0 md:border-r border-zinc-700/50 shrink-0 gap-2">
           <div className="hidden md:flex items-center gap-2 mb-4 px-2 text-indigo-400">
             <Shield className="w-5 h-5" />
-            <span className="font-bold uppercase tracking-wider text-sm">Super Admin</span>
+            <span className="font-bold uppercase tracking-wider text-sm">{t('superAdmin.title', 'Super Admin')}</span>
           </div>
           
           <button
@@ -473,7 +473,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             )}
           >
             <UsersIcon className="w-4 h-4" />
-            <span className="font-medium">Users Mgmt</span>
+            <span className="font-medium">{t('superAdmin.usersMgmt', 'Users Mgmt')}</span>
           </button>
           
           <button
@@ -484,7 +484,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             )}
           >
             <Server className="w-4 h-4" />
-            <span className="font-medium">Servers Mgmt</span>
+            <span className="font-medium">{t('superAdmin.serversMgmt', 'Servers Mgmt')}</span>
           </button>
 
           <button
@@ -495,7 +495,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             )}
           >
             <BarChart2 className="w-4 h-4" />
-            <span className="font-medium">Dashboard</span>
+            <span className="font-medium">{t('superAdmin.dashboard', 'Dashboard')}</span>
           </button>
 
           <button
@@ -506,7 +506,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             )}
           >
             <MessageSquare className="w-4 h-4" />
-            <span className="font-medium">Modération Globale</span>
+            <span className="font-medium">{t('superAdmin.globalMod', 'Modération Globale')}</span>
           </button>
 
           <button
@@ -517,7 +517,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             )}
           >
             <History className="w-4 h-4" />
-            <span className="font-medium">Audit Logs</span>
+            <span className="font-medium">{t('superAdmin.auditLogs', 'Audit Logs')}</span>
           </button>
           
           <button
@@ -528,7 +528,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
             )}
           >
             <Flag className="w-4 h-4" />
-            <span className="font-medium">Signalements</span>
+            <span className="font-medium">{t('reports.menuTitle', 'Signalements')}</span>
           </button>
         </div>
 
@@ -542,11 +542,11 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
 
           <div className="p-6 md:p-10 flex-1 overflow-hidden flex flex-col min-w-0">
             <h2 className="text-xl font-bold text-zinc-100 mb-6">
-              {activeTab === 'users' ? 'User Management' : 
-               activeTab === 'servers' ? 'Server Management' : 
-               activeTab === 'dashboard' ? 'Dashboard' :
-               activeTab === 'audit' ? 'Audit Logs' : 
-               activeTab === 'reports' ? 'Signalements Utilisateurs' : 'Global Messages Search'}
+              {activeTab === 'users' ? t('superAdmin.userManagement', 'User Management') : 
+               activeTab === 'servers' ? t('superAdmin.serverManagement', 'Server Management') : 
+               activeTab === 'dashboard' ? t('superAdmin.dashboard', 'Dashboard') :
+               activeTab === 'audit' ? t('superAdmin.auditLogs', 'Audit Logs') : 
+               activeTab === 'reports' ? t('reports.headerTitle', 'Signalements Utilisateurs') : t('superAdmin.globalMessagesSearch', 'Global Messages Search')}
             </h2>
 
             {activeTab !== 'dashboard' && activeTab !== 'audit' && activeTab !== 'messages' && activeTab !== 'reports' && (

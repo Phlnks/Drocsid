@@ -777,5 +777,30 @@
       "notifications": "Notificaciones nativas incluso cuando la app está cerrada.",
       "startup": "Inicia Drocsid automáticamente al arrancar."
     }
+  },
+  "reports": {
+    "status": {
+      "pending": "Reporte pendiente",
+      "resolved": "Reporte resuelto",
+      "dismissed": "Reporte desestimado"
+    },
+    "report": "Reportar mensaje",
+    "reportReceived": "Reporte recibido",
+    "reasonPrompt": "Razón del reporte:",
+    "reportSuccess": "Mensaje reportado a los moderadores.",
+    "reportError": "Error al reportar: ",
+    "menuTitle": "Reportes",
+    "headerTitle": "Reportes de usuarios"
+  },
+  "superAdmin": {
+    "title": "Super Admin",
+    "usersMgmt": "Gestión de Usuarios",
+    "userManagement": "Gestión de usuarios",
+    "serversMgmt": "Gestión de Servidores",
+    "serverManagement": "Gestión de servidores",
+    "dashboard": "Panel de control",
+    "globalMod": "Moderación global",
+    "auditLogs": "Registros de auditoría",
+    "globalMessagesSearch": "Búsqueda de mensajes global"
   }
 }

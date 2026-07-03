@@ -791,6 +791,19 @@
     "reportReceived": "Report received",
     "reasonPrompt": "Reason for report:",
     "reportSuccess": "Message reported to moderators.",
-    "reportError": "Error while reporting: "
+    "reportError": "Error while reporting: ",
+    "menuTitle": "Reports",
+    "headerTitle": "User Reports"
+  },
+  "superAdmin": {
+    "title": "Super Admin",
+    "usersMgmt": "Users Mgmt",
+    "userManagement": "User Management",
+    "serversMgmt": "Servers Mgmt",
+    "serverManagement": "Server Management",
+    "dashboard": "Dashboard",
+    "globalMod": "Global Moderation",
+    "auditLogs": "Audit Logs",
+    "globalMessagesSearch": "Global Messages Search"
   }
 }
