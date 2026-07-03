@@ -28,7 +28,12 @@
     "placeholderName": "Ma Super Instance",
     "switchConfirm": "Êtes-vous sûr de vouloir basculer vers {{name}} ? L'application va redémarrer.",
     "connectedTo": "Connecté à l'instance '{{name}}'",
-    "notConnected": "Non connecté à une instance"
+    "notConnected": "Non connecté à une instance",
+    "livekitUrl": "URL LiveKit",
+    "livekitTokenEndpoint": "API de Token LiveKit",
+    "optional": "(Optionnel)",
+    "livekitUrlPlaceholder": "wss://votre-livekit.com",
+    "livekitTokenPlaceholder": "https://votre-serveur.com/api/livekit/token"
   },
   "common": {
     "cancel": "Annuler",
@@ -805,5 +810,15 @@
     "globalMod": "Modération globale",
     "auditLogs": "Journaux d'audit",
     "globalMessagesSearch": "Recherche globale de messages"
+  },
+  "soundboard": {
+    "volumeControl": "Volume de la soundboard",
+    "title": "Soundboard",
+    "searchPlaceholder": "Rechercher un son...",
+    "noPermission": "Tu n'as pas la permission d'utiliser le soundboard.",
+    "noSounds": "Aucun son trouvé.",
+    "ready": "Prêt à jouer",
+    "restricted": "Accès restreint",
+    "manage": "Gérer"
   }
 }

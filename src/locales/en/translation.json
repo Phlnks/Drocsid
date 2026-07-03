@@ -28,7 +28,12 @@
     "placeholderName": "My Awesome Instance",
     "switchConfirm": "Are you sure you want to switch to {{name}}? The application will restart.",
     "connectedTo": "Connected to instance '{{name}}'",
-    "notConnected": "Not connected to an instance"
+    "notConnected": "Not connected to an instance",
+    "livekitUrl": "LiveKit URL",
+    "livekitTokenEndpoint": "LiveKit Token API",
+    "optional": "(Optional)",
+    "livekitUrlPlaceholder": "wss://your-livekit.com",
+    "livekitTokenPlaceholder": "https://your-server.com/api/livekit/token"
   },
   "common": {
     "cancel": "Cancel",
@@ -805,5 +810,15 @@
     "globalMod": "Global Moderation",
     "auditLogs": "Audit Logs",
     "globalMessagesSearch": "Global Messages Search"
+  },
+  "soundboard": {
+    "volumeControl": "Soundboard volume",
+    "title": "Soundboard",
+    "searchPlaceholder": "Search a sound...",
+    "noPermission": "You don't have permission to use the soundboard.",
+    "noSounds": "No sounds found.",
+    "ready": "Ready to play",
+    "restricted": "Restricted access",
+    "manage": "Manage"
   }
 }

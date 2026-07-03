@@ -28,7 +28,12 @@
     "placeholderName": "Mi Super Instancia",
     "switchConfirm": "¿Estás seguro de que quieres cambiar a {{name}}? La aplicación se reiniciará.",
     "connectedTo": "Conectado a la instancia '{{name}}'",
-    "notConnected": "No conectado a una instancia"
+    "notConnected": "No conectado a una instance",
+    "livekitUrl": "URL de LiveKit",
+    "livekitTokenEndpoint": "API de Token de LiveKit",
+    "optional": "(Opcional)",
+    "livekitUrlPlaceholder": "wss://tu-livekit.com",
+    "livekitTokenPlaceholder": "https://tu-servidor.com/api/livekit/token"
   },
   "common": {
     "cancel": "Cancelar",
@@ -802,5 +807,15 @@
     "globalMod": "Moderación global",
     "auditLogs": "Registros de auditoría",
     "globalMessagesSearch": "Búsqueda de mensajes global"
+  },
+  "soundboard": {
+    "volumeControl": "Volumen de la tabla de sonido",
+    "title": "Tablero de sonido",
+    "searchPlaceholder": "Buscar un sonido...",
+    "noPermission": "No tienes permiso para usar el tablero de sonido.",
+    "noSounds": "No se encontraron sonidos.",
+    "ready": "Listo para jugar",
+    "restricted": "Acceso restringido",
+    "manage": "Gestionar"
   }
 }
