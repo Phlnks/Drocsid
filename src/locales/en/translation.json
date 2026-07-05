@@ -366,7 +366,14 @@
       "saving": "Saving...",
       "appearance": "Appearance",
       "theme": "Theme",
-      "instances": "Instances (Backends)"
+      "instances": "Instances (Backends)",
+      "changePassword": "Change Password",
+      "newPassword": "New Password",
+      "confirmNewPassword": "Confirm New Password",
+      "updatePassword": "Update Password",
+      "passwordUpdated": "Password successfully updated!",
+      "passwordMismatch": "Passwords do not match.",
+      "passwordTooShort": "Password must be at least 6 characters."
     },
     "userProfile": {
       "username": "Username",

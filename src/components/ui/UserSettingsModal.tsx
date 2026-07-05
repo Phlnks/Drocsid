@@ -77,6 +77,10 @@ export default function UserSettingsModal({
     bio: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  // Password change states
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -354,6 +358,49 @@ export default function UserSettingsModal({
       setIsSaving(false);
     }
   };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isUpdatingPassword) return;
+
+    const trimmedPassword = newPassword.trim();
+    const trimmedConfirm = confirmPassword.trim();
+
+    if (!trimmedPassword || !trimmedConfirm) {
+      addNotification(t("common.requiredFields", "All fields are required."), "error");
+      return;
+    }
+
+    if (trimmedPassword.length < 6) {
+      addNotification(t("userSettings.passwordTooShort"), "error");
+      return;
+    }
+
+    if (trimmedPassword !== trimmedConfirm) {
+      addNotification(t("userSettings.passwordMismatch"), "error");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: trimmedPassword
+      });
+
+      if (error) throw error;
+
+      addNotification(t("userSettings.passwordUpdated"), "success");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      console.error("Error updating password:", error);
+      addNotification(error.message || "Failed to update password", "error");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const isLocalAccount = user?.app_metadata?.provider === "email" || (user?.email && user.email.endsWith("@drocsid.local"));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
@@ -1033,7 +1080,7 @@ export default function UserSettingsModal({
                   </div>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end mb-8">
                   <button
                     onClick={handleSaveProfile}
                     disabled={isSaving}
@@ -1044,6 +1091,51 @@ export default function UserSettingsModal({
                       : t("modals.userSettings.saveChanges")}
                   </button>
                 </div>
+
+                {isLocalAccount && (
+                  <form onSubmit={handleUpdatePassword} className="bg-zinc-900/50 p-6 rounded-lg border border-zinc-700/50">
+                    <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider mb-4">
+                      {t("userSettings.changePassword")}
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                          {t("userSettings.newPassword")}
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                          {t("userSettings.confirmNewPassword")}
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-zinc-100 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          disabled={isUpdatingPassword}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-md font-medium transition-colors disabled:opacity-50"
+                        >
+                          {isUpdatingPassword
+                            ? t("modals.userSettings.saving")
+                            : t("userSettings.updatePassword")}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
             {activeTab === "appearance" && (

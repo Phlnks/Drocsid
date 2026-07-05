@@ -366,7 +366,14 @@
       "saving": "Guardando...",
       "appearance": "Apariencia",
       "theme": "Tema",
-      "instances": "Instancias (Backends)"
+      "instances": "Instancias (Backends)",
+      "changePassword": "Cambiar contraseña",
+      "newPassword": "Nueva contraseña",
+      "confirmNewPassword": "Confirmar nueva contraseña",
+      "updatePassword": "Actualizar contraseña",
+      "passwordUpdated": "¡Contraseña actualizada con éxito!",
+      "passwordMismatch": "Las contraseñas no coinciden.",
+      "passwordTooShort": "La contraseña debe tener al menos 6 caracteres."
     },
     "userProfile": {
       "username": "Nombre de usuario",

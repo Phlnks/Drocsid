@@ -366,7 +366,14 @@
       "saving": "Enregistrement...",
       "appearance": "Apparence",
       "theme": "Thème",
-      "instances": "Instances (Backends)"
+      "instances": "Instances (Backends)",
+      "changePassword": "Changer le mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "confirmNewPassword": "Confirmer le nouveau mot de passe",
+      "updatePassword": "Mettre à jour le mot de passe",
+      "passwordUpdated": "Mot de passe mis à jour avec succès !",
+      "passwordMismatch": "Les mots de passe ne correspondent pas.",
+      "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères."
     },
     "userProfile": {
       "username": "Nom d'utilisateur",
