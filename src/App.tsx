@@ -671,6 +671,14 @@ export default function App() {
   }, [user, setCurrentUserProfile]);
 
   useEffect(() => {
+    // Check current session immediately on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      }
+      setAuthReady(true);
+    });
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -678,7 +686,7 @@ export default function App() {
 
       if (session?.user) {
         setUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
+      } else {
         setUser(null);
         setCurrentUserProfile(null);
       }
