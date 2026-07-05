@@ -372,12 +372,12 @@ export default function UserSettingsModal({
     }
 
     if (trimmedPassword.length < 6) {
-      addNotification(t("userSettings.passwordTooShort"), "error");
+      addNotification(t("modals.userSettings.passwordTooShort"), "error");
       return;
     }
 
     if (trimmedPassword !== trimmedConfirm) {
-      addNotification(t("userSettings.passwordMismatch"), "error");
+      addNotification(t("modals.userSettings.passwordMismatch"), "error");
       return;
     }
 
@@ -389,7 +389,7 @@ export default function UserSettingsModal({
 
       if (error) throw error;
 
-      addNotification(t("userSettings.passwordUpdated"), "success");
+      addNotification(t("modals.userSettings.passwordUpdated"), "success");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
@@ -1095,12 +1095,12 @@ export default function UserSettingsModal({
                 {isLocalAccount && (
                   <form onSubmit={handleUpdatePassword} className="bg-zinc-900/50 p-6 rounded-lg border border-zinc-700/50">
                     <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider mb-4">
-                      {t("userSettings.changePassword")}
+                      {t("modals.userSettings.changePassword")}
                     </h3>
                     <div className="space-y-4">
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          {t("userSettings.newPassword")}
+                          {t("modals.userSettings.newPassword")}
                         </label>
                         <input
                           type="password"
@@ -1112,7 +1112,7 @@ export default function UserSettingsModal({
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                          {t("userSettings.confirmNewPassword")}
+                          {t("modals.userSettings.confirmNewPassword")}
                         </label>
                         <input
                           type="password"
@@ -1130,7 +1130,7 @@ export default function UserSettingsModal({
                         >
                           {isUpdatingPassword
                             ? t("modals.userSettings.saving")
-                            : t("userSettings.updatePassword")}
+                            : t("modals.userSettings.updatePassword")}
                         </button>
                       </div>
                     </div>
