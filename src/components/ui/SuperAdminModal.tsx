@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell, Edit, MessageSquare, History, Flag, Database } from 'lucide-react';
+import { X, Shield, Search, Check, AlertTriangle, Trash2, Server, Users as UsersIcon, LogIn, Ban, Link2, Ghost, BarChart2, Bell, Edit, MessageSquare, History, Flag, Database, Key } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
@@ -204,6 +204,36 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
       loadData();
     } catch (e: any) {
       addNotification("Failed to edit user: " + e.message, "error");
+    }
+  };
+
+  const handleResetPassword = async (u: any) => {
+    const newPassword = prompt(`Enter a new password for ${u.username} (minimum 6 characters):`);
+    if (newPassword === null) return; // cancelled
+    if (newPassword.trim().length < 6) {
+      alert("Password must be at least 6 characters long.");
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
+      const res = await fetch(`${baseUrl}/api/admin/reset-password`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          userId: u.id, 
+          newPassword: newPassword.trim() 
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      addNotification(`Password for ${u.username} has been successfully reset.`, "success");
+    } catch (e: any) {
+      addNotification("Failed to reset password: " + e.message, "error");
     }
   };
 
@@ -667,7 +697,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                     />
                     <div className="flex-1">User Info</div>
                     <div className="w-32 text-center">Status</div>
-                    <div className="w-48 text-right">Actions</div>
+                    <div className="w-56 text-right">Actions</div>
                   </div>
                   {filteredUsers.map(u => (
                     <div key={u.id} className={clsx(
@@ -706,7 +736,7 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end w-48 shrink-0 gap-2">
+                      <div className="flex items-center justify-end w-56 shrink-0 gap-2">
                         <button
                           onClick={() => handleUserEdit(u)}
                           disabled={u.is_super_admin}
@@ -718,6 +748,20 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
                           )}
                         >
                           <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleResetPassword(u)}
+                          disabled={u.is_super_admin || !u.is_local_user}
+                          title={u.is_local_user ? "Reset Password" : "Password reset only available for local accounts"}
+                          className={clsx(
+                            "p-1.5 rounded transition-colors block",
+                            u.is_local_user 
+                              ? "bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white"
+                              : "bg-zinc-800 text-zinc-600 cursor-not-allowed",
+                            u.is_super_admin && "opacity-50 cursor-not-allowed hidden"
+                          )}
+                        >
+                          <Key className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleImpersonate(u)}

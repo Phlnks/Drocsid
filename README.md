@@ -490,4 +490,8 @@ Checks:
 3. Check browser console and websocket/network logs.
 4. Verify the public Supabase endpoint is the one used by the client.
 
+
+Legal:
+Use, modification, and redistribution of Drocsid are allowed. A mention of Drocsid in any derivative project would be appreciated.
+
 Enjoy

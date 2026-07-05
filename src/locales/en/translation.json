@@ -747,7 +747,17 @@
     "continueWithGoogle": "Continue with Google",
     "switchAccount": "Switch account",
     "connectionProblem": "Connection problem?",
-    "resetDefaultServer": "Reset to default server"
+    "resetDefaultServer": "Reset to default server",
+    "username": "Username (or email)",
+    "password": "Password",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "noAccount": "Don't have an account? Sign Up",
+    "haveAccount": "Already have an account? Sign In",
+    "usernameError": "Username must be between 3 and 20 characters (letters, numbers, _ or -).",
+    "passwordError": "Password must be at least 6 characters.",
+    "usernameTaken": "This username is already taken.",
+    "or": "OR"
   },
   "download": {
     "title": "Download Drocsid",

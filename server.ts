@@ -340,10 +340,42 @@ async function startServer() {
 
       const combined = (profiles || []).map((p: any) => {
         const authUser = users.find((u) => u.id === p.id);
-        return { ...p, is_banned: authUser ? !!authUser.banned_until : false };
+        const provider = authUser?.app_metadata?.provider || authUser?.identities?.[0]?.provider || 'email';
+        return { 
+          ...p, 
+          is_banned: authUser ? !!authUser.banned_until : false,
+          provider,
+          is_local_user: provider === 'email' || (authUser?.email && authUser.email.endsWith('@drocsid.local'))
+        };
       });
 
       res.json(combined);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/admin/reset-password", express.json(), async (req, res) => {
+    try {
+      const user = await requireSuperAdmin(req, res);
+      if (!user) return;
+
+      const { userId, newPassword } = req.body;
+      if (!userId || !newPassword) {
+        return res.status(400).json({ error: "userId and newPassword are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
