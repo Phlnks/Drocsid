@@ -78,7 +78,10 @@ Verify these points in your self-hosted auth config:
 
 - `GOTRUE_SITE_URL` points to the Drocsid app URL
 - `GOTRUE_URI_ALLOW_LIST` includes the expected app URLs and local development URLs
-- Google provider credentials are configured correctly
+- `ENABLE_EMAIL_SIGNUP=true` is set if you want users to create local email/password accounts
+- `ENABLE_EMAIL_AUTOCONFIRM=true` is set if you want new local accounts to be usable immediately without email validation
+- `GOTRUE_EXTERNAL_EMAIL_ENABLED` should map to the same signup intent in your compose file so local email/password auth stays enabled
+- Google provider credentials are configured correctly only if Google OAuth is enabled
 - cookies are configured for secure HTTPS delivery where appropriate
 
 If you support Electron and local development flows, include the URLs you actually need in the allow list. The public documentation model also assumes a separate React Native + Expo mobile app, but mobile deep-link values should be documented in the mobile project where they are actually used.
