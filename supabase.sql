@@ -46,7 +46,7 @@ CREATE TABLE public.profiles (
   bio text,
   is_super_admin boolean DEFAULT false,
   can_create_servers boolean DEFAULT false, -- Réservé aux admins by default
-  max_servers integer DEFAULT 5,
+  max_servers integer DEFAULT 1,
   email text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id)
 );
@@ -369,7 +369,7 @@ BEGIN
     new.raw_user_meta_data->>'avatar_url',
     CASE WHEN new.email = 'admin@example.com' THEN true ELSE false END,
     CASE WHEN new.email = 'admin@example.com' THEN true ELSE false END,
-    CASE WHEN new.email = 'admin@example.com' THEN 100 ELSE 5 END
+    CASE WHEN new.email = 'admin@example.com' THEN 100 ELSE 1 END
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN new;

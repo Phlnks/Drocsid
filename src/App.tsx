@@ -570,10 +570,10 @@ export default function App() {
           updates.email = user.email;
         }
         const superadminEmail = import.meta.env.VITE_SUPERADMIN_EMAIL || 'admin@example.com';
-        if (user.email === superadminEmail && (!data.is_superadmin || !data.can_create_servers)) {
-          updates.is_superadmin = true;
+        if (user.email === superadminEmail && (!data.is_super_admin || !data.can_create_servers)) {
+          updates.is_super_admin = true;
           updates.can_create_servers = true;
-          updates.server_limit = 100;
+          updates.max_servers = 100;
         }
 
         if (Object.keys(updates).length > 0) {
@@ -594,9 +594,9 @@ export default function App() {
             avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
             email: user.email,
             status: 'online',
-            is_superadmin: isSuperadmin,
+            is_super_admin: isSuperadmin,
             can_create_servers: isSuperadmin,
-            server_limit: isSuperadmin ? 100 : 5,
+            max_servers: isSuperadmin ? 100 : 1,
           })
           .select()
           .maybeSingle();

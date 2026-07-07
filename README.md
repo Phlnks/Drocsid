@@ -266,5 +266,4 @@ If you encounter issues while setting up or running your private Drocsid instanc
 
 ---
 
-*Drocsid - Communicate without limits.*
-
+*Drocsid - Speak freely. Stay anonymous.*

@@ -245,13 +245,13 @@ export default function ServerList() {
 
         if (
           ownedServers &&
-          ownedServers.length >= (currentUserProfile.max_servers || 2)
+          ownedServers.length >= (currentUserProfile.max_servers || 1)
         ) {
           addNotification(
             t(
               "errors.maxServersReached",
               `Vous avez atteint la limite de serveurs (${
-                currentUserProfile.max_servers || 2
+                currentUserProfile.max_servers || 1
               }).`
             ),
             "error"
