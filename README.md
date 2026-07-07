@@ -1,6 +1,4 @@
-# Drocsid 🚀
-
-![Drocsid Logo](public/logo.png)
+![Drocsid Logo](public/logo-big.png)
 
 **Drocsid** is a modern communication platform, designed to provide a fluid, secure, and highly customizable experience. Whether for gaming communities, work teams, or groups of friends, Drocsid offers a robust infrastructure built on React, Supabase, and Socket.io.
 
