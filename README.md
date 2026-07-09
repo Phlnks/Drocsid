@@ -266,4 +266,35 @@ If you encounter issues while setting up or running your private Drocsid instanc
 
 ---
 
+### 7. ⚡ Erreur Realtime WebSocket (400 Bad Request)
+* **Symptom:** Des erreurs de type `wss://supabase.drocsid.site/realtime/v1/websocket?apikey=... [HTTP/1.1 400 Bad Request]` apparaissent dans la console du navigateur et les mises à jour en temps réel ne fonctionnent pas.
+* **Causes:**
+  - Les connexions WebSocket exigent un protocole d'échange spécifique appelé *Upgrade Handshake* (la connexion HTTP doit être "surclassée" en WebSocket).
+  - Si ton reverse proxy (très probablement Nginx) qui écoute sur `supabase.drocsid.site` n'est pas explicitement configuré pour relayer les en-têtes d'upgrade WebSocket vers ton conteneur Kong (port 8000), Nginx rejette la connexion ou ne la transmet pas correctement, ce qui renvoie une erreur HTTP 400 Bad Request au navigateur.
+* **Solutions:**
+  - Dans le fichier de configuration Nginx de ton sous-domaine `supabase.drocsid.site` (généralement situé dans `/etc/nginx/sites-available/` ou `/etc/nginx/conf.d/`), assure-toi que les en-têtes d'upgrade sont correctement configurés.
+  - Voici le bloc de configuration Nginx idéal pour ton sous-domaine Supabase :
+    ```nginx
+    server {
+        server_name supabase.drocsid.site;
+
+        location / {
+            proxy_pass http://localhost:8000; # Redirection vers le Kong de Supabase
+            
+            # --- CONFIGURATION CRITIQUE POUR LES WEBSOCKETS ---
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            # --------------------------------------------------
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+    ```
+
+---
+
 *Drocsid - Speak freely. Stay anonymous.*
