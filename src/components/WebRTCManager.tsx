@@ -107,6 +107,12 @@ export default function WebRTCManager() {
 
   const noiseGateCtxRef = useRef<AudioContext | null>(null);
   const rawMicStreamRef = useRef<MediaStream | null>(null);
+  const lastAppliedMicSettingsRef = useRef<{
+    deviceId: string | null;
+    echoCancellation: boolean;
+    noiseSuppression: boolean;
+    autoGainControl: boolean;
+  } | null>(null);
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const smoothedLevelRef = useRef(0);
@@ -1030,6 +1036,13 @@ export default function WebRTCManager() {
                 dtx: true,
               });
 
+              lastAppliedMicSettingsRef.current = {
+                deviceId: currentSettings.selectedMicrophoneId || null,
+                echoCancellation: !!currentSettings.echoCancellation,
+                noiseSuppression: !!currentSettings.noiseSuppression,
+                autoGainControl: !!currentSettings.autoGainControl,
+              };
+
               console.log('[WebRTC] Microphone track successfully republished after reconnect.');
             }
           } catch (err) {
@@ -1120,6 +1133,12 @@ export default function WebRTCManager() {
               red: true,
               dtx: true,
             });
+            lastAppliedMicSettingsRef.current = {
+              deviceId: voiceSettings.selectedMicrophoneId || null,
+              echoCancellation: !!voiceSettings.echoCancellation,
+              noiseSuppression: !!voiceSettings.noiseSuppression,
+              autoGainControl: !!voiceSettings.autoGainControl,
+            };
             const _iceRaw = (room.engine?.pcManager?.publisher as any)?.pc?.getConfiguration();
             console.warn('[LK 1b] ICE config:', JSON.stringify({
               ..._iceRaw,
@@ -1222,6 +1241,114 @@ export default function WebRTCManager() {
       socket.emit('leave-voice-channel', { channelId: connectedVoiceChannelId, userId: currentUser.id });
     };
   }, [connectedVoiceChannelId, currentUser]);
+
+
+  // Effect to handle dynamic microphone change without disconnecting/reconnecting
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !currentUser) return;
+    const room = roomRef.current;
+    if (!room || room.state !== 'connected') return;
+
+    let isEffectMounted = true;
+
+    const updateMicrophone = async () => {
+      // Check if settings are actually different from what's currently applied
+      const isSame = lastAppliedMicSettingsRef.current &&
+        lastAppliedMicSettingsRef.current.deviceId === (voiceSettings.selectedMicrophoneId || null) &&
+        lastAppliedMicSettingsRef.current.echoCancellation === !!voiceSettings.echoCancellation &&
+        lastAppliedMicSettingsRef.current.noiseSuppression === !!voiceSettings.noiseSuppression &&
+        lastAppliedMicSettingsRef.current.autoGainControl === !!voiceSettings.autoGainControl;
+
+      if (isSame) {
+        console.log('[WebRTC] Microphone settings unchanged, skipping dynamic update.');
+        return;
+      }
+
+      console.log('[WebRTC] Updating microphone dynamically to:', voiceSettings.selectedMicrophoneId);
+      try {
+        // Stop the old stream tracks
+        if (rawMicStreamRef.current) {
+          rawMicStreamRef.current.getTracks().forEach(t => t.stop());
+        }
+
+        // Unpublish the existing track from LiveKit
+        const existingPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (existingPub && existingPub.track) {
+          await room.localParticipant.unpublishTrack(existingPub.track as LocalAudioTrack);
+        }
+
+        // Fetch new mic stream with updated constraints/deviceId
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: voiceSettings.selectedMicrophoneId || undefined,
+            echoCancellation: voiceSettings.echoCancellation,
+            noiseSuppression: voiceSettings.noiseSuppression,
+            autoGainControl: voiceSettings.autoGainControl,
+          }
+        });
+
+        if (!isEffectMounted) {
+          newStream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        rawMicStreamRef.current = newStream;
+        await setupLocalAnalyser(newStream);
+
+        const audioTrack = newStream.getAudioTracks()[0];
+        if (audioTrack) {
+          const localAudioTrack = new LocalAudioTrack(audioTrack);
+          if (isVoiceMuted || isDeafened) {
+            await localAudioTrack.mute();
+          }
+          await room.localParticipant.publishTrack(localAudioTrack, {
+            source: Track.Source.Microphone,
+            red: true,
+            dtx: true,
+          });
+
+          // Update the ref to prevent redundant updates
+          lastAppliedMicSettingsRef.current = {
+            deviceId: voiceSettings.selectedMicrophoneId || null,
+            echoCancellation: !!voiceSettings.echoCancellation,
+            noiseSuppression: !!voiceSettings.noiseSuppression,
+            autoGainControl: !!voiceSettings.autoGainControl,
+          };
+          console.log('[WebRTC] Microphone successfully updated dynamically.');
+        }
+      } catch (err) {
+        console.error('[WebRTC] Failed to switch microphone dynamically:', err);
+      }
+    };
+
+    updateMicrophone();
+
+    return () => {
+      isEffectMounted = false;
+    };
+  }, [
+    connectedVoiceChannelId,
+    currentUser,
+    voiceSettings.selectedMicrophoneId,
+    voiceSettings.echoCancellation,
+    voiceSettings.noiseSuppression,
+    voiceSettings.autoGainControl,
+    isVoiceMuted,
+    isDeafened
+  ]);
+
+  // Effect to switch active audio output device in LiveKit
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !currentUser) return;
+    const room = roomRef.current;
+    if (!room || room.state !== 'connected') return;
+
+    if (voiceSettings.selectedSpeakerId) {
+      console.log('[WebRTC] Switching LiveKit active audio output device to:', voiceSettings.selectedSpeakerId);
+      room.switchActiveDevice('audiooutput', voiceSettings.selectedSpeakerId)
+        .catch((err) => console.error('[WebRTC] Failed to switch active audio output device:', err));
+    }
+  }, [connectedVoiceChannelId, currentUser, voiceSettings.selectedSpeakerId]);
 
 
   // ─── Sync socket ───────────────────────────────────────────────────────────
