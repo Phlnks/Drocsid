@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
@@ -6,6 +6,8 @@ import { useInstanceStore } from './store/instanceStore';
 import Auth from './components/Auth';
 import Layout from './components/Layout';
 import { InstanceSetupScreen } from './components/InstanceSetupScreen';
+import { InstanceSettingsModal } from './components/InstanceSettingsModal';
+import { motion } from 'motion/react';
 import Toaster from './components/ui/Toaster';
 import socket from './lib/socket';
 import ThemeManager from './components/ThemeManager';
@@ -112,6 +114,20 @@ export default function App() {
   const { isCurrentInstanceValid } = useInstanceStore();
 
   const isInstanceValid = isCurrentInstanceValid();
+
+  const [showEmergency, setShowEmergency] = useState(false);
+  const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthReady) {
+      const timer = setTimeout(() => {
+        setShowEmergency(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowEmergency(false);
+    }
+  }, [isAuthReady]);
 
   useEffect(() => {
     const handleSoundPlayed = (data: {
@@ -701,8 +717,35 @@ export default function App() {
 
   if (!isAuthReady) {
     return (
-      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#1e1f22] flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center max-w-md w-full bg-[#313338] p-6 rounded-xl border border-[#1e1f22] text-center space-y-6 shadow-xl">
+          <div className="w-8 h-8 border-4 border-[#5865F2] border-t-transparent rounded-full animate-spin" />
+          
+          {showEmergency && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4 w-full"
+            >
+              <p className="text-[#b5bac1] text-sm leading-relaxed">
+                {t('setup.connectionTimeout')}
+              </p>
+              <button
+                onClick={() => setIsInstanceSettingsOpen(true)}
+                className="w-full py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752c4] text-white font-medium rounded-lg transition-all"
+              >
+                {t('setup.reconfigureInstance')}
+              </button>
+            </motion.div>
+          )}
+        </div>
+        
+        {isInstanceSettingsOpen && (
+          <InstanceSettingsModal
+            isOpen={isInstanceSettingsOpen}
+            onClose={() => setIsInstanceSettingsOpen(false)}
+          />
+        )}
       </div>
     );
   }

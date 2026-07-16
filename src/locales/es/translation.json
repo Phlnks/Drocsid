@@ -5,7 +5,9 @@
     "description": "Drocsid es una plataforma descentralizada. Puedes conectarte a cualquier servidor compatible con Supabase + Socket.io.",
     "createFirst": "Configurar mi primera instancia",
     "importJson": "Importar una configuración",
-    "useDefault": "Usar variables de entorno (si están presentes)"
+    "useDefault": "Usar variables de entorno (si están presentes)",
+    "connectionTimeout": "La conexión a la instancia está tardando más de lo previsto. Es posible que el servidor no esté disponible o esté mal configurado.",
+    "reconfigureInstance": "Reconfigurar instancia"
   },
   "instances": {
     "title": "Gestión de instancias",

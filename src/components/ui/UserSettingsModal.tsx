@@ -25,7 +25,7 @@ import { processImageForSupabase } from "../../lib/imageUtils";
 import { useTranslation } from "react-i18next";
 
 // Vous pouvez modifier cette ligne manuellement pour changer la version de l'application
-const APP_VERSION = "1.0.4";
+const APP_VERSION = "1.0.5";
 
 interface UserSettingsModalProps {
   isOpen: boolean;
