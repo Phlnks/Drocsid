@@ -715,7 +715,7 @@ export default function App() {
 
   const isInIframe = window.self !== window.top;
 
-  if (!isAuthReady) {
+  if (!isAuthReady || isInstanceSettingsOpen) {
     return (
       <div className="min-h-screen bg-[#1e1f22] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center max-w-md w-full bg-[#313338] p-6 rounded-xl border border-[#1e1f22] text-center space-y-6 shadow-xl">
