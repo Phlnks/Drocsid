@@ -44,6 +44,31 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   const [search, setSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
+  const getFreshSessionAndBaseUrl = async () => {
+    let { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      const isExpired = session.expires_at ? (session.expires_at * 1000 < Date.now() + 120000) : false;
+      if (isExpired) {
+        console.log('[SuperAdmin] Token is close to expiring or expired. Refreshing session...');
+        const { data, error } = await supabase.auth.refreshSession();
+        if (!error && data?.session) {
+          session = data.session;
+        } else if (error) {
+          console.error('[SuperAdmin] Failed to refresh session:', error);
+        }
+      }
+    }
+    
+    let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin;
+    if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
+      baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    
+    return { session, baseUrl };
+  };
+
   useEffect(() => {
     if (isOpen && currentUserProfile?.is_super_admin) {
       loadData();
@@ -54,9 +79,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     setLoading(true);
     setSelectedUserIds(new Set());
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
 
       if (activeTab === 'users') {
         const res = await fetch(`${baseUrl}/api/admin/users`, {
@@ -132,14 +156,9 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     if (!announcement.trim()) return;
     if (!confirm("Are you sure you want to send this global announcement to ALL servers?")) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
       
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin;
-      if (baseUrl.includes('file://') || baseUrl.includes('drocsid://')) {
-        baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-      }
-      baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/announce`, {
         method: 'POST',
         headers: { 
@@ -185,9 +204,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     if (newUsername?.trim() === '' && !resetAvatar) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/user/${u.id}`, {
         method: 'PUT',
         headers: { 
@@ -216,9 +234,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/reset-password`, {
         method: 'POST',
         headers: { 
@@ -244,9 +261,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     if (!newName && !newOwnerId) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/server/${s.id}`, {
         method: 'PUT',
         headers: { 
@@ -272,9 +288,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
 
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/messages/search?q=${encodeURIComponent(messageSearch)}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -291,9 +306,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   const handleDeleteMessage = async (msgId: string) => {
     if (!confirm("Are you sure you want to forcibly delete this message?")) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/messages/${msgId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
@@ -308,9 +322,8 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
 
   const handleReportStatus = async (reportId: string, status: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/reports/${reportId}`, {
         method: 'PUT',
         headers: { 
@@ -347,10 +360,9 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
     if (!confirm(`Are you sure you want to ${ban ? 'ban' : 'unban'} ${selectedUserIds.size} user(s)?`)) return;
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
       
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
@@ -372,10 +384,9 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
   const handleSingleBan = async (userId: string, ban: boolean) => {
     if (!confirm(`Are you sure you want to ${ban ? 'ban' : 'unban'} this user?`)) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { session, baseUrl } = await getFreshSessionAndBaseUrl();
       if (!session) return;
       
-      let baseUrl = getCurrentInstance()?.socketUrl || window.location.origin; if(baseUrl.includes('file://') || baseUrl.includes('drocsid://')) baseUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'; baseUrl = baseUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/api/admin/ban`, {
         method: 'POST',
         headers: { 
