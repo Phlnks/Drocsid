@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, AlertCircle, Download, Loader2 } from 'lucide-react';
+import { useAppStore } from '../store/appStore';
 
 interface VoicePlayerProps {
   url: string;
@@ -14,6 +15,15 @@ export default function VoicePlayer({ url, filename }: VoicePlayerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [audioSrc, setAudioSrc] = useState<string>('');
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { voiceSettings } = useAppStore();
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    const speakerId = voiceSettings?.selectedSpeakerId || '';
+    if (typeof (audioRef.current as any).setSinkId === 'function') {
+      (audioRef.current as any).setSinkId(speakerId).catch(() => {});
+    }
+  }, [voiceSettings?.selectedSpeakerId]);
 
   useEffect(() => {
     // Reset state on url change

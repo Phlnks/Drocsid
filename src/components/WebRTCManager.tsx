@@ -59,9 +59,12 @@ function AudioPlayer({ userId, track }: { userId: string; track: RemoteAudioTrac
 
   // Sortie audio (sinkId)
   useEffect(() => {
-    if (audioRef.current && voiceSettings.selectedSpeakerId) {
-      (audioRef.current as any).setSinkId?.(voiceSettings.selectedSpeakerId)
-        .catch((e: any) => console.error('Error setting output device', e));
+    if (!audioRef.current) return;
+    const speakerId = voiceSettings.selectedSpeakerId || '';
+    if (typeof (audioRef.current as any).setSinkId === 'function') {
+      (audioRef.current as any).setSinkId(speakerId).catch((e: any) => {
+        console.error('[AudioPlayer] Error setting output device (setSinkId)', e);
+      });
     }
   }, [voiceSettings.selectedSpeakerId]);
 
@@ -111,6 +114,19 @@ export default function WebRTCManager() {
   const rafIdRef = useRef<number | null>(null);
   const smoothedLevelRef = useRef(0);
   const lastTriggeredRef = useRef(0);
+
+  const isSwitchingMicRef = useRef(false);
+  const activeMicConfigRef = useRef<{
+    deviceId?: string;
+    echoCancellation?: boolean;
+    noiseSuppression?: boolean;
+    autoGainControl?: boolean;
+  }>({
+    deviceId: voiceSettings.selectedMicrophoneId,
+    echoCancellation: voiceSettings.echoCancellation,
+    noiseSuppression: voiceSettings.noiseSuppression,
+    autoGainControl: voiceSettings.autoGainControl,
+  });
 
   const prevTrayStateRef = useRef({ isSpeaking: false });
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -502,6 +518,187 @@ export default function WebRTCManager() {
     };
     checkChannelAfk();
   }, [connectedVoiceChannelId, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened]);
+
+
+  // ─── Hot-swap microphone & audio constraints in active room ────────────────
+  useEffect(() => {
+    if (!connectedVoiceChannelId || !roomRef.current || !currentUser) {
+      activeMicConfigRef.current = {
+        deviceId: voiceSettings.selectedMicrophoneId,
+        echoCancellation: voiceSettings.echoCancellation,
+        noiseSuppression: voiceSettings.noiseSuppression,
+        autoGainControl: voiceSettings.autoGainControl,
+      };
+      return;
+    }
+
+    const prevConfig = activeMicConfigRef.current;
+    const hasChanged =
+      prevConfig.deviceId !== voiceSettings.selectedMicrophoneId ||
+      prevConfig.echoCancellation !== voiceSettings.echoCancellation ||
+      prevConfig.noiseSuppression !== voiceSettings.noiseSuppression ||
+      prevConfig.autoGainControl !== voiceSettings.autoGainControl;
+
+    if (!hasChanged) return;
+
+    activeMicConfigRef.current = {
+      deviceId: voiceSettings.selectedMicrophoneId,
+      echoCancellation: voiceSettings.echoCancellation,
+      noiseSuppression: voiceSettings.noiseSuppression,
+      autoGainControl: voiceSettings.autoGainControl,
+    };
+
+    const switchMic = async () => {
+      if (isSwitchingMicRef.current) return;
+      isSwitchingMicRef.current = true;
+      console.log('[WebRTC] 🎙️ Hot-swapping microphone device to:', voiceSettings.selectedMicrophoneId || 'Default');
+
+      try {
+        let newStream: MediaStream | null = null;
+        try {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: voiceSettings.echoCancellation ?? true,
+              noiseSuppression: voiceSettings.noiseSuppression ?? true,
+              autoGainControl: voiceSettings.autoGainControl ?? true,
+              ...(voiceSettings.selectedMicrophoneId ? { deviceId: { exact: voiceSettings.selectedMicrophoneId } } : {})
+            }
+          });
+        } catch (err: any) {
+          console.warn('[WebRTC] Failed to capture selected microphone with exact constraint, falling back to soft constraint:', err);
+          try {
+            newStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: voiceSettings.echoCancellation ?? true,
+                noiseSuppression: voiceSettings.noiseSuppression ?? true,
+                autoGainControl: voiceSettings.autoGainControl ?? true,
+                ...(voiceSettings.selectedMicrophoneId ? { deviceId: voiceSettings.selectedMicrophoneId } : {})
+              }
+            });
+          } catch (softErr) {
+            console.warn('[WebRTC] Failed with soft constraint, falling back to default device:', softErr);
+            try {
+              newStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  echoCancellation: voiceSettings.echoCancellation ?? true,
+                  noiseSuppression: voiceSettings.noiseSuppression ?? true,
+                  autoGainControl: voiceSettings.autoGainControl ?? true,
+                }
+              });
+            } catch (fatalErr) {
+              console.error('[WebRTC] Could not capture any microphone stream:', fatalErr);
+              isSwitchingMicRef.current = false;
+              return;
+            }
+          }
+        }
+
+        if (!newStream) {
+          isSwitchingMicRef.current = false;
+          return;
+        }
+
+        const newAudioTrack = newStream.getAudioTracks()[0];
+        if (!newAudioTrack) {
+          newStream.getTracks().forEach(t => t.stop());
+          isSwitchingMicRef.current = false;
+          return;
+        }
+
+        const room = roomRef.current;
+        if (!room) {
+          newStream.getTracks().forEach(t => t.stop());
+          isSwitchingMicRef.current = false;
+          return;
+        }
+
+        const lp = room.localParticipant;
+        const micPub = lp?.getTrackPublication(Track.Source.Microphone);
+        const currentLocalTrack = micPub?.track as LocalAudioTrack | undefined;
+
+        // 1. Remplacer la piste LiveKit à chaud
+        if (currentLocalTrack && typeof currentLocalTrack.replaceTrack === 'function') {
+          try {
+            await currentLocalTrack.replaceTrack(newAudioTrack);
+            console.log('[WebRTC] ✅ Microphone track successfully hot-swapped on LiveKit via replaceTrack');
+          } catch (repErr) {
+            console.warn('[WebRTC] replaceTrack failed, attempting unpublish & republish:', repErr);
+            try {
+              await lp.unpublishTrack(currentLocalTrack);
+              const newLocalTrack = new LocalAudioTrack(newAudioTrack);
+              const isMuted = useAppStore.getState().isVoiceMuted || useAppStore.getState().isDeafened;
+              if (isMuted) {
+                await newLocalTrack.mute();
+              }
+              await lp.publishTrack(newLocalTrack, {
+                source: Track.Source.Microphone,
+                red: true,
+                dtx: true,
+              });
+            } catch (pubErr) {
+              console.error('[WebRTC] Failed to republish new microphone track:', pubErr);
+            }
+          }
+        } else if (lp) {
+          try {
+            const newLocalTrack = new LocalAudioTrack(newAudioTrack);
+            const isMuted = useAppStore.getState().isVoiceMuted || useAppStore.getState().isDeafened;
+            if (isMuted) {
+              await newLocalTrack.mute();
+            }
+            await lp.publishTrack(newLocalTrack, {
+              source: Track.Source.Microphone,
+              red: true,
+              dtx: true,
+            });
+          } catch (pubErr) {
+            console.error('[WebRTC] Failed to publish new microphone track:', pubErr);
+          }
+        }
+
+        // 2. Réattacher l'analyseur audio local (Noise Gate / Voice Activity)
+        const oldStream = rawMicStreamRef.current;
+        rawMicStreamRef.current = newStream;
+
+        try {
+          await setupLocalAnalyser(newStream);
+        } catch (analyserErr) {
+          console.warn('[WebRTC] Error updating local analyser on mic switch:', analyserErr);
+        }
+
+        // 3. Arrêter proprement l'ancien stream
+        if (oldStream && oldStream !== newStream) {
+          oldStream.getTracks().forEach(t => t.stop());
+        }
+      } catch (err) {
+        console.error('[WebRTC] Unexpected error during microphone hot-swap:', err);
+      } finally {
+        isSwitchingMicRef.current = false;
+      }
+    };
+
+    const timeout = setTimeout(switchMic, 150);
+    return () => clearTimeout(timeout);
+  }, [
+    voiceSettings.selectedMicrophoneId,
+    voiceSettings.echoCancellation,
+    voiceSettings.noiseSuppression,
+    voiceSettings.autoGainControl,
+    connectedVoiceChannelId,
+    currentUser,
+  ]);
+
+
+  // ─── Hot-swap speaker output device on LiveKit Room ────────────────────────
+  useEffect(() => {
+    if (!roomRef.current) return;
+    const speakerId = voiceSettings.selectedSpeakerId || 'default';
+    if (typeof roomRef.current.switchActiveDevice === 'function') {
+      roomRef.current.switchActiveDevice('audiooutput', speakerId).catch((e: any) => {
+        console.warn('[WebRTC] Room switchActiveDevice audiooutput error:', e);
+      });
+    }
+  }, [voiceSettings.selectedSpeakerId]);
 
 
   // Screen share publish vidéo / audio
@@ -997,14 +1194,28 @@ export default function WebRTCManager() {
             const currentIsMuted = useAppStore.getState().isVoiceMuted;
             const currentIsDeafened = useAppStore.getState().isDeafened;
             
-            rawMicStreamRef.current = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                echoCancellation: currentSettings.echoCancellation,
-                noiseSuppression: currentSettings.noiseSuppression,
-                autoGainControl: currentSettings.autoGainControl,
-                deviceId: currentSettings.selectedMicrophoneId || undefined
-              }
-            });
+            let newStream: MediaStream | null = null;
+            try {
+              newStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  echoCancellation: currentSettings.echoCancellation ?? true,
+                  noiseSuppression: currentSettings.noiseSuppression ?? true,
+                  autoGainControl: currentSettings.autoGainControl ?? true,
+                  ...(currentSettings.selectedMicrophoneId ? { deviceId: { exact: currentSettings.selectedMicrophoneId } } : {})
+                }
+              });
+            } catch (e) {
+              console.warn('[WebRTC] Reconnect mic acquisition with exact constraint failed, falling back to default:', e);
+              newStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  echoCancellation: currentSettings.echoCancellation ?? true,
+                  noiseSuppression: currentSettings.noiseSuppression ?? true,
+                  autoGainControl: currentSettings.autoGainControl ?? true,
+                }
+              });
+            }
+
+            rawMicStreamRef.current = newStream;
 
             const existingPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
             if (existingPub && existingPub.track) {
@@ -1021,8 +1232,6 @@ export default function WebRTCManager() {
               if (currentIsMuted || currentIsDeafened) {
                 await localAudioTrack.mute();
               }
-
-              //await wait(300);
 
               await room.localParticipant.publishTrack(localAudioTrack, {
                 source: Track.Source.Microphone,
@@ -1089,22 +1298,60 @@ export default function WebRTCManager() {
         (room as any)._onSocketConnect = emitJoinVoiceChannel; // on stocke pour nettoyer
 
         try {
-          // Capturer le micro brut, réutiliser si existe (changement de salon)
+          // Capturer le micro brut, réutiliser si existe (changement de salon) seulement si le périphérique correspond
           let rawMicStream = rawMicStreamRef.current;
-          if (!rawMicStream || rawMicStream.getTracks().some(t => t.readyState === 'ended')) {
-            rawMicStream = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                echoCancellation: voiceSettings.echoCancellation,
-                noiseSuppression: voiceSettings.noiseSuppression,
-                autoGainControl: voiceSettings.autoGainControl,
-                deviceId: voiceSettings.selectedMicrophoneId || undefined
+          const currentTrack = rawMicStream?.getAudioTracks()[0];
+          const currentTrackDeviceId = currentTrack?.getSettings?.()?.deviceId;
+          const desiredDeviceId = voiceSettings.selectedMicrophoneId;
+          const isDeviceMismatch = !!desiredDeviceId && !!currentTrackDeviceId && currentTrackDeviceId !== desiredDeviceId;
+
+          if (!rawMicStream || rawMicStream.getTracks().some(t => t.readyState === 'ended') || isDeviceMismatch) {
+            if (rawMicStream) {
+              rawMicStream.getTracks().forEach(t => t.stop());
+            }
+
+            try {
+              rawMicStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  echoCancellation: voiceSettings.echoCancellation ?? true,
+                  noiseSuppression: voiceSettings.noiseSuppression ?? true,
+                  autoGainControl: voiceSettings.autoGainControl ?? true,
+                  ...(voiceSettings.selectedMicrophoneId ? { deviceId: { exact: voiceSettings.selectedMicrophoneId } } : {})
+                }
+              });
+            } catch (exactErr) {
+              console.warn('[WebRTC] Initial mic capture with exact constraint failed, falling back to soft/default:', exactErr);
+              try {
+                rawMicStream = await navigator.mediaDevices.getUserMedia({
+                  audio: {
+                    echoCancellation: voiceSettings.echoCancellation ?? true,
+                    noiseSuppression: voiceSettings.noiseSuppression ?? true,
+                    autoGainControl: voiceSettings.autoGainControl ?? true,
+                    ...(voiceSettings.selectedMicrophoneId ? { deviceId: voiceSettings.selectedMicrophoneId } : {})
+                  }
+                });
+              } catch (softErr) {
+                console.warn('[WebRTC] Falling back to default device:', softErr);
+                rawMicStream = await navigator.mediaDevices.getUserMedia({
+                  audio: {
+                    echoCancellation: voiceSettings.echoCancellation ?? true,
+                    noiseSuppression: voiceSettings.noiseSuppression ?? true,
+                    autoGainControl: voiceSettings.autoGainControl ?? true,
+                  }
+                });
               }
-            });
+            }
+
             rawMicStreamRef.current = rawMicStream;
+            activeMicConfigRef.current = {
+              deviceId: voiceSettings.selectedMicrophoneId,
+              echoCancellation: voiceSettings.echoCancellation,
+              noiseSuppression: voiceSettings.noiseSuppression,
+              autoGainControl: voiceSettings.autoGainControl,
+            };
             await setupLocalAnalyser(rawMicStream);
           } else {
             console.log("Reusing existing microphone stream for seamless channel switch.");
-            // Le Noise Gate est déjà attaché à ce stream, donc pas besoin de refaire l'analyser
           }
           const micStream = rawMicStreamRef.current;
 

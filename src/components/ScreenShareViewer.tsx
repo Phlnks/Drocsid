@@ -57,10 +57,13 @@ function StreamAudioPlayer({
   }, [muted]);
 
   useEffect(() => {
-    if (!audioRef.current || !selectedSpeakerId) return;
-    (audioRef.current as any).setSinkId?.(selectedSpeakerId).catch((e: any) => {
-      console.error('[StreamAudio:viewer] setSinkId error', e);
-    });
+    if (!audioRef.current) return;
+    const speakerId = selectedSpeakerId || '';
+    if (typeof (audioRef.current as any).setSinkId === 'function') {
+      (audioRef.current as any).setSinkId(speakerId).catch((e: any) => {
+        console.error('[StreamAudio:viewer] setSinkId error', e);
+      });
+    }
   }, [selectedSpeakerId]);
 
   return null;

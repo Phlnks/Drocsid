@@ -111,6 +111,10 @@ export default function UserSettingsModal({
     };
     if (isOpen && activeTab === "voice") {
       loadDevices();
+      navigator.mediaDevices?.addEventListener?.("devicechange", loadDevices);
+      return () => {
+        navigator.mediaDevices?.removeEventListener?.("devicechange", loadDevices);
+      };
     }
   }, [isOpen, activeTab]);
 
