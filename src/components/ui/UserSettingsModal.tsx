@@ -278,13 +278,23 @@ export default function UserSettingsModal({
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" || e.code === "Escape") {
+        if (showEmojiPicker) {
+          setShowEmojiPicker(false);
+          return;
+        }
+        if (isPromptOpen) {
+          setIsPromptOpen(false);
+          return;
+        }
+        onClose();
+      }
     };
     if (isOpen) {
       window.addEventListener("keydown", handleEsc);
     }
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showEmojiPicker, isPromptOpen]);
 
   if (!isOpen) return null;
 
@@ -407,8 +417,16 @@ export default function UserSettingsModal({
   const isLocalAccount = user?.app_metadata?.provider === "email" || (user?.email && user.email.endsWith("@drocsid.local"));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="bg-zinc-800 w-full max-w-4xl h-screen md:h-[80vh] rounded-none md:rounded-lg shadow-2xl flex flex-col md:flex-row overflow-hidden">
+    <div 
+      id="user-settings-overlay"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 md:p-4"
+      onClick={onClose}
+    >
+      <div 
+        id="user-settings-modal"
+        className="bg-zinc-800 w-full max-w-4xl h-screen md:h-[80vh] rounded-none md:rounded-lg shadow-2xl flex flex-col md:flex-row overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Sidebar */}
         <div className="w-full md:w-60 bg-zinc-900/50 flex md:flex-col p-4 border-b md:border-b-0 md:border-r border-zinc-700/50 shrink-0 overflow-x-auto md:overflow-y-auto no-scrollbar gap-2 md:gap-1">
           <div className="hidden md:block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 px-2">
@@ -2118,6 +2136,10 @@ export default function UserSettingsModal({
                         className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
                         onKeyDown={(e) => {
                           e.preventDefault();
+                          if (e.key === "Escape" || e.key === "Backspace") {
+                            setKeybinds({ mute: "" });
+                            return;
+                          }
                           const keys = [];
                           if (e.ctrlKey || e.metaKey)
                             keys.push("CommandOrControl");
@@ -2161,6 +2183,10 @@ export default function UserSettingsModal({
                         className="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white outline-none focus:border-indigo-500 transition-colors cursor-pointer"
                         onKeyDown={(e) => {
                           e.preventDefault();
+                          if (e.key === "Escape" || e.key === "Backspace") {
+                            setKeybinds({ deafen: "" });
+                            return;
+                          }
                           const keys = [];
                           if (e.ctrlKey || e.metaKey)
                             keys.push("CommandOrControl");
