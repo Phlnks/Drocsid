@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Sparkles } from 'lucide-react';
 
 interface GifPickerProps {
   onSelect: (url: string) => void;
@@ -12,8 +12,8 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
   const [loading, setLoading] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  // Tenor API key (public test key)
-  const TENOR_API_KEY = 'LIVDSRZULELA';
+  // GIPHY public beta API key
+  const GIPHY_API_KEY = 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -30,86 +30,128 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
+  // Load trending gifs on initial mount or when query is cleared
   useEffect(() => {
+    if (query.trim()) return;
+
+    let isMounted = true;
     const fetchTrending = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`https://g.tenor.com/v1/trending?key=${TENOR_API_KEY}&limit=20`);
+        const res = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=24&rating=g`);
         const data = await res.json();
-        if (data.results) {
-          setGifs(data.results);
+        if (isMounted && data.data) {
+          setGifs(data.data);
         }
       } catch (error) {
         console.error('Error fetching trending GIFs:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchTrending();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [query]);
 
+  // Search gifs with debounce
   useEffect(() => {
-    if (!query.trim()) return;
+    const trimmed = query.trim();
+    if (!trimmed) return;
 
+    let isMounted = true;
     const delayDebounceFn = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`https://g.tenor.com/v1/search?q=${encodeURIComponent(query)}&key=${TENOR_API_KEY}&limit=20`);
+        const res = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(trimmed)}&limit=24&rating=g`);
         const data = await res.json();
-        if (data.results) {
-          setGifs(data.results);
+        if (isMounted && data.data) {
+          setGifs(data.data);
         }
       } catch (error) {
         console.error('Error searching GIFs:', error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
-    }, 500);
+    }, 400);
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => {
+      isMounted = false;
+      clearTimeout(delayDebounceFn);
+    };
   }, [query]);
 
   return (
-    <div ref={pickerRef} className="absolute bottom-full right-0 mb-2 w-72 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50 flex flex-col h-96">
-      <div className="p-3 border-b border-zinc-700">
+    <div 
+      ref={pickerRef} 
+      id="gif-picker-popover"
+      className="absolute bottom-full right-0 mb-2 w-80 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/80 rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col h-[400px]"
+    >
+      <div className="p-3 border-b border-zinc-800 bg-zinc-900/60">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
+            id="gif-search-input"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un GIF..."
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-md py-2 pl-9 pr-3 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500"
+            placeholder="Rechercher sur GIPHY..."
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
             autoFocus
           />
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-2.5 custom-scrollbar">
         {loading && gifs.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-zinc-400">
             <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+            <span className="text-xs">Chargement des GIFs...</span>
+          </div>
+        ) : gifs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-zinc-400">
+            <Sparkles className="w-8 h-8 text-zinc-600" />
+            <span className="text-xs">Aucun GIF trouvé</span>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {gifs.map((gif) => (
-              <button
-                key={gif.id}
-                onClick={() => onSelect(gif.media[0].gif.url)}
-                className="relative aspect-square rounded-md overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all focus:outline-none"
-              >
-                <img
-                  src={gif.media[0].tinygif.url}
-                  alt="GIF"
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </button>
-            ))}
+            {gifs.map((gif) => {
+              const previewUrl = gif.images?.fixed_height_small?.url || gif.images?.fixed_height?.url || gif.images?.original?.url;
+              const fullUrl = gif.images?.original?.url || gif.images?.downsized_medium?.url || previewUrl;
+              if (!previewUrl) return null;
+
+              return (
+                <button
+                  key={gif.id}
+                  id={`gif-item-${gif.id}`}
+                  onClick={() => onSelect(fullUrl)}
+                  className="relative aspect-square rounded-lg overflow-hidden bg-zinc-800 hover:ring-2 hover:ring-indigo-500 hover:scale-[1.02] transition-all focus:outline-none group"
+                >
+                  <img
+                    src={previewUrl}
+                    alt={gif.title || 'GIF'}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              );
+            })}
           </div>
+        )}
+      </div>
+      
+      <div className="px-3 py-1.5 bg-zinc-950/60 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500">
+        <span>Propulsé par GIPHY</span>
+        {loading && gifs.length > 0 && (
+          <span className="flex items-center gap-1 text-indigo-400">
+            <Loader2 className="w-3 h-3 animate-spin" /> Recherche...
+          </span>
         )}
       </div>
     </div>
   );
 }
+
