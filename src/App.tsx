@@ -490,7 +490,14 @@ export default function App() {
       setOnlineUserIds(userIds);
     };
 
+    const handleVoiceParticipantsUpdate = (data: { channelId: string; participants: any[] }) => {
+      if (data?.channelId && Array.isArray(data?.participants)) {
+        useAppStore.getState().setVoiceParticipants(data.channelId, data.participants);
+      }
+    };
+
     socket.on('online-users', handleOnlineUsers);
+    socket.on('voice-participants-update', handleVoiceParticipantsUpdate);
 
     const pendingInvite = sessionStorage.getItem('pending_invite');
     if (pendingInvite) {
@@ -569,6 +576,7 @@ export default function App() {
     return () => {
       socket.off('connect', handleConnect);
       socket.off('online-users', handleOnlineUsers);
+      socket.off('voice-participants-update', handleVoiceParticipantsUpdate);
     };
   }, [user, setOnlineUserIds, addNotification, t]);
 

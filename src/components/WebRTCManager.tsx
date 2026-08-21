@@ -62,11 +62,15 @@ function AudioPlayer({ userId, track }: { userId: string; track: RemoteAudioTrac
     if (!audioRef.current) return;
     const speakerId = voiceSettings.selectedSpeakerId || '';
     if (typeof (audioRef.current as any).setSinkId === 'function') {
-      (audioRef.current as any).setSinkId(speakerId).catch((e: any) => {
-        console.error('[AudioPlayer] Error setting output device (setSinkId)', e);
-      });
+      (audioRef.current as any).setSinkId(speakerId)
+        .then(() => {
+          console.log(`[AudioPlayer] 🔊 Output sink set to "${speakerId || 'default'}" for remote user: ${userId}`);
+        })
+        .catch((e: any) => {
+          console.error('[AudioPlayer] Error setting output device (setSinkId)', e);
+        });
     }
-  }, [voiceSettings.selectedSpeakerId]);
+  }, [voiceSettings.selectedSpeakerId, userId]);
 
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
 }
@@ -691,12 +695,16 @@ export default function WebRTCManager() {
 
   // ─── Hot-swap speaker output device on LiveKit Room ────────────────────────
   useEffect(() => {
-    if (!roomRef.current) return;
     const speakerId = voiceSettings.selectedSpeakerId || 'default';
-    if (typeof roomRef.current.switchActiveDevice === 'function') {
-      roomRef.current.switchActiveDevice('audiooutput', speakerId).catch((e: any) => {
-        console.warn('[WebRTC] Room switchActiveDevice audiooutput error:', e);
-      });
+    console.log(`[WebRTC] 🔊 Switching speaker output to: ${speakerId}`);
+    if (roomRef.current && typeof roomRef.current.switchActiveDevice === 'function') {
+      roomRef.current.switchActiveDevice('audiooutput', speakerId)
+        .then(() => {
+          console.log(`[WebRTC] ✅ LiveKit room audio output switched to: ${speakerId}`);
+        })
+        .catch((e: any) => {
+          console.warn('[WebRTC] Room switchActiveDevice audiooutput error:', e);
+        });
     }
   }, [voiceSettings.selectedSpeakerId]);
 

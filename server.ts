@@ -1031,7 +1031,21 @@ async function startServer() {
       if (event.event === "participant_joined") {
         const identity = event.participant?.identity;
         if (!identity) return res.status(200).send();
-        
+
+        // Si ce participant était présent dans d'autres salons vocaux, on le nettoie immédiatement
+        voiceRooms.forEach((participantsMap, otherRoom) => {
+          if (otherRoom !== roomName && participantsMap.has(identity)) {
+            participantsMap.delete(identity);
+            io.emit("voice-participants-update", {
+              channelId: otherRoom,
+              participants: Array.from(participantsMap.values()),
+            });
+            if (participantsMap.size === 0) {
+              voiceRooms.delete(otherRoom);
+            }
+          }
+        });
+
         let metadataObj = {};
         try {
           if (event.participant?.metadata) {
@@ -1102,12 +1116,27 @@ async function startServer() {
       }
     };
 
-    socket.on("join-voice-channel", (data) => {
+    socket.on("join-voice-channel", async (data) => {
       const { channelId, user } = data;
+      if (!channelId || !user?.id) return;
+
+      // 1. Règle d'unicité stricte : Nettoyer l'utilisateur de TOUS les autres salons vocaux
+      voiceRooms.forEach(async (participantsMap, otherChannelId) => {
+        if (otherChannelId !== channelId && participantsMap.has(user.id)) {
+          participantsMap.delete(user.id);
+          io.emit("voice-participants-update", {
+            channelId: otherChannelId,
+            participants: Array.from(participantsMap.values()),
+          });
+          if (participantsMap.size === 0) {
+            await cleanupVoiceRoom(otherChannelId);
+          }
+        }
+      });
 
       const existingVoice = socketVoiceMap.get(socket.id);
       if (existingVoice && existingVoice.channelId !== channelId) {
-        // Clean up socket mapping only. LiveKit Webhook will handle actual room logic.
+        socketVoiceMap.delete(socket.id);
       }
 
       socketVoiceMap.set(socket.id, { userId: user.id, channelId });
@@ -1255,17 +1284,37 @@ async function startServer() {
     socket.on("disconnect", async () => {
       const voiceInfo = socketVoiceMap.get(socket.id);
       if (voiceInfo) {
-      socketVoiceMap.delete(socket.id);
-      // LiveKit Webhook gère la présence réelle — on ne touche pas voiceRooms ici.
+        socketVoiceMap.delete(socket.id);
       }
 
       if (currentUserId && onlineUsers.has(currentUserId)) {
-      const sockets = onlineUsers.get(currentUserId);
-      sockets?.delete(socket.id);
-      if (sockets?.size === 0) {
-        onlineUsers.delete(currentUserId);
-      }
-      io.emit("online-users", Array.from(onlineUsers.keys()));
+        const sockets = onlineUsers.get(currentUserId);
+        sockets?.delete(socket.id);
+        if (sockets?.size === 0) {
+          onlineUsers.delete(currentUserId);
+
+          // Si l'utilisateur n'a plus aucun socket actif (fermeture du navigateur / PC éteint),
+          // on planifie un nettoyage automatique de ses salons vocaux après 5 secondes si pas reconnecté.
+          const disconnectedUserId = currentUserId;
+          setTimeout(async () => {
+            const isBackOnline = onlineUsers.has(disconnectedUserId) && (onlineUsers.get(disconnectedUserId)?.size || 0) > 0;
+            if (!isBackOnline) {
+              voiceRooms.forEach(async (participantsMap, channelId) => {
+                if (participantsMap.has(disconnectedUserId)) {
+                  participantsMap.delete(disconnectedUserId);
+                  io.emit("voice-participants-update", {
+                    channelId,
+                    participants: Array.from(participantsMap.values()),
+                  });
+                  if (participantsMap.size === 0) {
+                    await cleanupVoiceRoom(channelId);
+                  }
+                }
+              });
+            }
+          }, 5000);
+        }
+        io.emit("online-users", Array.from(onlineUsers.keys()));
       }
 
       console.log("Socket disconnected", socket.id);
