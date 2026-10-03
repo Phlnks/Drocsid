@@ -87,8 +87,16 @@ export async function createNoiseFilterPipeline(
     });
 
     const wetGainNode = audioContext.createGain();
+    wetGainNode.channelCount = 1;
+    wetGainNode.channelCountMode = 'explicit';
+
     const dryGainNode = audioContext.createGain();
+    dryGainNode.channelCount = 1;
+    dryGainNode.channelCountMode = 'explicit';
+
     const destinationNode = audioContext.createMediaStreamDestination();
+    destinationNode.channelCount = 1;
+    destinationNode.channelCountMode = 'explicit';
 
     // Setup initial gains
     let isEnabled = initiallyEnabled;
