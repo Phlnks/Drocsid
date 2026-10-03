@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2, PauseCircle } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2, PauseCircle, Sparkles } from 'lucide-react';
 import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound } from '../lib/sounds';
 import clsx from 'clsx';
 import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
@@ -43,6 +43,8 @@ export default function VoicePanel() {
     loopbackError,
     setLoopbackError,
     setScreenShareHasAudio,
+    voiceSettings,
+    setVoiceSettings,
   } = useAppStore();
 
   const [channelName, setChannelName] = useState('Voice Channel');
@@ -690,6 +692,26 @@ export default function VoicePanel() {
         <button onClick={() => setShowSoundboard(!showSoundboard)}
           className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${showSoundboard ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100'}`}>
           <Volume2 className="w-4 h-4" />
+        </button>
+
+        <button 
+          onClick={() => setVoiceSettings({ rnnoiseEnabled: !(voiceSettings.rnnoiseEnabled !== false) })}
+          className={clsx(
+            "flex-1 flex items-center justify-center py-1.5 rounded-md transition-all relative",
+            voiceSettings.rnnoiseEnabled !== false 
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.25)]" 
+              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200"
+          )}
+          title={
+            voiceSettings.rnnoiseEnabled !== false 
+              ? "Réduction de bruit IA (RNNoise) : Active" 
+              : "Réduction de bruit IA (RNNoise) : Désactivée"
+          }
+        >
+          <Sparkles className="w-4 h-4" />
+          {voiceSettings.rnnoiseEnabled !== false && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.9)]" />
+          )}
         </button>
 
         <button onClick={handleDisconnect}

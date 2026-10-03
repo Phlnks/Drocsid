@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Database, Shield } from 'lucide-react';
+import { Settings, Database, Shield, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -14,11 +14,19 @@ export default function UserControlPanel() {
   const { t } = useTranslation();
   const { user, currentUserProfile } = useAuthStore();
   const { isCurrentInstanceValid, getCurrentInstance } = useInstanceStore();
+  const { voiceSettings, setVoiceSettings } = useAppStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
   const [isSuperAdminOpen, setIsSuperAdminOpen] = useState(false);
 
   if (!user) return null;
+
+  const isRnnoiseEnabled = voiceSettings.rnnoiseEnabled !== false;
+
+  const toggleRnnoise = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setVoiceSettings({ rnnoiseEnabled: !isRnnoiseEnabled });
+  };
 
   return (
     <>
@@ -72,6 +80,25 @@ export default function UserControlPanel() {
               <Database className="w-4 h-4" />
             </button>
           )}
+          <button 
+            onClick={toggleRnnoise}
+            className={clsx(
+              "relative p-2 rounded-md transition-all duration-200 group flex items-center justify-center",
+              isRnnoiseEnabled 
+                ? "text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.25)]" 
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
+            )}
+            title={
+              isRnnoiseEnabled 
+                ? "Réduction de bruit IA (RNNoise) : Active (cliquez pour désactiver)" 
+                : "Réduction de bruit IA (RNNoise) : Désactivée (cliquez pour activer)"
+            }
+          >
+            <Sparkles className="w-4 h-4" />
+            {isRnnoiseEnabled && (
+              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.9)]" />
+            )}
+          </button>
           <button 
             onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(true); }} 
             className="p-2 hover:bg-zinc-700/50 rounded-md text-zinc-400 hover:text-zinc-100 transition-colors"
