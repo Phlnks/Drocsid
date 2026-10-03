@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
-import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2, PauseCircle, Sparkles } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, SignalHigh, Headphones, HeadphonesIcon, MonitorUp, MonitorOff, Settings2, Eye, Volume2, PauseCircle, AudioLines } from 'lucide-react';
 import { playDisconnectSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound, playScreenShareStartSound, playScreenShareStopSound } from '../lib/sounds';
 import clsx from 'clsx';
 import ScreenSharePickerModal from './ui/ScreenSharePickerModal';
@@ -708,7 +708,7 @@ export default function VoicePanel() {
               : "Réduction de bruit IA (RNNoise) : Désactivée"
           }
         >
-          <Sparkles className="w-4 h-4" />
+          <AudioLines className="w-4 h-4" />
           {voiceSettings.rnnoiseEnabled !== false && (
             <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.9)]" />
           )}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Database, Shield, Sparkles } from 'lucide-react';
+import { Settings, Database, Shield, AudioLines } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
 import { useAppStore } from '../store/appStore';
@@ -94,7 +94,7 @@ export default function UserControlPanel() {
                 : "Réduction de bruit IA (RNNoise) : Désactivée (cliquez pour activer)"
             }
           >
-            <Sparkles className="w-4 h-4" />
+            <AudioLines className="w-4 h-4" />
             {isRnnoiseEnabled && (
               <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_4px_rgba(16,185,129,0.9)]" />
             )}
