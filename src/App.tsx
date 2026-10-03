@@ -23,6 +23,7 @@ import { Routes, Route } from 'react-router-dom';
 import DownloadPage from './pages/DownloadPage';
 import { getAudioUrl } from './lib/audioCache';
 import { useTranslation } from 'react-i18next';
+import BrowserDownloadBanner from './components/BrowserDownloadBanner';
 
 function MainAppContent() {
   const { t } = useTranslation();
@@ -81,7 +82,7 @@ function MainAppContent() {
   }
 
   return (
-    <>
+    <div className="flex flex-col h-screen h-[100dvh] w-screen overflow-hidden">
       <ThemeManager />
       {isImpersonating && (
         <div className="bg-amber-500 text-amber-950 px-4 py-2 text-sm font-semibold flex items-center justify-center gap-4 z-50 relative shadow-md shrink-0">
@@ -94,8 +95,11 @@ function MainAppContent() {
           </button>
         </div>
       )}
-      {user ? <Layout /> : <Auth />}
-    </>
+      <BrowserDownloadBanner />
+      <div className="flex-1 min-h-0 w-full h-full relative overflow-hidden">
+        {user ? <Layout /> : <Auth />}
+      </div>
+    </div>
   );
 }
 

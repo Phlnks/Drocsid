@@ -1,4 +1,9 @@
 {
+  "downloadBanner": {
+    "text": "Pour une meilleure expérience et des fonctionnalités complètes, installez l'application Drocsid !",
+    "button": "Télécharger l'application",
+    "dismiss": "Fermer"
+  },
   "setup": {
     "title": "Bienvenue sur Drocsid",
     "subtitle": "Pour commencer, vous devez configurer votre première instance (Backend).",
