@@ -23,6 +23,7 @@ import PromptModal from "./PromptModal";
 const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import { processImageForSupabase } from "../../lib/imageUtils";
 import { useTranslation } from "react-i18next";
+import { createNoiseFilterPipeline, NoiseFilterPipeline } from "../../lib/audio/noiseFilter";
 
 // Vous pouvez modifier cette ligne manuellement pour changer la version de l'application
 const APP_VERSION = "1.0.5";
@@ -89,6 +90,7 @@ export default function UserSettingsModal({
   const [isTestingMic, setIsTestingMic] = useState(false);
   const [micVolume, setMicVolume] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const micTestPipelineRef = useRef<NoiseFilterPipeline | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -178,6 +180,13 @@ export default function UserSettingsModal({
     };
   }, [isOpen]);
 
+  // Sync RNNoise toggle in real-time during mic test
+  useEffect(() => {
+    if (micTestPipelineRef.current) {
+      micTestPipelineRef.current.setEnabled(voiceSettings.rnnoiseEnabled !== false);
+    }
+  }, [voiceSettings.rnnoiseEnabled]);
+
   const startMicTest = async () => {
     try {
       const constraints: MediaStreamConstraints = {
@@ -193,15 +202,25 @@ export default function UserSettingsModal({
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
+      // Pipeline de réduction de bruit IA pour le test micro
+      if (micTestPipelineRef.current) {
+        micTestPipelineRef.current.destroy();
+        micTestPipelineRef.current = null;
+      }
+      const pipeline = await createNoiseFilterPipeline(stream, voiceSettings.rnnoiseEnabled !== false);
+      micTestPipelineRef.current = pipeline;
+
       const audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+        (window as any).webkitAudioContext)({
+          sampleRate: 48000,
+        });
       audioContextRef.current = audioContext;
 
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       analyserRef.current = analyser;
 
-      const source = audioContext.createMediaStreamSource(stream);
+      const source = audioContext.createMediaStreamSource(pipeline.outputStream);
       source.connect(analyser);
 
       // Connect to destination to hear yourself
@@ -241,6 +260,10 @@ export default function UserSettingsModal({
   const stopMicTest = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (micTestPipelineRef.current) {
+      micTestPipelineRef.current.destroy();
+      micTestPipelineRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -804,6 +827,49 @@ export default function UserSettingsModal({
                           <div
                             className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
                               voiceSettings.echoCancellation
+                                ? "translate-x-4"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                      </label>
+
+                      <div className="h-px bg-zinc-700/50" />
+
+                      <label className="flex items-center justify-between cursor-pointer group">
+                        <div className="pr-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-zinc-200 font-medium group-hover:text-zinc-100">
+                              {t("settings.voiceVideo.rnnoiseTitle", "Suppression du bruit de fond IA (RNNoise)")}
+                            </span>
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                              48 kHz AI
+                            </span>
+                          </div>
+                          <div className="text-xs text-zinc-400 mt-0.5">
+                            {t("settings.voiceVideo.rnnoiseDesc", "Filtre intelligemment les bruits de frappe de clavier, clics de souris, ventilateurs et bruits de bouche via un réseau de neurones en temps réel.")}
+                          </div>
+                        </div>
+                        <div
+                          className={`w-10 h-6 shrink-0 rounded-full transition-colors relative ${
+                            voiceSettings.rnnoiseEnabled !== false
+                              ? "bg-emerald-500"
+                              : "bg-zinc-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={voiceSettings.rnnoiseEnabled !== false}
+                            onChange={(e) =>
+                              setVoiceSettings({
+                                rnnoiseEnabled: e.target.checked,
+                              })
+                            }
+                          />
+                          <div
+                            className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                              voiceSettings.rnnoiseEnabled !== false
                                 ? "translate-x-4"
                                 : ""
                             }`}

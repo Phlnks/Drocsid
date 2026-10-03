@@ -6,6 +6,7 @@ import { useInstanceStore } from '../store/instanceStore';
 import { playConnectSound, playDisconnectSound, playScreenShareStartSound, playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from '../lib/sounds';
 import socket from '../lib/socket';
 import { Room, RoomEvent, Participant, RemoteTrackPublication, RemoteTrack, Track, LocalTrack, LocalVideoTrack, LocalAudioTrack } from 'livekit-client';
+import { createNoiseFilterPipeline, NoiseFilterPipeline } from '../lib/audio/noiseFilter';
 
 
 import { RemoteAudioTrack } from 'livekit-client';
@@ -114,6 +115,7 @@ export default function WebRTCManager() {
 
   const noiseGateCtxRef = useRef<AudioContext | null>(null);
   const rawMicStreamRef = useRef<MediaStream | null>(null);
+  const noiseFilterPipelineRef = useRef<NoiseFilterPipeline | null>(null);
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const smoothedLevelRef = useRef(0);
@@ -524,6 +526,13 @@ export default function WebRTCManager() {
   }, [connectedVoiceChannelId, isVoiceMuted, isDeafened, setIsVoiceMuted, setIsDeafened]);
 
 
+  // ─── Dynamic toggle of RNNoise AI Noise Filter ─────────────────────────────
+  useEffect(() => {
+    if (noiseFilterPipelineRef.current) {
+      noiseFilterPipelineRef.current.setEnabled(voiceSettings.rnnoiseEnabled !== false);
+    }
+  }, [voiceSettings.rnnoiseEnabled]);
+
   // ─── Hot-swap microphone & audio constraints in active room ────────────────
   useEffect(() => {
     if (!connectedVoiceChannelId || !roomRef.current || !currentUser) {
@@ -616,20 +625,31 @@ export default function WebRTCManager() {
           return;
         }
 
+        // 1. Configurer le pipeline de réduction de bruit RNNoise (48kHz)
+        if (noiseFilterPipelineRef.current) {
+          noiseFilterPipelineRef.current.destroy();
+          noiseFilterPipelineRef.current = null;
+        }
+
+        const rnnoiseEnabled = voiceSettings.rnnoiseEnabled !== false;
+        const pipeline = await createNoiseFilterPipeline(newStream, rnnoiseEnabled);
+        noiseFilterPipelineRef.current = pipeline;
+        const audioTrackToPublish = pipeline.outputTrack;
+
         const lp = room.localParticipant;
         const micPub = lp?.getTrackPublication(Track.Source.Microphone);
         const currentLocalTrack = micPub?.track as LocalAudioTrack | undefined;
 
-        // 1. Remplacer la piste LiveKit à chaud
+        // 2. Remplacer la piste LiveKit à chaud
         if (currentLocalTrack && typeof currentLocalTrack.replaceTrack === 'function') {
           try {
-            await currentLocalTrack.replaceTrack(newAudioTrack);
+            await currentLocalTrack.replaceTrack(audioTrackToPublish);
             console.log('[WebRTC] ✅ Microphone track successfully hot-swapped on LiveKit via replaceTrack');
           } catch (repErr) {
             console.warn('[WebRTC] replaceTrack failed, attempting unpublish & republish:', repErr);
             try {
               await lp.unpublishTrack(currentLocalTrack);
-              const newLocalTrack = new LocalAudioTrack(newAudioTrack);
+              const newLocalTrack = new LocalAudioTrack(audioTrackToPublish);
               const isMuted = useAppStore.getState().isVoiceMuted || useAppStore.getState().isDeafened;
               if (isMuted) {
                 await newLocalTrack.mute();
@@ -645,7 +665,7 @@ export default function WebRTCManager() {
           }
         } else if (lp) {
           try {
-            const newLocalTrack = new LocalAudioTrack(newAudioTrack);
+            const newLocalTrack = new LocalAudioTrack(audioTrackToPublish);
             const isMuted = useAppStore.getState().isVoiceMuted || useAppStore.getState().isDeafened;
             if (isMuted) {
               await newLocalTrack.mute();
@@ -660,12 +680,12 @@ export default function WebRTCManager() {
           }
         }
 
-        // 2. Réattacher l'analyseur audio local (Noise Gate / Voice Activity)
+        // 3. Réattacher l'analyseur audio local avec le flux filtré
         const oldStream = rawMicStreamRef.current;
         rawMicStreamRef.current = newStream;
 
         try {
-          await setupLocalAnalyser(newStream);
+          await setupLocalAnalyser(pipeline.outputStream);
         } catch (analyserErr) {
           console.warn('[WebRTC] Error updating local analyser on mic switch:', analyserErr);
         }
@@ -1230,11 +1250,16 @@ export default function WebRTCManager() {
               await room.localParticipant.unpublishTrack(existingPub.track as LocalAudioTrack);
             }
 
-            await setupLocalAnalyser(rawMicStreamRef.current);
-            const micStream = rawMicStreamRef.current;
+            if (noiseFilterPipelineRef.current) {
+              noiseFilterPipelineRef.current.destroy();
+              noiseFilterPipelineRef.current = null;
+            }
+            const pipeline = await createNoiseFilterPipeline(newStream, currentSettings.rnnoiseEnabled !== false);
+            noiseFilterPipelineRef.current = pipeline;
 
-            const audioTrack = micStream.getAudioTracks()[0];
-            console.warn('[LK DEBUG] audioTrack:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
+            await setupLocalAnalyser(pipeline.outputStream);
+            const audioTrack = pipeline.outputTrack;
+            console.warn('[LK DEBUG] audioTrack:', audioTrack, '| stream tracks:', newStream?.getTracks().length);
             if (audioTrack) {
               const localAudioTrack = new LocalAudioTrack(audioTrack);
               if (currentIsMuted || currentIsDeafened) {
@@ -1357,14 +1382,30 @@ export default function WebRTCManager() {
               noiseSuppression: voiceSettings.noiseSuppression,
               autoGainControl: voiceSettings.autoGainControl,
             };
-            await setupLocalAnalyser(rawMicStream);
+
+            if (noiseFilterPipelineRef.current) {
+              noiseFilterPipelineRef.current.destroy();
+              noiseFilterPipelineRef.current = null;
+            }
+            const pipeline = await createNoiseFilterPipeline(rawMicStream, voiceSettings.rnnoiseEnabled !== false);
+            noiseFilterPipelineRef.current = pipeline;
+
+            await setupLocalAnalyser(pipeline.outputStream);
           } else {
             console.log("Reusing existing microphone stream for seamless channel switch.");
+            if (noiseFilterPipelineRef.current) {
+              await setupLocalAnalyser(noiseFilterPipelineRef.current.outputStream);
+            } else if (rawMicStreamRef.current) {
+              const pipeline = await createNoiseFilterPipeline(rawMicStreamRef.current, voiceSettings.rnnoiseEnabled !== false);
+              noiseFilterPipelineRef.current = pipeline;
+              await setupLocalAnalyser(pipeline.outputStream);
+            }
           }
-          const micStream = rawMicStreamRef.current;
 
-          const audioTrack = micStream.getAudioTracks()[0];
-          console.warn('[LK DEBUG] audioTrack apres NoiseGate:', audioTrack, '| micStream tracks:', micStream.getTracks().length);
+          const audioTrack = noiseFilterPipelineRef.current
+            ? noiseFilterPipelineRef.current.outputTrack
+            : rawMicStreamRef.current?.getAudioTracks()[0];
+          console.warn('[LK DEBUG] audioTrack apres NoiseGate:', audioTrack, '| mic tracks:', rawMicStreamRef.current?.getTracks().length);
           if (audioTrack) {
             const localAudioTrack = new LocalAudioTrack(audioTrack);
             if (isVoiceMuted || isDeafened) {
@@ -1428,6 +1469,11 @@ export default function WebRTCManager() {
       if (isCompletelyDisconnecting || isLoggedOut) {
         if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
         localAnalyserRef.current = null;
+
+        if (noiseFilterPipelineRef.current) {
+          noiseFilterPipelineRef.current.destroy();
+          noiseFilterPipelineRef.current = null;
+        }
 
         if (rawMicStreamRef.current) {
           rawMicStreamRef.current.getTracks().forEach(t => t.stop());

@@ -24,6 +24,7 @@ const isTechnicalParticipant = (id?: string) => !!id && id.endsWith('-appaudio')
 interface VoiceSettings {
   echoCancellation: boolean;
   noiseSuppression: boolean;
+  rnnoiseEnabled?: boolean;
   autoGainControl: boolean;
   micSensitivity: number;
   selectedMicrophoneId?: string;
@@ -205,7 +206,7 @@ export const useAppStore = create<AppState>((set) => ({
   isDeafened: false,
   isPTTActive: false,
   setIsPTTActive: (active) => set({ isPTTActive: active }),
-  voiceSettings: safeParse('drocsid-voice-settings', { echoCancellation: true, noiseSuppression: true, autoGainControl: true, micSensitivity: 25, inputMode: 'voice_activity' }),
+  voiceSettings: safeParse('drocsid-voice-settings', { echoCancellation: true, noiseSuppression: true, rnnoiseEnabled: true, autoGainControl: true, micSensitivity: 25, inputMode: 'voice_activity' }),
   notificationSettings: safeParse('drocsid-notification-settings', { desktop: true, sounds: true, everyone: true, notifyChatMessages: true, notifyDms: true, notifyMentions: true }),
   mutedServers: safeParse('drocsid-muted-servers', []),
   mutedDms: safeParse('drocsid-muted-dms', []),
