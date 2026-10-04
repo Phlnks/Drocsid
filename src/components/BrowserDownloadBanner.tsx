@@ -17,8 +17,10 @@ export default function BrowserDownloadBanner() {
     (Boolean((window as any).electron) ||
       navigator.userAgent.toLowerCase().includes('electron'));
 
-  // Don't show the banner if running inside Electron app or if dismissed for the session
-  if (isElectron || isDismissed) {
+  const downloadUrl = import.meta.env.VITE_DOWNLOAD_URL;
+
+  // Don't show the banner if running inside Electron app, if dismissed, or if no download URL is configured in .env
+  if (isElectron || isDismissed || !downloadUrl) {
     return null;
   }
 
@@ -40,7 +42,7 @@ export default function BrowserDownloadBanner() {
           {t('downloadBanner.text', "Pour une meilleure expérience et des fonctionnalités complètes, installez l'application !")}
         </span>
         <a
-          href="https://drocsid.site/download"
+          href={downloadUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white text-indigo-700 hover:bg-white/90 font-semibold text-[11px] shadow-sm transition-all shrink-0 ml-1 group"

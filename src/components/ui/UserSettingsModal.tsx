@@ -15,7 +15,11 @@ import {
   Monitor,
   SmilePlus,
   Loader2,
+  RefreshCw,
+  CheckCircle2,
+  Download,
 } from "lucide-react";
+import type { UpdaterStatusData } from "../../vite-env";
 import { supabase } from "../../supabase";
 import { useAppStore } from "../../store/appStore";
 import { useAuthStore } from "../../store/authStore";
@@ -24,9 +28,7 @@ const EmojiPicker = lazy(() => import("emoji-picker-react"));
 import { processImageForSupabase } from "../../lib/imageUtils";
 import { useTranslation } from "react-i18next";
 import { createNoiseFilterPipeline, NoiseFilterPipeline } from "../../lib/audio/noiseFilter";
-
-// Vous pouvez modifier cette ligne manuellement pour changer la version de l'application
-const APP_VERSION = "1.0.5";
+import { APP_VERSION } from "../../version";
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -98,6 +100,49 @@ export default function UserSettingsModal({
   // Devices
   const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
   const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([]);
+
+  // Electron updater
+  const [electronVersion, setElectronVersion] = useState<string>(APP_VERSION);
+  const [updaterStatus, setUpdaterStatus] = useState<UpdaterStatusData | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (window.electron?.getAppVersion) {
+      window.electron.getAppVersion().then((v) => {
+        if (v) setElectronVersion(v);
+      }).catch(() => {});
+    }
+
+    if (window.electron?.onUpdaterStatus) {
+      const cleanup = window.electron.onUpdaterStatus((data) => {
+        setUpdaterStatus(data);
+        setIsCheckingUpdate(false);
+        if (data.status === 'not-available') {
+          setUpdateFeedback("Votre application est parfaitement à jour !");
+        } else if (data.status === 'error') {
+          setUpdateFeedback(data.error || "Erreur lors de la vérification");
+        }
+      });
+      return cleanup;
+    }
+  }, []);
+
+  const handleCheckForUpdates = async () => {
+    if (!window.electron?.checkForUpdates) return;
+    setIsCheckingUpdate(true);
+    setUpdateFeedback(null);
+    try {
+      const res = await window.electron.checkForUpdates();
+      if (!res.ok && res.error) {
+        setUpdateFeedback(res.error);
+        setIsCheckingUpdate(false);
+      }
+    } catch (e: any) {
+      setUpdateFeedback(e?.message || "Erreur de connexion");
+      setIsCheckingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     // Check permissions and load devices
@@ -2349,8 +2394,53 @@ export default function UserSettingsModal({
                       alt="Drocsid Logo"
                       className="w-72 md:w-80 h-auto object-contain my-4 transition-transform duration-300 hover:scale-102"
                     />
-                    <div className="mt-4 px-4 py-1.5 bg-zinc-800 rounded-full border border-zinc-700 text-xs font-semibold text-zinc-300 tracking-wider uppercase shadow-inner">
-                      {t("settings.version", "Version")} {APP_VERSION}
+                    <div className="mt-4 flex flex-col items-center gap-2">
+                      <div className="px-4 py-1.5 bg-zinc-800 rounded-full border border-zinc-700 text-xs font-semibold text-zinc-300 tracking-wider uppercase shadow-inner">
+                        {t("settings.version", "Version")} {electronVersion}
+                      </div>
+
+                      {window.electron && (
+                        <div className="mt-1 flex flex-col items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCheckForUpdates}
+                            disabled={isCheckingUpdate || updaterStatus?.status === 'downloading'}
+                            className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-600/90 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-md text-xs font-medium transition-colors shadow-sm cursor-pointer"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                            {isCheckingUpdate ? "Vérification en cours..." : "Rechercher des mises à jour"}
+                          </button>
+
+                          {updateFeedback && (
+                            <p className="text-xs text-zinc-400 text-center">
+                              {updateFeedback}
+                            </p>
+                          )}
+
+                          {updaterStatus?.status === 'downloading' && (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-[11px] text-zinc-400">Téléchargement : {updaterStatus.percent || 0}%</span>
+                              <div className="w-48 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+                                  style={{ width: `${updaterStatus.percent || 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {updaterStatus?.status === 'downloaded' && (
+                            <button
+                              type="button"
+                              onClick={() => window.electron?.restartAndInstall?.()}
+                              className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-semibold transition-colors shadow-md mt-1 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Redémarrer pour installer la v{updaterStatus.version}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 

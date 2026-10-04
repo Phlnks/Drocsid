@@ -21,6 +21,15 @@ const {
   TrackSource,
   dispose,
 } = require('@livekit/rtc-node');
+
+let autoUpdater = null;
+try {
+  const updaterModule = require('electron-updater');
+  autoUpdater = updaterModule.autoUpdater;
+} catch (e) {
+  console.warn('[main] electron-updater non chargé:', e.message);
+}
+
 console.log('[main] loaded');
 
 let livekitAppAudioConfig = {
@@ -426,6 +435,124 @@ ipcMain.on('remove-storage-key', (event, key) => {
   const data = readStorage();
   delete data[key];
   writeStorageDebounced();
+});
+
+// ─── Auto-Updater (GitHub Releases via electron-updater) ───────────────────
+function setupAutoUpdater(win) {
+  if (!autoUpdater) {
+    debugLog('[Updater] electron-updater non initialisé.');
+    return;
+  }
+
+  // Téléchargement automatique en tâche de fond sans bloquer l'utilisateur
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    debugLog('[Updater] Recherche de mises à jour...');
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('updater:status', { status: 'checking' });
+    }
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    debugLog(`[Updater] Mise à jour disponible : v${info?.version}`);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('updater:status', {
+        status: 'available',
+        version: info?.version,
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    debugLog(`[Updater] Application à jour (v${info?.version || app.getVersion()})`);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('updater:status', {
+        status: 'not-available',
+        version: info?.version || app.getVersion(),
+      });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent || 0);
+    debugLog(`[Updater] Progression du téléchargement : ${percent}%`);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('updater:status', {
+        status: 'downloading',
+        percent,
+        transferred: progressObj.transferred,
+        total: progressObj.total,
+        bytesPerSecond: progressObj.bytesPerSecond,
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    debugLog(`[Updater] Mise à jour téléchargée et prête : v${info?.version}`);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('updater:status', {
+        status: 'downloaded',
+        version: info?.version,
+      });
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    debugLog(`[Updater] Erreur : ${err?.message || err}`);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('updater:status', {
+        status: 'error',
+        error: err?.message || 'Erreur lors de la mise à jour',
+      });
+    }
+  });
+
+  // Ne pas lancer de recherche automatique en mode développement local
+  if (!app.isPackaged) {
+    debugLog('[Updater] Mode développement détecté : vérification automatique ignorée.');
+    return;
+  }
+
+  // Vérification initiale 10 secondes après le démarrage
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      debugLog(`[Updater] Erreur vérification initiale : ${err?.message || err}`);
+    });
+  }, 10000);
+
+  // Vérification périodique toutes les 4 heures
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      debugLog(`[Updater] Erreur vérification périodique : ${err?.message || err}`);
+    });
+  }, 4 * 60 * 60 * 1000);
+}
+
+ipcMain.handle('updater:get-app-version', () => {
+  return app.getVersion();
+});
+
+ipcMain.handle('updater:check-for-updates', async () => {
+  if (!autoUpdater) {
+    return { ok: false, error: 'Module electron-updater indisponible' };
+  }
+  if (!app.isPackaged) {
+    return { ok: false, error: 'Mise à jour inactive en mode développement local' };
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { ok: true, version: result?.updateInfo?.version };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Erreur lors de la vérification' };
+  }
+});
+
+ipcMain.handle('updater:restart-and-install', () => {
+  if (autoUpdater) {
+    autoUpdater.quitAndInstall(false, true);
+  }
 });
 
 function downloadUrl(url, filePath, redirectCount = 0) {
@@ -980,6 +1107,7 @@ if (!gotTheLock) {
 
     createWindow();
     createTray();
+    setupAutoUpdater(mainWindow);
 
     // Start uIOhook for global low-level input
     try {

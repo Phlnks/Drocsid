@@ -1,5 +1,20 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_DOWNLOAD_URL?: string;
+  readonly VITE_BACKEND_URL?: string;
+  readonly VITE_SUPERADMIN_EMAIL?: string;
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  readonly VITE_ENABLE_GOOGLE_AUTH?: string;
+  readonly VITE_LIVEKIT_URL?: string;
+  readonly VITE_LIVEKIT_TOKEN_ENDPOINT?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 export interface DesktopSourceInfo {
   id: string;
   name: string;
@@ -27,6 +42,16 @@ export interface LoopbackTestStatusResponse {
   processName: string | null;  
 }
 
+export interface UpdaterStatusData {
+  status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version?: string;
+  percent?: number;
+  transferred?: number;
+  total?: number;
+  bytesPerSecond?: number;
+  error?: string;
+}
+
 declare global {
   interface Window {
     electron?: {
@@ -52,6 +77,12 @@ declare global {
       launchLoopbackTest: (pid: number, outputPath?: string) => Promise<LoopbackTestStatusResponse>;
       stopLoopbackTest: () => Promise<LoopbackTestStatusResponse>;
       getLoopbackTestStatus: () => Promise<LoopbackTestStatusResponse>;
+
+      // Auto-updater
+      checkForUpdates?: () => Promise<{ ok: boolean; version?: string; error?: string }>;
+      restartAndInstall?: () => Promise<void>;
+      getAppVersion?: () => Promise<string>;
+      onUpdaterStatus?: (callback: (data: UpdaterStatusData) => void) => () => void;
     };
   }
 }

@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { Monitor, Globe, Bell, Zap, Rocket, ChevronRight, Globe2, Volume2, Shield, Smartphone, ArrowDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DrocsidLogo from '../components/ui/DrocsidLogo';
+import { APP_VERSION } from '../version';
 
 export function WindowsIcon({ className }: { className?: string }) {
   return (
@@ -164,7 +165,7 @@ export default function DownloadPage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                Version 1.0.5
+                Version {APP_VERSION}
               </div>
             </div>
 

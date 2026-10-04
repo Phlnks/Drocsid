@@ -44,5 +44,15 @@ contextBridge.exposeInMainWorld('electron', {
   removeStorageKey: (key) => ipcRenderer.send('remove-storage-key', key),
 
   // File download helper
-  downloadFile: (payload) => ipcRenderer.invoke('download-file', payload)
+  downloadFile: (payload) => ipcRenderer.invoke('download-file', payload),
+
+  // Auto-updater helpers
+  checkForUpdates: () => ipcRenderer.invoke('updater:check-for-updates'),
+  restartAndInstall: () => ipcRenderer.invoke('updater:restart-and-install'),
+  getAppVersion: () => ipcRenderer.invoke('updater:get-app-version'),
+  onUpdaterStatus: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('updater:status', handler);
+    return () => ipcRenderer.removeListener('updater:status', handler);
+  }
 });

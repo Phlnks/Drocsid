@@ -16,6 +16,7 @@
     "lint": "tsc --noEmit",
     "electron:dev": "concurrently \"tsx server.ts\" \"wait-on tcp:3000 && cross-env ELECTRON_START_URL=http://localhost:3000 electron .\"",
     "electron:build": "vite build && electron-builder --win",
+    "electron:publish": "vite build && electron-builder --win -p always",
     "electron:build:linux": "electron-builder --linux",
     "electron:build:mac": "electron-builder --mac",
     "electron:rebuild": "electron-rebuild -f -w @livekit/rtc-node"
@@ -23,6 +24,12 @@
   "build": {
     "appId": "com.drocsid.app",
     "productName": "Drocsid",
+    "publish": {
+      "provider": "github",
+      "owner": "shaco",
+      "repo": "drocsid",
+      "releaseType": "release"
+    },
     "asarUnpack": [
       "**/node_modules/uiohook-napi/**/*",
       "**/node_modules/@livekit/rtc-node/**/*"
@@ -50,7 +57,7 @@
       "allowToChangeInstallationDirectory": true,
       "guid": "drocsid-app-unique-guid-2024",
       "shortcutName": "Drocsid",
-      "artifactName": "${productName}-Setup.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "win": {
       "target": "nsis",
@@ -71,6 +78,7 @@
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "electron-updater": "^6.8.9",
     "emoji-picker-react": "^4.18.0",
     "express": "^4.21.2",
     "i18next": "^26.0.7",

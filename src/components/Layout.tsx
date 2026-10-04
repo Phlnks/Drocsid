@@ -18,6 +18,7 @@ import ServerDataPreloader from './ServerDataPreloader';
 import socket from '../lib/socket';
 import UserControlPanel from './UserControlPanel';
 import VoicePanel from './VoicePanel';
+import UpdateNotification from './UpdateNotification';
 
 export default function Layout() {
   const { selectedServerId, selectedDmId, activeStreamFocus, isRightSidebarOpen, isMobileNavOpen, setVoiceParticipants, connectedVoiceChannelId, mobileTab } = useAppStore();
@@ -50,6 +51,7 @@ export default function Layout() {
       <NotificationManager />
       <ScreenShareViewer />
       <MobileVoiceControl />
+      <UpdateNotification />
       
       {/* Navigation (ServerList + ChannelList/DMSidebar) */}
       <div className={`flex flex-col h-full w-full md:w-[312px] bg-zinc-950 flex-shrink-0 border-r border-zinc-800/50 pb-[60px] md:pb-0 ${isMobileNavOpen ? 'flex' : 'hidden'} md:flex`}>
