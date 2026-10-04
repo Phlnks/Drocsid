@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*' # Se déclenche lorsqu'un tag est poussé (ex: v1.0.6)
-  workflow_dispatch: # Permet également de lancer manuellement depuis l'onglet Actions sur GitHub
+  workflow_dispatch: # Permet de lancer manuellement depuis l'onglet Actions sur GitHub
 
 permissions:
   contents: write # Requis pour créer et publier des Releases avec pièces jointes
@@ -20,11 +20,10 @@ jobs:
       - name: Installer Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
 
       - name: Installer les dépendances
-        run: npm ci
+        run: npm install
 
       - name: Compiler le frontend (Vite)
         run: npm run build
@@ -32,4 +31,6 @@ jobs:
       - name: Compiler et publier la Release Electron (Windows)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win -p always
+
