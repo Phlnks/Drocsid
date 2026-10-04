@@ -551,7 +551,7 @@ ipcMain.handle('updater:check-for-updates', async () => {
 
 ipcMain.handle('updater:restart-and-install', () => {
   if (autoUpdater) {
-    autoUpdater.quitAndInstall(false, true);
+    autoUpdater.quitAndInstall(true, true);
   }
 });
 

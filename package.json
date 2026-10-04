@@ -3,7 +3,7 @@
   "description": "A modern real-time communication platform for communities.",
   "author": "Shaco",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -53,11 +53,12 @@
       }
     ],
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
       "guid": "drocsid-app-unique-guid-2024",
       "shortcutName": "Drocsid",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "win": {
