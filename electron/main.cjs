@@ -63,16 +63,14 @@ let tray = null;
 let isQuitting = false;
 
 function createWindow() {
-  // Use logo-maskable.png, logo.png or favicon.png
+  // Use logo.png for taskbar window icon
   const possibleIcons = [
-    path.join(__dirname, '../public/logo-maskable.png'),
     path.join(__dirname, '../public/logo.png'),
-    path.join(__dirname, '../public/logo-bg.png'),
-    path.join(__dirname, '../public/favicon.png'),
-    path.join(__dirname, '../logo-maskable.png'),
-    path.join(__dirname, '../logo-opaque.png'),
     path.join(__dirname, '../logo.png'),
-    path.join(__dirname, '../favicon.png'),
+    path.join(process.resourcesPath, 'public/logo.png'),
+    path.join(process.resourcesPath, 'logo.png'),
+    path.join(process.resourcesPath, 'app/public/logo.png'),
+    path.join(__dirname, '../public/favicon.png'),
     path.join(__dirname, 'icon.png')
   ];
   const iconPath = possibleIcons.find(p => fs.existsSync(p)) || possibleIcons[0];
