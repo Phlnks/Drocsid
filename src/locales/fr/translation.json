@@ -174,6 +174,8 @@
       "echoCancellationDesc": "Empêche le micro de capter le son de vos haut-parleurs.",
       "rnnoiseTitle": "Suppression du bruit de fond IA (RNNoise)",
       "rnnoiseDesc": "Filtre intelligemment les bruits de frappe de clavier, clics de souris, mastication et ventilateurs via un réseau de neurones en temps réel (48 kHz).",
+      "rnnoiseTooltipActive": "Réduction de bruit IA (RNNoise) : Active (cliquez pour désactiver)",
+      "rnnoiseTooltipInactive": "Réduction de bruit IA (RNNoise) : Désactivée (cliquez pour activer)",
       "noiseSuppression": "Suppression du bruit standard",
       "noiseSuppressionDesc": "Filtre basique WebRTC du navigateur.",
       "autoGainControl": "Contrôle automatique du gain",
@@ -253,7 +255,27 @@
     "about_database": "Base de données",
     "about_voice": "Voix & Vidéo",
     "about_security": "Sécurité",
-    "about_security_desc": "Chiffrement de bout en bout"
+    "about_security_desc": "Chiffrement de bout en bout",
+    "updater": {
+      "checkForUpdates": "Rechercher des mises à jour",
+      "checking": "Vérification en cours...",
+      "upToDate": "Votre application est parfaitement à jour !",
+      "checkError": "Erreur lors de la vérification",
+      "connectionError": "Erreur de connexion",
+      "downloading": "Téléchargement : {{percent}}%",
+      "restartAndInstall": "Redémarrer pour installer la v{{version}}",
+      "title": "Mise à jour",
+      "readyTitle": "Mise à jour prête !",
+      "downloadingTitle": "Téléchargement de la mise à jour",
+      "availableTitle": "Nouvelle version disponible",
+      "readyDesc": "La version v{{version}} est prête à être installée.",
+      "downloadingDesc": "Téléchargement en arrière-plan ({{percent}}%)...",
+      "availableDesc": "Version v{{version}} trouvée.",
+      "errorDesc": "Une erreur est survenue lors de la mise à jour.",
+      "later": "Plus tard",
+      "restartNow": "Redémarrer maintenant",
+      "close": "Fermer"
+    }
   },
   "polls": {
     "singleChoice": "CHOIX UNIQUE",

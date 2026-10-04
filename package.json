@@ -3,7 +3,7 @@
   "description": "A modern real-time communication platform for communities.",
   "author": "Shaco",
   "private": true,
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -41,6 +41,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "public/logo-maskable.png",
       "public/logo-bg.png"
     ],
     "extraResources": [
@@ -63,7 +64,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "public/logo-bg.png",
+      "icon": "public/logo-maskable.png",
       "executableName": "Drocsid"
     }
   },

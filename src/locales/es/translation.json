@@ -174,6 +174,8 @@
       "echoCancellationDesc": "Evita que el micrófono capte el sonido de los altavoces.",
       "rnnoiseTitle": "Supresión de ruido por IA (RNNoise)",
       "rnnoiseDesc": "Elimina de forma inteligente el tecleo, clics del ratón, masticación y ventiladores mediante redes neuronales en tiempo real (48 kHz).",
+      "rnnoiseTooltipActive": "Supresión de ruido por IA (RNNoise): Activa (haz clic para desactivar)",
+      "rnnoiseTooltipInactive": "Supresión de ruido por IA (RNNoise): Desactivada (haz clic para activar)",
       "noiseSuppression": "Supresión de ruido estándar",
       "noiseSuppressionDesc": "Filtro de ruido básico de WebRTC del navegador.",
       "autoGainControl": "Control automático de ganancia",
@@ -253,7 +255,27 @@
     "about_database": "Base de datos",
     "about_voice": "Voz y video",
     "about_security": "Seguridad",
-    "about_security_desc": "Cifrado de extremo a extremo"
+    "about_security_desc": "Cifrado de extremo a extremo",
+    "updater": {
+      "checkForUpdates": "Buscar actualizaciones",
+      "checking": "Buscando actualizaciones...",
+      "upToDate": "¡Tu aplicación está completamente actualizada!",
+      "checkError": "Error al verificar actualizaciones",
+      "connectionError": "Error de conexión",
+      "downloading": "Descargando: {{percent}}%",
+      "restartAndInstall": "Reiniciar para instalar v{{version}}",
+      "title": "Actualización",
+      "readyTitle": "¡Actualización lista!",
+      "downloadingTitle": "Descargando actualización",
+      "availableTitle": "Nueva versión disponible",
+      "readyDesc": "La versión v{{version}} está lista para instalarse.",
+      "downloadingDesc": "Descargando en segundo plano ({{percent}}%)...",
+      "availableDesc": "Versión v{{version}} encontrada.",
+      "errorDesc": "Ocurrió un error durante la actualización.",
+      "later": "Más tarde",
+      "restartNow": "Reiniciar ahora",
+      "close": "Cerrar"
+    }
   },
   "polls": {
     "singleChoice": "ELECCIÓN ÚNICA",

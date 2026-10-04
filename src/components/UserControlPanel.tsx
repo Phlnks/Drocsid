@@ -90,8 +90,8 @@ export default function UserControlPanel() {
             )}
             title={
               isRnnoiseEnabled 
-                ? "Réduction de bruit IA (RNNoise) : Active (cliquez pour désactiver)" 
-                : "Réduction de bruit IA (RNNoise) : Désactivée (cliquez pour activer)"
+                ? t("settings.voiceVideo.rnnoiseTooltipActive", "Réduction de bruit IA (RNNoise) : Active (cliquez pour désactiver)")
+                : t("settings.voiceVideo.rnnoiseTooltipInactive", "Réduction de bruit IA (RNNoise) : Désactivée (cliquez pour activer)")
             }
           >
             <AudioLines className="w-4 h-4" />

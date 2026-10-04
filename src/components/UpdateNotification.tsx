@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Download, RefreshCw, CheckCircle2, AlertCircle, X, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { UpdaterStatusData } from '../vite-env';
 
 export default function UpdateNotification() {
+  const { t } = useTranslation();
   const [updaterState, setUpdaterState] = useState<UpdaterStatusData | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -35,6 +37,38 @@ export default function UpdateNotification() {
     }
   };
 
+  const getTitle = () => {
+    if (updaterState.status === 'downloaded') {
+      return t('settings.updater.readyTitle', 'Mise à jour prête !');
+    }
+    if (updaterState.status === 'downloading') {
+      return t('settings.updater.downloadingTitle', 'Téléchargement de la mise à jour');
+    }
+    if (updaterState.status === 'available') {
+      return t('settings.updater.availableTitle', 'Nouvelle version disponible');
+    }
+    return t('settings.updater.title', 'Mise à jour');
+  };
+
+  const getDescription = () => {
+    if (updaterState.status === 'downloaded') {
+      return t('settings.updater.readyDesc', 'La version v{{version}} est prête à être installée.', {
+        version: updaterState.version || '',
+      });
+    }
+    if (updaterState.status === 'downloading') {
+      return t('settings.updater.downloadingDesc', 'Téléchargement en arrière-plan ({{percent}}%)...', {
+        percent: updaterState.percent || 0,
+      });
+    }
+    if (updaterState.status === 'available') {
+      return t('settings.updater.availableDesc', 'Version v{{version}} trouvée.', {
+        version: updaterState.version || '',
+      });
+    }
+    return updaterState.error || t('settings.updater.errorDesc', 'Une erreur est survenue lors de la mise à jour.');
+  };
+
   return (
     <div className="fixed bottom-16 md:bottom-6 right-6 z-50 max-w-sm w-full bg-zinc-900 border border-zinc-700/80 rounded-xl shadow-2xl p-4 text-zinc-100 animate-in fade-in slide-in-from-bottom-5 duration-300">
       <div className="flex items-start justify-between gap-3">
@@ -62,22 +96,10 @@ export default function UpdateNotification() {
 
           <div>
             <h4 className="text-sm font-semibold text-white">
-              {updaterState.status === 'downloaded'
-                ? 'Mise à jour prête !'
-                : updaterState.status === 'downloading'
-                ? 'Téléchargement de la mise à jour'
-                : updaterState.status === 'available'
-                ? 'Nouvelle version disponible'
-                : 'Mise à jour'}
+              {getTitle()}
             </h4>
             <p className="text-xs text-zinc-400">
-              {updaterState.status === 'downloaded'
-                ? `La version ${updaterState.version ? `v${updaterState.version}` : ''} est prête à être installée.`
-                : updaterState.status === 'downloading'
-                ? `Téléchargement en arrière-plan (${updaterState.percent || 0}%)...`
-                : updaterState.status === 'available'
-                ? `Version ${updaterState.version ? `v${updaterState.version}` : ''} trouvée.`
-                : updaterState.error || 'Une erreur est survenue.'}
+              {getDescription()}
             </p>
           </div>
         </div>
@@ -85,7 +107,7 @@ export default function UpdateNotification() {
         <button
           onClick={() => setDismissed(true)}
           className="text-zinc-500 hover:text-zinc-300 p-1 rounded-md hover:bg-zinc-800 transition-colors"
-          title="Fermer"
+          title={t('settings.updater.close', 'Fermer')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -106,14 +128,14 @@ export default function UpdateNotification() {
             onClick={() => setDismissed(true)}
             className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
           >
-            Plus tard
+            {t('settings.updater.later', 'Plus tard')}
           </button>
           <button
             onClick={handleRestart}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-md shadow-md transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Redémarrer maintenant
+            {t('settings.updater.restartNow', 'Redémarrer maintenant')}
           </button>
         </div>
       )}

@@ -105,7 +105,7 @@ export default function UserSettingsModal({
   const [electronVersion, setElectronVersion] = useState<string>(APP_VERSION);
   const [updaterStatus, setUpdaterStatus] = useState<UpdaterStatusData | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
+  const [updateFeedback, setUpdateFeedback] = useState<{ key?: string; text?: string; fallback: string } | null>(null);
 
   useEffect(() => {
     if (window.electron?.getAppVersion) {
@@ -119,9 +119,9 @@ export default function UserSettingsModal({
         setUpdaterStatus(data);
         setIsCheckingUpdate(false);
         if (data.status === 'not-available') {
-          setUpdateFeedback("Votre application est parfaitement à jour !");
+          setUpdateFeedback({ key: "settings.updater.upToDate", fallback: "Votre application est parfaitement à jour !" });
         } else if (data.status === 'error') {
-          setUpdateFeedback(data.error || "Erreur lors de la vérification");
+          setUpdateFeedback({ text: data.error, fallback: "Erreur lors de la vérification" });
         }
       });
       return cleanup;
@@ -135,11 +135,11 @@ export default function UserSettingsModal({
     try {
       const res = await window.electron.checkForUpdates();
       if (!res.ok && res.error) {
-        setUpdateFeedback(res.error);
+        setUpdateFeedback({ text: res.error, fallback: "Erreur lors de la vérification" });
         setIsCheckingUpdate(false);
       }
     } catch (e: any) {
-      setUpdateFeedback(e?.message || "Erreur de connexion");
+      setUpdateFeedback({ text: e?.message, key: "settings.updater.connectionError", fallback: "Erreur de connexion" });
       setIsCheckingUpdate(false);
     }
   };
@@ -2408,18 +2408,24 @@ export default function UserSettingsModal({
                             className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-600/90 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-md text-xs font-medium transition-colors shadow-sm cursor-pointer"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                            {isCheckingUpdate ? "Vérification en cours..." : "Rechercher des mises à jour"}
+                            {isCheckingUpdate 
+                              ? t("settings.updater.checking", "Vérification en cours...") 
+                              : t("settings.updater.checkForUpdates", "Rechercher des mises à jour")}
                           </button>
 
                           {updateFeedback && (
                             <p className="text-xs text-zinc-400 text-center">
-                              {updateFeedback}
+                              {updateFeedback.key 
+                                ? t(updateFeedback.key, updateFeedback.fallback) 
+                                : (updateFeedback.text || updateFeedback.fallback)}
                             </p>
                           )}
 
                           {updaterStatus?.status === 'downloading' && (
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-[11px] text-zinc-400">Téléchargement : {updaterStatus.percent || 0}%</span>
+                              <span className="text-[11px] text-zinc-400">
+                                {t("settings.updater.downloading", "Téléchargement : {{percent}}%", { percent: updaterStatus.percent || 0 })}
+                              </span>
                               <div className="w-48 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
                                 <div
                                   className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
@@ -2436,7 +2442,7 @@ export default function UserSettingsModal({
                               className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-semibold transition-colors shadow-md mt-1 cursor-pointer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              Redémarrer pour installer la v{updaterStatus.version}
+                              {t("settings.updater.restartAndInstall", "Redémarrer pour installer la v{{version}}", { version: updaterStatus.version || '' })}
                             </button>
                           )}
                         </div>
