@@ -48,7 +48,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // Auto-updater helpers
   checkForUpdates: () => ipcRenderer.invoke('updater:check-for-updates'),
-  restartAndInstall: () => ipcRenderer.invoke('updater:restart-and-install'),
+  restartAndInstall: (payload) => ipcRenderer.invoke('updater:restart-and-install', payload),
   getAppVersion: () => ipcRenderer.invoke('updater:get-app-version'),
   onUpdaterStatus: (callback) => {
     const handler = (_event, data) => callback(data);

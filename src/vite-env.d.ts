@@ -80,7 +80,7 @@ declare global {
 
       // Auto-updater
       checkForUpdates?: () => Promise<{ ok: boolean; version?: string; error?: string }>;
-      restartAndInstall?: () => Promise<void>;
+      restartAndInstall?: (options?: { title?: string; subtitle?: string }) => Promise<void>;
       getAppVersion?: () => Promise<string>;
       onUpdaterStatus?: (callback: (data: UpdaterStatusData) => void) => () => void;
     };

@@ -2438,7 +2438,10 @@ export default function UserSettingsModal({
                           {updaterStatus?.status === 'downloaded' && (
                             <button
                               type="button"
-                              onClick={() => window.electron?.restartAndInstall?.()}
+                              onClick={() => window.electron?.restartAndInstall?.({
+                                title: t("settings.updater.splashTitle", "Mise à jour de Drocsid..."),
+                                subtitle: t("settings.updater.splashSubtitle", "Installation en cours, Drocsid redémarre...")
+                              })}
                               className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-semibold transition-colors shadow-md mt-1 cursor-pointer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />

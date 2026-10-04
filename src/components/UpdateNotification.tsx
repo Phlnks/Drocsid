@@ -33,7 +33,10 @@ export default function UpdateNotification() {
 
   const handleRestart = () => {
     if (window.electron?.restartAndInstall) {
-      window.electron.restartAndInstall();
+      window.electron.restartAndInstall({
+        title: t('settings.updater.splashTitle', 'Mise à jour de Drocsid...'),
+        subtitle: t('settings.updater.splashSubtitle', 'Installation en cours, Drocsid redémarre...')
+      });
     }
   };
 

@@ -274,7 +274,9 @@
       "errorDesc": "An error occurred during update.",
       "later": "Later",
       "restartNow": "Restart now",
-      "close": "Close"
+      "close": "Close",
+      "splashTitle": "Updating Drocsid...",
+      "splashSubtitle": "Installation in progress, Drocsid is restarting..."
     }
   },
   "polls": {

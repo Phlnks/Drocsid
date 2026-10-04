@@ -550,9 +550,204 @@ ipcMain.handle('updater:check-for-updates', async () => {
   }
 });
 
-ipcMain.handle('updater:restart-and-install', () => {
+let splashWindow = null;
+
+function getSplashTexts(options = {}) {
+  if (options && options.title && options.subtitle) {
+    return { title: options.title, subtitle: options.subtitle };
+  }
+
+  let lang = 'fr';
+  try {
+    const storage = readStorage();
+    const storedLang = storage['drocsid-language'] || storage['i18nextLng'] || (app.getLocale ? app.getLocale() : 'fr');
+    if (storedLang) {
+      if (storedLang.startsWith('en')) lang = 'en';
+      else if (storedLang.startsWith('es')) lang = 'es';
+      else lang = 'fr';
+    }
+  } catch (e) {}
+
+  const dictionary = {
+    fr: {
+      title: "Mise à jour de Drocsid...",
+      subtitle: "Installation en cours, Drocsid redémarre..."
+    },
+    en: {
+      title: "Updating Drocsid...",
+      subtitle: "Installation in progress, Drocsid is restarting..."
+    },
+    es: {
+      title: "Actualizando Drocsid...",
+      subtitle: "Instalación en curso, Drocsid se está reiniciando..."
+    }
+  };
+
+  return dictionary[lang] || dictionary.fr;
+}
+
+function showUpdatingSplashWindow(options = {}) {
+  if (splashWindow && !splashWindow.isDestroyed()) return splashWindow;
+
+  const possibleIcons = [
+    path.join(__dirname, '../public/logo-maskable.png'),
+    path.join(__dirname, '../public/logo.png'),
+    path.join(__dirname, '../public/logo-bg.png'),
+    path.join(__dirname, '../public/favicon.png')
+  ];
+  const iconPath = possibleIcons.find(p => fs.existsSync(p)) || possibleIcons[0];
+
+  splashWindow = new BrowserWindow({
+    width: 380,
+    height: 220,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    }
+  });
+
+  let logoDataUrl = '';
+  try {
+    const logoFile = possibleIcons.find(p => fs.existsSync(p));
+    if (logoFile) {
+      const buf = fs.readFileSync(logoFile);
+      logoDataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+    }
+  } catch (e) {}
+
+  const { title, subtitle } = getSplashTexts(options);
+
+  const splashHtml = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Drocsid Update</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+          body {
+            background: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+          }
+          .card {
+            background: #18181b;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 30px rgba(99, 102, 241, 0.25);
+            border-radius: 16px;
+            width: 340px;
+            padding: 22px 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #f4f4f5;
+            position: relative;
+            overflow: hidden;
+          }
+          .top-glow {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #6366f1);
+            background-size: 200% 100%;
+            animation: moveGradient 2s linear infinite;
+          }
+          @keyframes moveGradient {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+          }
+          .logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+          }
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(99,102,241,0)); }
+            50% { transform: scale(1.04); filter: drop-shadow(0 0 12px rgba(99,102,241,0.6)); }
+          }
+          .title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 4px;
+            letter-spacing: -0.01em;
+          }
+          .subtitle {
+            font-size: 12px;
+            color: #a1a1aa;
+            margin-bottom: 16px;
+          }
+          .bar-container {
+            width: 100%;
+            height: 5px;
+            background: #27272a;
+            border-radius: 9999px;
+            overflow: hidden;
+            position: relative;
+          }
+          .bar-indeterminate {
+            position: absolute;
+            height: 100%;
+            width: 40%;
+            background: linear-gradient(90deg, #6366f1, #818cf8);
+            border-radius: 9999px;
+            animation: indeterminate 1.4s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+          }
+          @keyframes indeterminate {
+            0% { left: -40%; width: 40%; }
+            50% { left: 30%; width: 60%; }
+            100% { left: 100%; width: 40%; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="top-glow"></div>
+          ${logoDataUrl ? `<img src="${logoDataUrl}" class="logo" alt="Drocsid" />` : ''}
+          <div class="title">${title}</div>
+          <div class="subtitle">${subtitle}</div>
+          <div class="bar-container">
+            <div class="bar-indeterminate"></div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHtml)}`);
+  return splashWindow;
+}
+
+ipcMain.handle('updater:restart-and-install', (_event, payload) => {
   if (autoUpdater) {
-    autoUpdater.quitAndInstall(true, true);
+    try {
+      showUpdatingSplashWindow(payload);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        isQuitting = true;
+        mainWindow.hide();
+      }
+    } catch (e) {
+      debugLog(`[Updater] Erreur splash: ${e?.message}`);
+    }
+
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 600);
   }
 });
 
