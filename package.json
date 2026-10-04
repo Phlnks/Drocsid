@@ -26,8 +26,8 @@
     "productName": "Drocsid",
     "publish": {
       "provider": "github",
-      "owner": "shaco",
-      "repo": "drocsid",
+      "owner": "Phlnks",
+      "repo": "Drocsid",
       "releaseType": "release"
     },
     "asarUnpack": [
