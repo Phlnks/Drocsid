@@ -744,7 +744,7 @@ ipcMain.handle('updater:restart-and-install', (_event, payload) => {
     }
 
     setTimeout(() => {
-      autoUpdater.quitAndInstall(false, true);
+      autoUpdater.quitAndInstall(true, true);
     }, 600);
   }
 });
