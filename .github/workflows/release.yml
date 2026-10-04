@@ -1,0 +1,33 @@
+name: Release Drocsid Electron
+
+on:
+  push:
+    tags:
+      - 'v*' # Se déclenche dès que vous poussez un tag comme v1.0.6, v1.0.7, etc.
+  workflow_dispatch: # Permet aussi de déclencher le build manuellement depuis le site GitHub
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Compiler le frontend Vite
+        run: npm run build
+
+      - name: Compiler et publier la Release Electron
+        env:
+          # Token natif gratuit fourni automatiquement par GitHub
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win -p always
