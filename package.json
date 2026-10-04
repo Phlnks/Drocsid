@@ -24,6 +24,7 @@
   "build": {
     "appId": "com.drocsid.app",
     "productName": "Drocsid",
+    "npmRebuild": false,
     "publish": {
       "provider": "github",
       "owner": "Phlnks",
