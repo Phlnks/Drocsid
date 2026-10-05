@@ -66,7 +66,6 @@ export default function MessageContextMenu({
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
   const [copiedText, setCopiedText] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
   const [coords, setCoords] = useState<{ x: number; y: number }>({
     x: position.x,
     y: position.y,
@@ -135,21 +134,6 @@ export default function MessageContextMenu({
       }, 600);
     } catch (e) {
       console.error('Failed to copy text', e);
-      onClose();
-    }
-  };
-
-  const handleCopyId = async () => {
-    if (!message.id) return;
-    try {
-      await navigator.clipboard.writeText(message.id);
-      setCopiedId(true);
-      setTimeout(() => {
-        setCopiedId(false);
-        onClose();
-      }, 600);
-    } catch (e) {
-      console.error('Failed to copy ID', e);
       onClose();
     }
   };
@@ -289,21 +273,6 @@ export default function MessageContextMenu({
             </span>
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={handleCopyId}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded text-zinc-300 hover:bg-indigo-600 hover:text-white transition-colors"
-        >
-          <span className="flex items-center gap-2.5">
-            {copiedId ? (
-              <Check className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <Hash className="w-4 h-4 text-zinc-400" />
-            )}
-            {copiedId ? t('chatArea.copied') : t('chatArea.copyMessageId')}
-          </span>
-        </button>
 
         {canReport && onReport && (
           <button

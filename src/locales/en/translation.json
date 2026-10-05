@@ -40,7 +40,8 @@
     "livekitTokenEndpoint": "LiveKit Token API",
     "optional": "(Optional)",
     "livekitUrlPlaceholder": "wss://your-livekit.com",
-    "livekitTokenPlaceholder": "https://your-server.com/api/livekit/token"
+    "livekitTokenPlaceholder": "https://your-server.com/api/livekit/token",
+    "errorHint": "Unable to reach the server. Check your connection or configure your instance."
   },
   "common": {
     "cancel": "Cancel",

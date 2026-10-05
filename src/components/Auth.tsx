@@ -3,12 +3,22 @@ import { supabase } from '../supabase';
 import DrocsidLogo from './ui/DrocsidLogo';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { InstanceSettingsModal } from './InstanceSettingsModal';
+import { useInstanceStore } from '../store/instanceStore';
+import { Database } from 'lucide-react';
 
 export default function Auth() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { getCurrentInstance } = useInstanceStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isInstanceSettingsOpen, setIsInstanceSettingsOpen] = useState(false);
+
+  const isDesktop = Boolean(
+    (window as any).electron ||
+    (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('electron'))
+  );
 
   // Local auth states
   const [isSignUp, setIsSignUp] = useState(false);
@@ -150,9 +160,24 @@ export default function Auth() {
         <p className="text-zinc-400 mb-6 text-center text-sm">{t('auth.description')}</p>
         
         {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg mb-6 text-sm">
-            {error}
-            <div className="mt-2 pt-2 border-t border-red-500/20 text-[10px] opacity-70 break-all">
+          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3.5 rounded-lg mb-6 text-sm">
+            <div className="font-semibold mb-1">{error}</div>
+            {isDesktop && (
+              <>
+                <div className="text-xs text-red-300/80 mb-3">
+                  {t('instances.errorHint', "Impossible de joindre le serveur. Vérifiez votre connexion ou configurez votre instance.")}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsInstanceSettingsOpen(true)}
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-md transition-colors shadow-sm"
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  {t('instances.title', 'Gestion des instances')}
+                </button>
+              </>
+            )}
+            <div className="mt-3 pt-2 border-t border-red-500/20 text-[10px] opacity-70 break-all text-zinc-400">
               URL : {window.location.origin}
             </div>
           </div>
@@ -257,30 +282,55 @@ export default function Auth() {
         )}
 
         <div className="space-y-4">
-          <div className="pt-6 border-t border-zinc-700/50 flex flex-col gap-4">
-            <button
-              onClick={() => navigate('/download')}
-              className="text-indigo-400 hover:text-indigo-300 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              {t('download.title')}
-            </button>
+          <div className="pt-6 border-t border-zinc-700/50 flex flex-col gap-3">
+            {isDesktop && (
+              <button
+                type="button"
+                onClick={() => setIsInstanceSettingsOpen(true)}
+                className="w-full py-2.5 px-4 bg-zinc-800/90 hover:bg-zinc-700/90 text-zinc-200 hover:text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 border border-zinc-700/70 transition-all shadow-sm"
+              >
+                <Database className="w-4 h-4 text-indigo-400" />
+                <span>{t('instances.title', 'Gestion des instances')}</span>
+                {getCurrentInstance()?.name && (
+                  <span className="text-[10px] bg-zinc-900/90 text-indigo-300 px-2 py-0.5 rounded border border-zinc-700/50 truncate max-w-[140px]">
+                    {getCurrentInstance()?.name}
+                  </span>
+                )}
+              </button>
+            )}
 
-            <button
-              onClick={() => {
-                localStorage.removeItem('drocsid-current-instance-id');
-                localStorage.setItem('drocsid-current-instance-id', 'default');
-                window.location.reload();
-              }}
-              className="text-zinc-500 hover:text-white text-xs transition-colors"
-            >
-              {t('auth.connectionProblem')} {t('auth.resetDefaultServer')}
-            </button>
+            {!isDesktop && (
+              <button
+                onClick={() => navigate('/download')}
+                className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 py-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {t('download.title')}
+              </button>
+            )}
+
+            {isDesktop && (
+              <button
+                onClick={() => {
+                  localStorage.removeItem('drocsid-current-instance-id');
+                  localStorage.setItem('drocsid-current-instance-id', 'default');
+                  window.location.reload();
+                }}
+                className="text-zinc-500 hover:text-white text-[11px] transition-colors"
+              >
+                {t('auth.connectionProblem')} {t('auth.resetDefaultServer')}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      <InstanceSettingsModal
+        isOpen={isInstanceSettingsOpen}
+        onClose={() => setIsInstanceSettingsOpen(false)}
+      />
     </div>
   );
 }
