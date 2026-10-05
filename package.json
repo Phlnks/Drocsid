@@ -41,9 +41,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "public/logo.png",
-      "public/logo-maskable.png",
-      "public/logo-bg.png"
+      "public/**/*"
     ],
     "extraResources": [
       {

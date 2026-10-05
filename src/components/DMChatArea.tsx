@@ -15,6 +15,7 @@ import UserAvatar from './ui/UserAvatar';
 import SearchBar from './ui/SearchBar';
 import UserProfileModal from './ui/UserProfileModal';
 import UserContextMenu from './ui/UserContextMenu';
+import MessageContextMenu from './ui/MessageContextMenu';
 import VoicePlayer from './VoicePlayer';
 import PollDisplay from './PollDisplay';
 import AddFriendsToDMModal from './ui/AddFriendsToDMModal';
@@ -133,6 +134,7 @@ export default function DMChatArea() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [contextMenu, setContextMenu] = useState<{ userId: string, username: string, x: number, y: number } | null>(null);
+  const [messageContextMenu, setMessageContextMenu] = useState<{ message: any, x: number, y: number } | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<any[]>([]);
   const [showPins, setShowPins] = useState(false);
@@ -697,9 +699,22 @@ export default function DMChatArea() {
 
   const handleContextMenu = (e: React.MouseEvent, userId: string, username: string) => {
     e.preventDefault();
+    e.stopPropagation();
+    setMessageContextMenu(null);
     setContextMenu({
       userId,
       username,
+      x: e.clientX,
+      y: e.clientY
+    });
+  };
+
+  const handleMessageContextMenu = (e: React.MouseEvent, msg: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(null);
+    setMessageContextMenu({
+      message: msg,
       x: e.clientX,
       y: e.clientY
     });
@@ -953,6 +968,7 @@ export default function DMChatArea() {
                     <div 
                       key={msg.id} 
                       id={`message-${msg.id}`}
+                      onContextMenu={(e) => handleMessageContextMenu(e, msg)}
                       className={`relative group flex flex-col md:hover:bg-zinc-700/30 px-2 pr-2 md:pr-24 py-0.5 -mx-2 rounded transition-colors duration-200 ${showHeader && !showDaySeparator && idx !== 0 ? 'mt-3' : ''} ${highlightedMessageId === msg.id || mobileActionMessageId === msg.id ? 'bg-zinc-700/50 md:bg-transparent md:hover:bg-zinc-700/30' : ''} ${highlightedMessageId === msg.id ? 'bg-indigo-500/20 ring-1 ring-indigo-500/50' : ''}`}
                       onTouchStart={() => {
                         touchTimerRef.current = setTimeout(() => {
@@ -1351,6 +1367,29 @@ export default function DMChatArea() {
               const userData = getUserData(u.id, u.username, u.avatar_url);
               setSelectedUser({ id: u.id, ...userData });
             }
+          }}
+        />
+      )}
+
+      {messageContextMenu && (
+        <MessageContextMenu
+          message={messageContextMenu.message}
+          position={{ x: messageContextMenu.x, y: messageContextMenu.y }}
+          canEdit={messageContextMenu.message.author_id === user?.id}
+          canDelete={messageContextMenu.message.author_id === user?.id}
+          canPin={true}
+          canReply={true}
+          canReact={true}
+          canReport={false}
+          onClose={() => setMessageContextMenu(null)}
+          onReply={() => setReplyingTo(messageContextMenu.message)}
+          onEdit={() => handleEditStart(messageContextMenu.message)}
+          onDelete={() => handleDelete(messageContextMenu.message.id)}
+          onTogglePin={() => handlePin(messageContextMenu.message.id, messageContextMenu.message.is_pinned)}
+          onReaction={(emoji) => handleReaction(messageContextMenu.message.id, emoji, messageContextMenu.message.reactions)}
+          onOpenFullEmojiPicker={() => {
+            setEmojiPickerDirection('up');
+            setShowFullEmojiPicker(messageContextMenu.message.id);
           }}
         />
       )}
