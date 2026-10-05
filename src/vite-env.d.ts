@@ -78,6 +78,10 @@ declare global {
       stopLoopbackTest: () => Promise<LoopbackTestStatusResponse>;
       getLoopbackTestStatus: () => Promise<LoopbackTestStatusResponse>;
 
+      // File download and clipboard helpers
+      downloadFile?: (payload: { url: string; fileName: string }) => Promise<{ ok: boolean; filePath?: string; canceled?: boolean; error?: string }>;
+      copyImage?: (payload: { url: string }) => Promise<{ ok: boolean; error?: string }>;
+
       // Auto-updater
       checkForUpdates?: () => Promise<{ ok: boolean; version?: string; error?: string }>;
       restartAndInstall?: (options?: { title?: string; subtitle?: string }) => Promise<void>;

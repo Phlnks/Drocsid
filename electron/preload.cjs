@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('electron', {
 
   // File download helper
   downloadFile: (payload) => ipcRenderer.invoke('download-file', payload),
+  copyImage: (payload) => ipcRenderer.invoke('clipboard:copy-image', payload),
 
   // Auto-updater helpers
   checkForUpdates: () => ipcRenderer.invoke('updater:check-for-updates'),

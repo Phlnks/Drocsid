@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Download, Maximize2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { X, ChevronLeft, ChevronRight, Download, Copy, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ImageInfo {
   url: string;
@@ -13,8 +14,98 @@ interface ImageModalProps {
   onClose: () => void;
 }
 
+async function convertBlobToPng(blob: Blob): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(blob);
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((pngBlob) => {
+        if (pngBlob) resolve(pngBlob);
+        else resolve(blob);
+      }, 'image/png');
+    };
+    img.onerror = () => resolve(blob);
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
 export default function ImageModal({ images, initialIndex, onClose }: ImageModalProps) {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [copied, setCopied] = useState(false);
+
+  const currentImage = images[currentIndex];
+
+  const handlePrev = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
+  }, []);
+
+  const handleNext = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : prev));
+  }, [images.length]);
+
+  const handleCopyImage = useCallback(async (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
+    e?.preventDefault();
+    if (!currentImage) return;
+
+    // 1. Electron environment: native clipboard image copy
+    const electron = (window as any).electron;
+    if (electron && typeof electron.copyImage === 'function') {
+      try {
+        const result = await electron.copyImage({ url: currentImage.url });
+        if (result && result.ok) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+          return;
+        }
+      } catch (err) {
+        console.error('Electron copyImage IPC error:', err);
+      }
+    }
+
+    // 2. Browser standard clipboard API
+    try {
+      if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+        const response = await fetch(currentImage.url);
+        const blob = await response.blob();
+        let pngBlob = blob;
+        if (blob.type !== 'image/png') {
+          pngBlob = await convertBlobToPng(blob);
+        }
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': pngBlob })
+        ]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      }
+    } catch (err) {
+      console.warn('Direct clipboard.write failed, trying text fallback:', err);
+    }
+
+    // 3. Fallback: Copy direct URL
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(currentImage.url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err) {
+      console.error('Copy fallback failed:', err);
+    }
+  }, [currentImage]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,23 +115,13 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
         handlePrev();
       } else if (e.key === 'ArrowRight') {
         handleNext();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        handleCopyImage();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, currentIndex]);
-
-  const handlePrev = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
-  };
-
-  const handleNext = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : prev));
-  };
-
-  const currentImage = images[currentIndex];
+  }, [onClose, handlePrev, handleNext, handleCopyImage]);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -98,24 +179,47 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
       onClick={onClose}
     >
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent z-10">
-        <div className="text-zinc-200 text-sm font-medium truncate max-w-[70%]">
+        <div className="text-zinc-200 text-sm font-medium truncate max-w-[60%]">
           {currentImage.name || 'Image'}
           <span className="ml-3 text-zinc-400 font-normal">({currentIndex + 1} / {images.length})</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={handleCopyImage}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              copied 
+                ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50' 
+                : 'text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/10'
+            }`}
+            title={copied ? t('imageModal.copied', 'Image copiée !') : t('imageModal.copyImage', 'Copier l\'image (Ctrl+C)')}
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>{t('imageModal.copied', 'Image copiée !')}</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                <span>{t('imageModal.copyImage', 'Copier l\'image')}</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={handleDownload}
-            className="p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-            title="Télécharger"
+            className="p-2 text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-700/80 border border-white/10 rounded-lg transition-colors cursor-pointer"
+            title={t('imageModal.download', 'Télécharger')}
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-4 h-4" />
           </button>
+          
           <button 
-            className="p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 text-zinc-400 hover:text-white bg-zinc-800/60 hover:bg-zinc-700/80 border border-white/10 rounded-lg transition-colors cursor-pointer ml-1"
             onClick={onClose}
-            title="Fermer"
+            title={t('imageModal.close', 'Fermer')}
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -124,7 +228,7 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
         {currentIndex > 0 && (
           <button
             onClick={handlePrev}
-            className="absolute left-4 p-3 text-white bg-white/10 hover:bg-white/20 rounded-full transition-all z-20 backdrop-blur-sm"
+            className="absolute left-4 p-3 text-white bg-white/10 hover:bg-white/20 rounded-full transition-all z-20 backdrop-blur-sm cursor-pointer"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -133,14 +237,19 @@ export default function ImageModal({ images, initialIndex, onClose }: ImageModal
         <img 
           src={currentImage.url} 
           alt="Preview" 
-          className="max-w-full max-h-full object-contain shadow-2xl select-none"
+          className="max-w-full max-h-full object-contain shadow-2xl select-none cursor-pointer"
           onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.stopPropagation();
+            handleCopyImage(e);
+          }}
+          title={t('imageModal.copyImage', 'Clic droit ou bouton pour copier l\'image')}
         />
 
         {currentIndex < images.length - 1 && (
           <button
             onClick={handleNext}
-            className="absolute right-4 p-3 text-white bg-white/10 hover:bg-white/20 rounded-full transition-all z-20 backdrop-blur-sm"
+            className="absolute right-4 p-3 text-white bg-white/10 hover:bg-white/20 rounded-full transition-all z-20 backdrop-blur-sm cursor-pointer"
           >
             <ChevronRight className="w-6 h-6" />
           </button>

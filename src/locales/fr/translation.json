@@ -876,5 +876,11 @@
     "ready": "Prêt à jouer",
     "restricted": "Accès restreint",
     "manage": "Gérer"
+  },
+  "imageModal": {
+    "download": "Télécharger",
+    "copyImage": "Copier l'image",
+    "copied": "Image copiée !",
+    "close": "Fermer"
   }
 }

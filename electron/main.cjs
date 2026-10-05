@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, globalShortcut, Notification, nativeImage, protocol, dialog } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, desktopCapturer, Tray, Menu, MenuItem, clipboard, globalShortcut, Notification, nativeImage, protocol, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -11,6 +11,33 @@ const uiohookToKeyString = {};
 for (const [keyName, code] of Object.entries(UiohookKey)) {
   uiohookToKeyString[code] = keyName;
 }
+
+const contextMenuLabels = {
+  fr: {
+    addToDictionary: 'Ajouter au dictionnaire',
+    noSuggestions: 'Aucune suggestion trouvée',
+    cut: 'Couper',
+    copy: 'Copier',
+    paste: 'Coller',
+    selectAll: 'Tout sélectionner'
+  },
+  en: {
+    addToDictionary: 'Add to Dictionary',
+    noSuggestions: 'No suggestions found',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select All'
+  },
+  es: {
+    addToDictionary: 'Añadir al diccionario',
+    noSuggestions: 'Sin sugerencias',
+    cut: 'Cortar',
+    copy: 'Copiar',
+    paste: 'Pegar',
+    selectAll: 'Seleccionar todo'
+  }
+};
 
 const {
   Room,
@@ -86,9 +113,84 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
       backgroundThrottling: false,
+      spellcheck: true,
     },
     autoHideMenuBar: true,
     title: "Drocsid",
+  });
+
+  // Spellchecker configuration based on user selected language
+  try {
+    const currentLang = getAppLanguage();
+    const spellcheckLangs = currentLang === 'fr' 
+      ? ['fr', 'fr-FR', 'en-US'] 
+      : currentLang === 'es' 
+        ? ['es', 'es-ES', 'en-US'] 
+        : ['en-US', 'fr'];
+    mainWindow.webContents.session.setSpellCheckerLanguages(spellcheckLangs);
+  } catch (e) {
+    debugLog(`[Spellcheck] Lang setup failed: ${e?.message || e}`);
+  }
+
+  // Native context menu for spell checking and standard text editing
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    if (params.isEditable || (params.dictionarySuggestions && params.dictionarySuggestions.length > 0)) {
+      const lang = getAppLanguage();
+      const labels = contextMenuLabels[lang] || contextMenuLabels.fr;
+      const menu = new Menu();
+
+      // 1. Spellcheck suggestions
+      if (params.dictionarySuggestions && params.dictionarySuggestions.length > 0) {
+        for (const suggestion of params.dictionarySuggestions) {
+          menu.append(new MenuItem({
+            label: suggestion,
+            click: () => mainWindow.webContents.replaceMisspelling(suggestion)
+          }));
+        }
+        if (params.misspelledWord) {
+          menu.append(new MenuItem({
+            label: `${labels.addToDictionary} "${params.misspelledWord}"`,
+            click: () => mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+          }));
+        }
+        menu.append(new MenuItem({ type: 'separator' }));
+      } else if (params.misspelledWord) {
+        menu.append(new MenuItem({
+          label: labels.noSuggestions,
+          enabled: false
+        }));
+        menu.append(new MenuItem({
+          label: `${labels.addToDictionary} "${params.misspelledWord}"`,
+          click: () => mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+
+      // 2. Standard edit actions
+      menu.append(new MenuItem({
+        label: labels.cut,
+        role: 'cut',
+        enabled: params.editFlags.canCut
+      }));
+      menu.append(new MenuItem({
+        label: labels.copy,
+        role: 'copy',
+        enabled: params.editFlags.canCopy
+      }));
+      menu.append(new MenuItem({
+        label: labels.paste,
+        role: 'paste',
+        enabled: params.editFlags.canPaste
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: labels.selectAll,
+        role: 'selectAll',
+        enabled: params.editFlags.canSelectAll
+      }));
+
+      menu.popup({ window: mainWindow });
+    }
   });
 
   if (process.platform === 'win32') {
@@ -405,6 +507,20 @@ function readStorage() {
   return storageCache;
 }
 
+function getAppLanguage() {
+  let lang = 'fr';
+  try {
+    const storage = readStorage();
+    const storedLang = storage['drocsid-language'] || storage['i18nextLng'] || (app.getLocale ? app.getLocale() : 'fr');
+    if (storedLang) {
+      if (storedLang.startsWith('en')) lang = 'en';
+      else if (storedLang.startsWith('es')) lang = 'es';
+      else lang = 'fr';
+    }
+  } catch (e) {}
+  return lang;
+}
+
 function writeStorageDebounced() {
   if (writeTimeout) clearTimeout(writeTimeout);
   writeTimeout = setTimeout(() => {
@@ -428,6 +544,20 @@ ipcMain.on('save-storage-key', (event, { key, value }) => {
   const data = readStorage();
   data[key] = value;
   writeStorageDebounced();
+
+  if (key === 'drocsid-language' || key === 'i18nextLng') {
+    try {
+      const currentLang = getAppLanguage();
+      const spellcheckLangs = currentLang === 'fr' 
+        ? ['fr', 'fr-FR', 'en-US'] 
+        : currentLang === 'es' 
+          ? ['es', 'es-ES', 'en-US'] 
+          : ['en-US', 'fr'];
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.session) {
+        mainWindow.webContents.session.setSpellCheckerLanguages(spellcheckLangs);
+      }
+    } catch (e) {}
+  }
 });
 
 ipcMain.on('remove-storage-key', (event, key) => {
@@ -809,6 +939,65 @@ ipcMain.handle('download-file', async (event, { url, fileName }) => {
   } catch (error) {
     console.error('[Download] Failed to download file:', error);
     return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle('clipboard:copy-image', async (event, { url }) => {
+  try {
+    if (!url) return { ok: false, error: 'URL manquante' };
+
+    let imageBuffer = null;
+
+    if (url.startsWith('data:')) {
+      const parts = url.split(',');
+      const base64Data = parts[1];
+      imageBuffer = Buffer.from(base64Data, 'base64');
+    } else {
+      imageBuffer = await new Promise((resolve, reject) => {
+        const fetchUrl = (targetUrl, redirectCount = 0) => {
+          if (redirectCount > 5) {
+            reject(new Error('Trop de redirections'));
+            return;
+          }
+          const client = targetUrl.startsWith('https') ? https : http;
+          client.get(targetUrl, (res) => {
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              let redirectUrl = res.headers.location;
+              if (!redirectUrl.startsWith('http')) {
+                const parsedUrl = new URL(targetUrl);
+                redirectUrl = `${parsedUrl.protocol}//${parsedUrl.host}${redirectUrl}`;
+              }
+              fetchUrl(redirectUrl, redirectCount + 1);
+              return;
+            }
+            if (res.statusCode !== 200) {
+              reject(new Error(`Statut HTTP ${res.statusCode}`));
+              return;
+            }
+            const chunks = [];
+            res.on('data', (chunk) => chunks.push(chunk));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+            res.on('error', reject);
+          }).on('error', reject);
+        };
+        fetchUrl(url);
+      });
+    }
+
+    if (!imageBuffer || imageBuffer.length === 0) {
+      return { ok: false, error: 'Image vide ou introuvable' };
+    }
+
+    const image = nativeImage.createFromBuffer(imageBuffer);
+    if (image.isEmpty()) {
+      return { ok: false, error: 'Format d\'image non supporté' };
+    }
+
+    clipboard.writeImage(image);
+    return { ok: true };
+  } catch (error) {
+    console.error('[Clipboard] Failed to copy image:', error);
+    return { ok: false, error: error?.message || 'Erreur lors de la copie de l\'image' };
   }
 });
 
