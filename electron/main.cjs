@@ -863,19 +863,46 @@ function showUpdatingSplashWindow(options = {}) {
 
 ipcMain.handle('updater:restart-and-install', (_event, payload) => {
   if (autoUpdater) {
+    debugLog('[Updater] Demande de redémarrage et installation reçue.');
     try {
       showUpdatingSplashWindow(payload);
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        isQuitting = true;
-        mainWindow.hide();
-      }
     } catch (e) {
       debugLog(`[Updater] Erreur splash: ${e?.message}`);
     }
 
+    isQuitting = true;
+
+    // Arrêt immédiat des hooks d'entrée globale et processus enfants pour libérer les verrous de fichiers
+    try {
+      uIOhook.stop();
+    } catch (e) {}
+
+    try {
+      globalShortcut.unregisterAll();
+    } catch (e) {}
+
+    try {
+      if (loopbackProcess && loopbackStopFilePath) {
+        fs.writeFileSync(loopbackStopFilePath, 'stop', 'utf8');
+      }
+    } catch (e) {}
+
     setTimeout(() => {
-      autoUpdater.quitAndInstall(true, true);
-    }, 600);
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.destroy();
+        }
+      } catch (e) {}
+
+      try {
+        if (splashWindow && !splashWindow.isDestroyed()) {
+          splashWindow.destroy();
+        }
+      } catch (e) {}
+
+      // Lancement de l'installation et fermeture du processus
+      autoUpdater.quitAndInstall(false, true);
+    }, 800);
   }
 });
 
@@ -1491,6 +1518,26 @@ if (!gotTheLock) {
     createWindow();
     createTray();
     setupAutoUpdater(mainWindow);
+
+    // Sync startup path if auto-launch is enabled to ensure Windows always launches current binary
+    if (app.isPackaged && process.platform === 'win32') {
+      try {
+        const { exec } = require('child_process');
+        // Nettoyer d'éventuelles clés de démarrage obsolètes ("drocsid" en minuscules, "electron", etc.)
+        exec('reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "drocsid" /f', () => {});
+        exec('reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "electron" /f', () => {});
+
+        const loginSettings = app.getLoginItemSettings();
+        if (loginSettings.openAtLogin) {
+          app.setLoginItemSettings({
+            openAtLogin: true,
+            path: app.getPath('exe'),
+          });
+        }
+      } catch (e) {
+        debugLog(`[StartupSync] Erreur sync path: ${e?.message}`);
+      }
+    }
 
     // Start uIOhook for global low-level input
     try {
