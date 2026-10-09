@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
+import { copyToClipboard } from '../../lib/utils';
 
 export interface MessageContextMenuProps {
   message: {
@@ -126,7 +127,7 @@ export default function MessageContextMenu({
   const handleCopyText = async () => {
     if (!message.content) return;
     try {
-      await navigator.clipboard.writeText(message.content);
+      await copyToClipboard(message.content);
       setCopiedText(true);
       setTimeout(() => {
         setCopiedText(false);

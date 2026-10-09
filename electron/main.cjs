@@ -238,13 +238,26 @@ function createWindow() {
     }
   });
 
+  const allowedPermissions = [
+    'media',
+    'mediaKeySystem',
+    'microphone',
+    'camera',
+    'notifications',
+    'clipboard-read',
+    'clipboard-sanitized-write'
+  ];
+
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowedPermissions = ['media', 'mediaKeySystem', 'microphone', 'camera'];
     if (allowedPermissions.includes(permission)) {
       callback(true);
     } else {
       callback(false);
     }
+  });
+
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
+    return allowedPermissions.includes(permission);
   });
 
   mainWindow.loadURL(startUrl);
@@ -1025,6 +1038,26 @@ ipcMain.handle('clipboard:copy-image', async (event, { url }) => {
   } catch (error) {
     console.error('[Clipboard] Failed to copy image:', error);
     return { ok: false, error: error?.message || 'Erreur lors de la copie de l\'image' };
+  }
+});
+
+ipcMain.handle('clipboard:write-text', async (_event, text) => {
+  try {
+    clipboard.writeText(typeof text === 'string' ? text : '');
+    return { ok: true };
+  } catch (error) {
+    console.error('[Clipboard] Failed to write text:', error);
+    return { ok: false, error: error?.message || 'Erreur lors de la copie du texte' };
+  }
+});
+
+ipcMain.handle('clipboard:read-text', async () => {
+  try {
+    const text = clipboard.readText();
+    return { ok: true, text };
+  } catch (error) {
+    console.error('[Clipboard] Failed to read text:', error);
+    return { ok: false, text: '', error: error?.message || 'Erreur lors de la lecture du presse-papier' };
   }
 });
 

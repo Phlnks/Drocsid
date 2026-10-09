@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Star, Trash2, Edit2, Check, AlertTriangle, Database, Globe, Key, Copy, ClipboardPaste, Upload, FileCode } from 'lucide-react';
 import { useInstanceStore, Instance, exportInstanceToJSON, parseInstanceConfig } from '../store/instanceStore';
+import { copyToClipboard, readFromClipboard } from '../lib/utils';
 
 interface InstanceSettingsModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({ is
 
   const handlePasteIntoForm = async () => {
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await readFromClipboard();
       const parsed = parseInstanceConfig(text);
       if (parsed) {
         setFormData({
@@ -131,7 +132,7 @@ export const InstanceSettingsModal: React.FC<InstanceSettingsModalProps> = ({ is
 
   const handlePasteIntoImportArea = async () => {
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await readFromClipboard();
       setImportText(text);
     } catch (err) {
       console.error('Failed to read clipboard:', err);
@@ -465,9 +466,11 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance, isCurrent, onSwit
     e.stopPropagation();
     try {
       const jsonStr = exportInstanceToJSON(instance);
-      await navigator.clipboard.writeText(jsonStr);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const success = await copyToClipboard(jsonStr);
+      if (success !== false) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
     } catch (err) {
       console.error('Failed to copy instance config:', err);
     }

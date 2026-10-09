@@ -81,6 +81,8 @@ declare global {
       // File download and clipboard helpers
       downloadFile?: (payload: { url: string; fileName: string }) => Promise<{ ok: boolean; filePath?: string; canceled?: boolean; error?: string }>;
       copyImage?: (payload: { url: string }) => Promise<{ ok: boolean; error?: string }>;
+      writeClipboardText?: (text: string) => Promise<{ ok: boolean; error?: string }>;
+      readClipboardText?: () => Promise<{ ok: boolean; text?: string; error?: string }>;
 
       // Auto-updater
       checkForUpdates?: () => Promise<{ ok: boolean; version?: string; error?: string }>;

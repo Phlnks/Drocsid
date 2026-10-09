@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { Database, Plus, ChevronRight, Upload, ClipboardPaste, Check, AlertTriangle, FileCode } from 'lucide-react';
 import { useInstanceStore, parseInstanceConfig } from '../store/instanceStore';
+import { readFromClipboard } from '../lib/utils';
 
 export const InstanceSetupScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -25,7 +26,7 @@ export const InstanceSetupScreen: React.FC = () => {
 
   const handlePasteIntoForm = async () => {
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await readFromClipboard();
       const parsed = parseInstanceConfig(text);
       if (parsed) {
         setFormData({
@@ -49,7 +50,7 @@ export const InstanceSetupScreen: React.FC = () => {
 
   const handlePasteIntoImportArea = async () => {
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await readFromClipboard();
       setImportText(text);
     } catch (err) {
       console.error('Failed to read clipboard:', err);
