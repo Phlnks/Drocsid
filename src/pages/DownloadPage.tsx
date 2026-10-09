@@ -52,7 +52,7 @@ export default function DownloadPage() {
       name: 'Windows',
       desc: t('download.windowsVersion', 'Windows 10/11 - 64 bits'),
       btnText: t('download.windowsBtn', 'Télécharger pour Windows'),
-      href: 'https://drocsid.site/download/Drocsid-Setup-1.1.1.exe',
+      href: 'https://drocsid.site/download/Drocsid-Setup-1.1.5.exe',
       icon: WindowsIcon,
       accentColor: 'from-blue-600 to-sky-500',
       shadowColor: 'shadow-blue-500/20',
