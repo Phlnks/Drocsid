@@ -41,7 +41,16 @@
     "optional": "(Optional)",
     "livekitUrlPlaceholder": "wss://your-livekit.com",
     "livekitTokenPlaceholder": "https://your-server.com/api/livekit/token",
-    "errorHint": "Unable to reach the server. Check your connection or configure your instance."
+    "errorHint": "Unable to reach the server. Check your connection or configure your instance.",
+    "copyConfig": "Copy configuration (JSON)",
+    "copied": "Configuration copied!",
+    "import": "Import",
+    "importTitle": "Import instance",
+    "importDescription": "Paste the instance JSON data or structured text here:",
+    "pasteFromClipboard": "Paste from clipboard",
+    "importButton": "Import configuration",
+    "importSuccess": "Configuration imported successfully!",
+    "invalidFormat": "Invalid format. Supabase URL and Anon key are required."
   },
   "common": {
     "cancel": "Cancel",

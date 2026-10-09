@@ -41,7 +41,16 @@
     "optional": "(Optionnel)",
     "livekitUrlPlaceholder": "wss://votre-livekit.com",
     "livekitTokenPlaceholder": "https://votre-serveur.com/api/livekit/token",
-    "errorHint": "Impossible de joindre le serveur. Vérifiez votre connexion ou configurez votre instance."
+    "errorHint": "Impossible de joindre le serveur. Vérifiez votre connexion ou configurez votre instance.",
+    "copyConfig": "Copier la configuration (JSON)",
+    "copied": "Configuration copiée !",
+    "import": "Importer",
+    "importTitle": "Importer une instance",
+    "importDescription": "Collez ici les données JSON ou le texte structuré de l'instance :",
+    "pasteFromClipboard": "Coller du presse-papier",
+    "importButton": "Importer la configuration",
+    "importSuccess": "Configuration importée avec succès !",
+    "invalidFormat": "Format invalide. L'URL Supabase et la clé Anon sont requises."
   },
   "common": {
     "cancel": "Annuler",

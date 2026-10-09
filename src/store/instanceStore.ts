@@ -12,6 +12,95 @@ export interface Instance {
   lastUsed: number;
 }
 
+export function exportInstanceToJSON(instance: Instance): string {
+  const payload: Record<string, string> = {
+    name: instance.name,
+    supabaseUrl: instance.supabaseUrl,
+    supabaseAnonKey: instance.supabaseAnonKey,
+    socketUrl: instance.socketUrl,
+  };
+  if (instance.livekitUrl) payload.livekitUrl = instance.livekitUrl;
+  if (instance.livekitTokenEndpoint) payload.livekitTokenEndpoint = instance.livekitTokenEndpoint;
+  return JSON.stringify(payload, null, 2);
+}
+
+export function parseInstanceConfig(text: string): {
+  name: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  socketUrl: string;
+  livekitUrl?: string;
+  livekitTokenEndpoint?: string;
+} | null {
+  if (!text || typeof text !== 'string') return null;
+  const trimmed = text.trim();
+
+  // 1. Try direct JSON parsing
+  try {
+    let cleanText = trimmed;
+    if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+    }
+    const parsed = JSON.parse(cleanText);
+    if (parsed && typeof parsed === 'object') {
+      const name = parsed.name || parsed.instanceName || parsed.title || 'Nouvelle Instance';
+      const supabaseUrl = parsed.supabaseUrl || parsed.supabase_url || parsed.url || parsed.VITE_SUPABASE_URL || '';
+      const supabaseAnonKey = parsed.supabaseAnonKey || parsed.supabase_anon_key || parsed.anonKey || parsed.supabaseKey || parsed.key || parsed.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+      const socketUrl = parsed.socketUrl || parsed.socket_url || parsed.backendUrl || parsed.backend_url || parsed.VITE_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+      const livekitUrl = parsed.livekitUrl || parsed.livekit_url || parsed.VITE_LIVEKIT_URL || '';
+      const livekitTokenEndpoint = parsed.livekitTokenEndpoint || parsed.livekit_token_endpoint || parsed.tokenEndpoint || parsed.VITE_LIVEKIT_TOKEN_ENDPOINT || '';
+
+      if (supabaseUrl && supabaseAnonKey) {
+        return {
+          name,
+          supabaseUrl,
+          supabaseAnonKey,
+          socketUrl: socketUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
+          livekitUrl: livekitUrl || undefined,
+          livekitTokenEndpoint: livekitTokenEndpoint || undefined
+        };
+      }
+    }
+  } catch (e) {}
+
+  // 2. Fallback: Parse key-value lines (env vars or YAML-like key: value)
+  try {
+    const lines = trimmed.split('\n');
+    const result: Record<string, string> = {};
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith('{') || line.startsWith('}')) continue;
+      const sep = line.indexOf(':') !== -1 ? line.indexOf(':') : line.indexOf('=');
+      if (sep !== -1) {
+        const key = line.substring(0, sep).trim().replace(/^['"]|['"]$/g, '');
+        let val = line.substring(sep + 1).trim().replace(/^['"]|['"]$/g, '');
+        if (val.endsWith(',')) val = val.slice(0, -1).trim().replace(/^['"]|['"]$/g, '');
+        result[key] = val;
+      }
+    }
+
+    const name = result.name || result.instanceName || result.INSTANCE_NAME || 'Nouvelle Instance';
+    const supabaseUrl = result.supabaseUrl || result.supabase_url || result.VITE_SUPABASE_URL || result.url || '';
+    const supabaseAnonKey = result.supabaseAnonKey || result.supabase_anon_key || result.supabaseKey || result.anonKey || result.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+    const socketUrl = result.socketUrl || result.socket_url || result.backendUrl || result.VITE_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    const livekitUrl = result.livekitUrl || result.livekit_url || result.VITE_LIVEKIT_URL || '';
+    const livekitTokenEndpoint = result.livekitTokenEndpoint || result.livekit_token_endpoint || result.VITE_LIVEKIT_TOKEN_ENDPOINT || '';
+
+    if (supabaseUrl && supabaseAnonKey) {
+      return {
+        name,
+        supabaseUrl,
+        supabaseAnonKey,
+        socketUrl: socketUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
+        livekitUrl: livekitUrl || undefined,
+        livekitTokenEndpoint: livekitTokenEndpoint || undefined
+      };
+    }
+  } catch (e) {}
+
+  return null;
+}
+
 interface InstanceState {
   instances: Instance[];
   currentInstanceId: string;

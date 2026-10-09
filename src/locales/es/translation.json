@@ -41,7 +41,16 @@
     "optional": "(Opcional)",
     "livekitUrlPlaceholder": "wss://tu-livekit.com",
     "livekitTokenPlaceholder": "https://tu-servidor.com/api/livekit/token",
-    "errorHint": "No se puede conectar con el servidor. Comprueba tu conexión o configura tu instancia."
+    "errorHint": "No se puede conectar con el servidor. Comprueba tu conexión o configura tu instancia.",
+    "copyConfig": "Copiar configuración (JSON)",
+    "copied": "¡Configuración copiada!",
+    "import": "Importar",
+    "importTitle": "Importar instancia",
+    "importDescription": "Pega los datos JSON o texto estructurado de la instancia aquí:",
+    "pasteFromClipboard": "Pegar del portapapeles",
+    "importButton": "Importar configuración",
+    "importSuccess": "¡Configuración importada con éxito!",
+    "invalidFormat": "Formato no válido. Se requieren la URL de Supabase y la clave Anon."
   },
   "common": {
     "cancel": "Cancelar",
