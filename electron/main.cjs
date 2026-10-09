@@ -589,6 +589,12 @@ function setupAutoUpdater(win) {
   // Téléchargement automatique en tâche de fond sans bloquer l'utilisateur
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.logger = {
+    info: (msg) => debugLog(`[Updater:info] ${msg}`),
+    warn: (msg) => debugLog(`[Updater:warn] ${msg}`),
+    error: (msg) => debugLog(`[Updater:error] ${msg}`),
+    debug: (msg) => debugLog(`[Updater:debug] ${msg}`),
+  };
 
   autoUpdater.on('checking-for-update', () => {
     debugLog('[Updater] Recherche de mises à jour...');
@@ -913,8 +919,25 @@ ipcMain.handle('updater:restart-and-install', (_event, payload) => {
         }
       } catch (e) {}
 
-      // Lancement de l'installation et fermeture du processus
-      autoUpdater.quitAndInstall(false, true);
+      // Libérer le verrou d'instance unique pour que le nouvel exécutable lancé par le setup puisse démarrer sans conflit
+      try {
+        app.releaseSingleInstanceLock();
+      } catch (e) {}
+
+      // Lancement de l'installation et relance automatique (mode silencieux + force run)
+      debugLog('[Updater] Exécution de quitAndInstall...');
+      try {
+        // electron-updater supporte (isSilent: boolean, isForceRunAfter: boolean) ou un objet d'options
+        // On force les deux modes pour compatibilité totale
+        autoUpdater.quitAndInstall(true, true);
+      } catch (err) {
+        debugLog(`[Updater] Erreur quitAndInstall: ${err?.message || err}`);
+        try {
+          autoUpdater.quitAndInstall();
+        } catch (err2) {
+          app.quit();
+        }
+      }
     }, 800);
   }
 });
