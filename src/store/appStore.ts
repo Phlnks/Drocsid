@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { type DesktopSourceInfo } from '../vite-env';
+import { supabase } from '../supabase';
 
 function safeParse<T>(key: string, fallback: T): T {
   try {
@@ -144,7 +145,7 @@ interface AppState {
   };
   serverOrder: string[];
   
-  setServerOrder: (order: string[]) => void;
+  setServerOrder: (order: string[], userId?: string) => void;
   setSelectedServerId: (id: string | null) => void;
   setSelectedChannelId: (id: string | null) => void;
   setSelectedDmId: (id: string | null) => void;
@@ -252,8 +253,14 @@ export const useAppStore = create<AppState>((set) => ({
   appSettings: safeParse('drocsid-app-settings', { launchAtStartup: false, dateFormat: 'dd/MM/yyyy', timeFormat: 'HH:mm' }),
   serverOrder: safeParse('drocsid-server-order', []),
   
-  setServerOrder: (order) => set(() => {
+  setServerOrder: (order, userId) => set(() => {
     localStorage.setItem('drocsid-server-order', JSON.stringify(order));
+    if (userId) {
+      localStorage.setItem(`drocsid-server-order-${userId}`, JSON.stringify(order));
+      supabase.auth.updateUser({ data: { server_order: order } }).catch((err) => {
+        console.warn('Could not sync server_order to Supabase metadata:', err);
+      });
+    }
     return { serverOrder: order };
   }),
   setServerSounds: (sounds) => set({ serverSounds: sounds }),

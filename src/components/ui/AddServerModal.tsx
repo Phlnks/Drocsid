@@ -206,7 +206,7 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin, canC
                 disabled={loading}
               />
               <p className="text-[11px] text-zinc-500 mt-1.5">
-                Ex: https://drocsid.site/invite/code-invitation ou code-invitation
+                {t('modals.addServer.inviteExample', 'Ex: https://drocsid.site/invite/code-invitation or code-invitation')}
               </p>
             </div>
             <div className="flex justify-between items-center mt-6">

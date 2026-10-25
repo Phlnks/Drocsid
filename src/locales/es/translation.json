@@ -376,6 +376,7 @@
       "joinDescription": "Introduce un código o enlace de invitación a continuación para unirte a un servidor existente.",
       "inviteLink": "Código o enlace de invitación",
       "invitePlaceholder": "https://drocsid.site/invite/code o código",
+      "inviteExample": "Ej: https://drocsid.site/invite/code-invitation o código",
       "join": "Unirse al servidor"
     },
     "renameChannel": {
@@ -815,6 +816,11 @@
     "drocsidServer": "Servidor Drocsid"
   },
   "channelList": {
+    "invite": "Invitar personas",
+    "serverSettings": "Ajustes del servidor",
+    "newChannel": "Crear canal",
+    "leaveServer": "Abandonar servidor",
+    "leaveServerConfirm": "¿Estás seguro de que quieres abandonar este servidor?",
     "inviteCopied": "¡Enlace de invitación copiado al portapapeles!"
   },
   "download": {

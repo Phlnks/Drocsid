@@ -41,6 +41,30 @@ export default function ServerList() {
   } | null>(null);
 
   useEffect(() => {
+    if (!user) return;
+
+    const metaOrder = user.user_metadata?.server_order;
+    const localUserOrderStr = localStorage.getItem(`drocsid-server-order-${user.id}`);
+    let localUserOrder: string[] = [];
+    if (localUserOrderStr) {
+      try {
+        localUserOrder = JSON.parse(localUserOrderStr);
+      } catch {}
+    }
+
+    const preferredOrder =
+      Array.isArray(metaOrder) && metaOrder.length > 0
+        ? metaOrder
+        : Array.isArray(localUserOrder) && localUserOrder.length > 0
+        ? localUserOrder
+        : null;
+
+    if (preferredOrder && preferredOrder.length > 0) {
+      useAppStore.setState({ serverOrder: preferredOrder });
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (servers.length === 0) {
       setSortedServers([]);
       return;
@@ -497,7 +521,8 @@ export default function ServerList() {
           values={sortedServers}
           onReorder={(newOrder) => {
             setSortedServers(newOrder);
-            setServerOrder(newOrder.map((s: any) => s.id));
+            const newIds = newOrder.map((s: any) => s.id);
+            setServerOrder(newIds, user?.id);
           }}
           className="flex flex-col gap-3 md:gap-2 items-center w-full"
         >
