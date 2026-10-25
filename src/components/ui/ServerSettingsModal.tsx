@@ -9,6 +9,7 @@ import ConfirmModal from './ConfirmModal';
 import UserAvatar from './UserAvatar';
 import { processImageForSupabase } from '../../lib/imageUtils';
 import { copyToClipboard } from '../../lib/utils';
+import { buildInviteUrl } from '../../lib/inviteUtils';
 import { useTranslation } from 'react-i18next';
 import socket from '../../lib/socket';
 
@@ -1809,35 +1810,58 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                       {t('serverSettings.noActiveInvites')}
                     </div>
                   ) : (
-                    invites.map(invite => (
-                      <div key={invite.code} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between gap-4">
-                        <div className="flex-1 overflow-hidden">
-                          <div className="text-zinc-100 font-medium font-mono truncate bg-zinc-950/50 p-2 rounded border border-zinc-800">
-                            {invite.code}
+                    invites.map(invite => {
+                      const fullUrl = buildInviteUrl(invite.code);
+                      return (
+                        <div key={invite.code} className="p-4 border-b border-zinc-700/50 last:border-0 flex items-center justify-between gap-4">
+                          <div className="flex-1 overflow-hidden">
+                            <div className="text-zinc-100 font-medium font-mono truncate bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800 text-xs select-all">
+                              {fullUrl}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 mt-2">
+                              <span>Code: <span className="font-mono text-zinc-200 font-semibold">{invite.code}</span></span>
+                              <span>•</span>
+                              <span>{t('serverSettings.createdOn', { date: new Date(invite.created_at).toLocaleDateString() })}</span>
+                              {invite.uses !== undefined && (
+                                <>
+                                  <span>•</span>
+                                  <span>{invite.uses} {invite.uses > 1 ? 'utilisations' : 'utilisation'}{invite.max_uses > 0 ? ` / ${invite.max_uses}` : ''}</span>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-xs text-zinc-400 mt-2">{t('serverSettings.createdOn', { date: new Date(invite.created_at).toLocaleDateString() })}</div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button 
+                              onClick={async () => {
+                                await copyToClipboard(fullUrl);
+                                addNotification("Lien d'invitation copié dans le presse-papier !", "success");
+                              }}
+                              className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
+                              title="Copier le lien complet"
+                            >
+                              <LinkIcon className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                await copyToClipboard(invite.code);
+                                addNotification("Code d'invitation copié !", "success");
+                              }}
+                              className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
+                              title="Copier uniquement le code"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteInvite(invite.code)}
+                              className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
+                              title={t('serverSettings.deleteInvite')}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={async () => {
-                              await copyToClipboard(invite.code);
-                              addNotification("Code copié dans le presse-papier !", "success");
-                            }}
-                            className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
-                            title={t('serverSettings.copyLink')}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteInvite(invite.code)}
-                            className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 rounded-md transition-colors"
-                            title={t('serverSettings.deleteInvite')}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

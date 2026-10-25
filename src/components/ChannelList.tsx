@@ -16,6 +16,7 @@ import {
 import clsx from "clsx";
 import socket from "../lib/socket";
 import { copyToClipboard } from "../lib/utils";
+import { buildInviteUrl } from "../lib/inviteUtils";
 import CreateChannelModal from "./ui/CreateChannelModal";
 import UserSettingsModal from "./ui/UserSettingsModal";
 import ServerSettingsModal from "./ui/ServerSettingsModal";
@@ -506,9 +507,10 @@ export default function ChannelList() {
         );
       }
 
-      // Copy to clipboard
-      await copyToClipboard(inviteCode);
-      addNotification(t("channelList.inviteCopied"), "success");
+      // Copy full invite link to clipboard
+      const inviteUrl = buildInviteUrl(inviteCode);
+      await copyToClipboard(inviteUrl);
+      addNotification(t("channelList.inviteCopied", "Lien d'invitation copié dans le presse-papier !"), "success");
       setIsServerMenuOpen(false);
     } catch (error) {
       console.error("Error handling invite:", error);

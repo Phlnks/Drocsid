@@ -3,6 +3,7 @@ import { X, Camera, Plus, Shield } from 'lucide-react';
 import { supabase } from '../../supabase';
 import { useAppStore } from '../../store/appStore';
 import { processImageForSupabase } from '../../lib/imageUtils';
+import { extractInviteCode } from '../../lib/inviteUtils';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 
@@ -178,23 +179,35 @@ export default function AddServerModal({ isOpen, onClose, onCreate, onJoin, canC
         )}
 
         {mode === 'join' && (
-          <form onSubmit={async (e) => { e.preventDefault(); if (inviteCode.trim() && !loading) { setLoading(true); await onJoin(inviteCode.trim()); setLoading(false); onClose(); } }}>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const cleanedCode = extractInviteCode(inviteCode);
+            if (cleanedCode && !loading) {
+              setLoading(true);
+              await onJoin(cleanedCode);
+              setLoading(false);
+              onClose();
+            }
+          }}>
             <p className="text-zinc-400 text-sm mb-4">
-              {t('modals.addServer.joinDescription')}
+              {t('modals.addServer.joinDescription', 'Saisis un code ou un lien d\'invitation ci-dessous pour rejoindre un serveur existant.')}
             </p>
             <div className="mb-4">
               <label className="block text-xs font-bold text-zinc-300 uppercase mb-2">
-                {t('modals.addServer.inviteLink')}
+                {t('modals.addServer.inviteLink', 'Code ou lien d\'invitation')}
               </label>
               <input
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-950 rounded p-2 text-zinc-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-                placeholder={t('modals.addServer.invitePlaceholder')}
+                className="w-full bg-zinc-900 border border-zinc-950 rounded p-2 text-zinc-100 focus:outline-none focus:border-indigo-500 disabled:opacity-50 text-sm"
+                placeholder={t('modals.addServer.invitePlaceholder', 'https://drocsid.site/invite/code ou code')}
                 autoFocus
                 disabled={loading}
               />
+              <p className="text-[11px] text-zinc-500 mt-1.5">
+                Ex: https://drocsid.site/invite/code-invitation ou code-invitation
+              </p>
             </div>
             <div className="flex justify-between items-center mt-6">
               <button 

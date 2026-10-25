@@ -373,9 +373,9 @@
       "serverNamePlaceholder": "Mi servidor increíble",
       "back": "Atrás",
       "create": "Crear",
-      "joinDescription": "Introduce un código de invitación a continuación para unirte a un servidor existente.",
-      "inviteLink": "Código de invitación",
-      "invitePlaceholder": "Introduce el código de invitación",
+      "joinDescription": "Introduce un código o enlace de invitación a continuación para unirte a un servidor existente.",
+      "inviteLink": "Código o enlace de invitación",
+      "invitePlaceholder": "https://drocsid.site/invite/code o código",
       "join": "Unirse al servidor"
     },
     "renameChannel": {
@@ -809,7 +809,13 @@
     "usernameError": "El nombre de usuario debe tener entre 3 y 20 caracteres (letras, números, _ o -).",
     "passwordError": "La contraseña debe tener al menos 6 caracteres.",
     "usernameTaken": "Este nombre de usuario ya está en uso.",
-    "or": "O"
+    "or": "O",
+    "invitedToServer": "Invitación de servidor recibida",
+    "joinAfterAuth": "Inicia sesión o regístrate para unirte automáticamente a este servidor.",
+    "drocsidServer": "Servidor Drocsid"
+  },
+  "channelList": {
+    "inviteCopied": "¡Enlace de invitación copiado al portapapeles!"
   },
   "download": {
     "title": "Descargar Drocsid",

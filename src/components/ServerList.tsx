@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion, Reorder } from "motion/react";
 import { supabase } from "../supabase";
 import { useAuthStore } from "../store/authStore";
@@ -7,6 +7,7 @@ import { Plus, Compass, Users, Volume2, BellOff } from "lucide-react";
 import DrocsidLogo from "./ui/DrocsidLogo";
 import clsx from "clsx";
 import AddServerModal from "./ui/AddServerModal";
+import { extractInviteCode } from "../lib/inviteUtils";
 import { useTranslation } from "react-i18next";
 
 export default function ServerList() {
@@ -55,25 +56,26 @@ export default function ServerList() {
     setSortedServers(nextServers);
   }, [servers, serverOrder]);
 
+  const fetchServers = useCallback(async () => {
+    if (!user) return;
+    const { data: members } = await supabase
+      .from("server_members")
+      .select("server_id")
+      .eq("user_id", user.id);
+    if (members && members.length > 0) {
+      const serverIds = members.map((m) => m.server_id);
+      const { data: srvs } = await supabase
+        .from("servers")
+        .select("*")
+        .in("id", serverIds);
+      if (srvs) setServers(srvs);
+    } else {
+      setServers([]);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
-
-    const fetchServers = async () => {
-      const { data: members } = await supabase
-        .from("server_members")
-        .select("server_id")
-        .eq("user_id", user.id);
-      if (members && members.length > 0) {
-        const serverIds = members.map((m) => m.server_id);
-        const { data: srvs } = await supabase
-          .from("servers")
-          .select("*")
-          .in("id", serverIds);
-        if (srvs) setServers(srvs);
-      } else {
-        setServers([]);
-      }
-    };
 
     fetchServers();
 
@@ -338,11 +340,11 @@ export default function ServerList() {
     if (!user) return;
 
     try {
-      // Extract code from URL if a full link was provided
-      let inviteCode = rawCode.trim();
-      if (inviteCode.includes("/invite/")) {
-        const parts = inviteCode.split("/invite/");
-        inviteCode = parts[parts.length - 1].split(/[?#]/)[0]; // Handle trailing queries/hashes
+      const inviteCode = extractInviteCode(rawCode);
+
+      if (!inviteCode) {
+        addNotification(t("app.serverList.invalidInvite", "Veuillez entrer un code ou un lien d'invitation valide."), "error");
+        return;
       }
 
       console.log("Attempting to join with code:", inviteCode);
@@ -380,6 +382,13 @@ export default function ServerList() {
         return;
       }
 
+      // Check server details
+      const { data: serverData } = await supabase
+        .from("servers")
+        .select("name, default_role_id")
+        .eq("id", serverId)
+        .maybeSingle();
+
       // Check if already a member
       const { data: existingMember } = await supabase
         .from("server_members")
@@ -390,15 +399,31 @@ export default function ServerList() {
 
       if (existingMember) {
         setSelectedServerId(serverId);
+        addNotification(
+          serverData?.name
+            ? `Vous êtes déjà membre de ${serverData.name} !`
+            : "Vous êtes déjà membre de ce serveur !",
+          "info"
+        );
         return;
       }
 
+      const roles = ["member"];
+      if (serverData?.default_role_id) {
+        roles.push(serverData.default_role_id);
+      }
+
       // Join server
-      await supabase.from("server_members").insert({
+      const { error: joinError } = await supabase.from("server_members").insert({
         server_id: serverId,
         user_id: user.id,
-        roles: ["member"],
+        roles,
       });
+
+      if (joinError) throw joinError;
+
+      // Increment invite uses
+      await supabase.from("invites").update({ uses: (invite.uses || 0) + 1 }).eq("id", invite.id);
 
       await supabase.from("server_logs").insert({
         server_id: serverId,
@@ -411,6 +436,14 @@ export default function ServerList() {
       });
 
       setSelectedServerId(serverId);
+      fetchServers();
+
+      addNotification(
+        serverData?.name
+          ? `Bienvenue sur ${serverData.name} !`
+          : "Vous avez rejoint le serveur !",
+        "success"
+      );
     } catch (error) {
       console.error("Error joining server:", error);
       addNotification(t("app.serverList.errorJoin"), "error");

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import DrocsidLogo from './ui/DrocsidLogo';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import { useInstanceStore } from '../store/instanceStore';
+import { getPendingInvite } from '../lib/inviteUtils';
 import { Database } from 'lucide-react';
 
 export default function Auth() {
@@ -24,6 +25,41 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [password, setPassword] = useState('');
+  const [pendingServerInfo, setPendingServerInfo] = useState<{
+    code: string;
+    serverName?: string;
+    serverIcon?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const inviteCode = getPendingInvite();
+    if (!inviteCode) return;
+
+    setPendingServerInfo({ code: inviteCode });
+
+    const fetchInviteInfo = async () => {
+      try {
+        const { data: invite } = await supabase
+          .from('invites')
+          .select('code, server_id, servers(name, icon_url)')
+          .eq('code', inviteCode)
+          .maybeSingle();
+
+        if (invite) {
+          const s = invite.servers as any;
+          setPendingServerInfo({
+            code: inviteCode,
+            serverName: s?.name,
+            serverIcon: s?.icon_url
+          });
+        }
+      } catch (e) {
+        console.warn('Could not load invite preview:', e);
+      }
+    };
+
+    fetchInviteInfo();
+  }, []);
 
   const isGoogleAuthEnabled = import.meta.env.VITE_ENABLE_GOOGLE_AUTH === 'true';
 
@@ -179,6 +215,33 @@ export default function Auth() {
             )}
             <div className="mt-3 pt-2 border-t border-red-500/20 text-[10px] opacity-70 break-all text-zinc-400">
               URL : {window.location.origin}
+            </div>
+          </div>
+        )}
+
+        {pendingServerInfo && (
+          <div className="bg-indigo-950/70 border border-indigo-500/50 rounded-xl p-3.5 mb-6 flex items-center gap-3.5 shadow-lg">
+            {pendingServerInfo.serverIcon ? (
+              <img
+                src={pendingServerInfo.serverIcon}
+                alt={pendingServerInfo.serverName || 'Serveur'}
+                className="w-11 h-11 rounded-xl object-cover shrink-0 border border-indigo-400/30"
+              />
+            ) : (
+              <div className="w-11 h-11 rounded-xl bg-indigo-600/40 border border-indigo-400/30 flex items-center justify-center shrink-0 text-indigo-200 font-bold text-base">
+                {pendingServerInfo.serverName ? pendingServerInfo.serverName.charAt(0).toUpperCase() : '#'}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">
+                {t('auth.invitedToServer', 'Invitation à rejoindre un serveur')}
+              </div>
+              <div className="text-white font-semibold text-sm truncate">
+                {pendingServerInfo.serverName || t('auth.drocsidServer', 'Serveur Drocsid')}
+              </div>
+              <div className="text-[11px] text-zinc-400 truncate">
+                {t('auth.joinAfterAuth', 'Connectez-vous ou créez un compte pour rejoindre automatiquement ce serveur.')}
+              </div>
             </div>
           </div>
         )}

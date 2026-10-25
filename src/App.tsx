@@ -1,8 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
 import { useInstanceStore } from './store/instanceStore';
+import {
+  detectInviteFromUrl,
+  getPendingInvite,
+  setPendingInvite,
+  clearPendingInvite,
+  extractInviteCode,
+} from './lib/inviteUtils';
 import Auth from './components/Auth';
 import Layout from './components/Layout';
 import { InstanceSetupScreen } from './components/InstanceSetupScreen';
@@ -229,16 +236,132 @@ export default function App() {
     }
   }, [theme, setTheme]);
 
-  useEffect(() => {
-    const path = window.location.pathname;
-    const match = path.match(/\/invite\/([a-zA-Z0-9]+)(?:[\/#?].*)?$/);
-    if (match && match[1]) {
-      const code = match[1];
-      console.log('Detected invite code in URL:', code);
-      sessionStorage.setItem('pending_invite', code);
-      window.history.replaceState(null, '', '/');
+  const joinServerWithInvite = useCallback(async (rawCode: string, currentUser: any) => {
+    const inviteCode = extractInviteCode(rawCode);
+    if (!inviteCode || !currentUser) return;
+
+    try {
+      console.log('Attempting to join server with invite code:', inviteCode);
+
+      const { data: invite, error } = await supabase
+        .from('invites')
+        .select('*')
+        .eq('code', inviteCode)
+        .maybeSingle();
+
+      if (error || !invite) {
+        addNotification(t('app.invalidInvite', 'L\'invitation est invalide ou a expiré.'), 'error');
+        return;
+      }
+
+      if (invite.max_uses > 0 && invite.uses >= invite.max_uses) {
+        addNotification(t('app.invalidInvite', 'L\'invitation a atteint sa limite d\'utilisations.'), 'error');
+        return;
+      }
+
+      const serverId = invite.server_id;
+
+      const { data: serverData } = await supabase
+        .from('servers')
+        .select('name, default_role_id')
+        .eq('id', serverId)
+        .maybeSingle();
+
+      const { data: ban } = await supabase
+        .from('server_bans')
+        .select('*')
+        .eq('server_id', serverId)
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      if (ban) {
+        addNotification(t('app.bannedFromServer', 'Vous avez été banni de ce serveur et ne pouvez plus le rejoindre.'), 'error');
+        return;
+      }
+
+      const { data: existingMember } = await supabase
+        .from('server_members')
+        .select('*')
+        .eq('server_id', serverId)
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      if (!existingMember) {
+        const roles = ['member'];
+        if (serverData?.default_role_id) {
+          roles.push(serverData.default_role_id);
+        }
+
+        const { error: insertError } = await supabase.from('server_members').insert({
+          server_id: serverId,
+          user_id: currentUser.id,
+          roles,
+        });
+
+        if (insertError) throw insertError;
+
+        // Increment invite uses
+        await supabase
+          .from('invites')
+          .update({ uses: (invite.uses || 0) + 1 })
+          .eq('id', invite.id);
+
+        // Server audit log
+        await supabase.from('server_logs').insert({
+          server_id: serverId,
+          action: 'member_join',
+          details: `Membre ${currentUser.user_metadata?.username || 'Utilisateur'} a rejoint via invitation`,
+          user_id: currentUser.id,
+          username: currentUser.user_metadata?.username || 'Utilisateur',
+        });
+
+        addNotification(
+          serverData?.name
+            ? `Bienvenue sur ${serverData.name} !`
+            : t('app.serverList.joinSuccess', 'Vous avez rejoint le serveur !'),
+          'success'
+        );
+      } else {
+        addNotification(
+          serverData?.name
+            ? `Vous êtes déjà membre de ${serverData.name} !`
+            : 'Vous êtes déjà membre de ce serveur !',
+          'info'
+        );
+      }
+
+      useAppStore.getState().setSelectedServerId(serverId);
+    } catch (e) {
+      console.error('Error joining server via link:', e);
+      addNotification(t('app.errorJoinLink', 'Erreur lors de la tentative de rejoindre le serveur via le lien.'), 'error');
     }
-  }, []);
+  }, [addNotification, t]);
+
+  useEffect(() => {
+    const handleUrlInvite = () => {
+      const code = detectInviteFromUrl();
+      if (code) {
+        console.log('Detected invite code in URL:', code);
+        setPendingInvite(code);
+        window.history.replaceState(null, '', '/');
+
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          clearPendingInvite();
+          joinServerWithInvite(code, currentUser);
+        }
+      }
+    };
+
+    handleUrlInvite();
+    window.addEventListener('popstate', handleUrlInvite);
+    window.addEventListener('hashchange', handleUrlInvite);
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlInvite);
+      window.removeEventListener('hashchange', handleUrlInvite);
+    };
+  }, [joinServerWithInvite]);
 
   useEffect(() => {
     const handleToggleMute = () => {
@@ -503,78 +626,10 @@ export default function App() {
     socket.on('online-users', handleOnlineUsers);
     socket.on('voice-participants-update', handleVoiceParticipantsUpdate);
 
-    const pendingInvite = sessionStorage.getItem('pending_invite');
+    const pendingInvite = getPendingInvite();
     if (pendingInvite) {
-      sessionStorage.removeItem('pending_invite');
-
-      const joinServer = async () => {
-        try {
-          const { data: invite, error } = await supabase
-            .from('invites')
-            .select('*')
-            .eq('code', pendingInvite)
-            .maybeSingle();
-
-          if (error || !invite) {
-            addNotification(t('app.invalidInvite'), 'error');
-            return;
-          }
-
-          if (invite.max_uses > 0 && invite.uses >= invite.max_uses) {
-            addNotification(t('app.invalidInvite'), 'error');
-            return;
-          }
-
-          const serverId = invite.server_id;
-
-          const { data: serverData } = await supabase
-            .from('servers')
-            .select('default_role_id')
-            .eq('id', serverId)
-            .maybeSingle();
-
-          const { data: ban } = await supabase
-            .from('server_bans')
-            .select('*')
-            .eq('server_id', serverId)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (ban) {
-            addNotification(t('app.bannedFromServer'), 'error');
-            return;
-          }
-
-          const { data: existingMember } = await supabase
-            .from('server_members')
-            .select('*')
-            .eq('server_id', serverId)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (!existingMember) {
-            const roles = ['member'];
-            if (serverData?.default_role_id) {
-              roles.push(serverData.default_role_id);
-            }
-
-            const { error: insertError } = await supabase.from('server_members').insert({
-              server_id: serverId,
-              user_id: user.id,
-              roles,
-            });
-
-            if (insertError) throw insertError;
-          }
-
-          useAppStore.getState().setSelectedServerId(serverId);
-        } catch (e) {
-          console.error('Error joining server via link:', e);
-          addNotification(t('app.errorJoinLink'), 'error');
-        }
-      };
-
-      joinServer();
+      clearPendingInvite();
+      joinServerWithInvite(pendingInvite, user);
     }
 
     return () => {
@@ -582,7 +637,7 @@ export default function App() {
       socket.off('online-users', handleOnlineUsers);
       socket.off('voice-participants-update', handleVoiceParticipantsUpdate);
     };
-  }, [user, setOnlineUserIds, addNotification, t]);
+  }, [user, setOnlineUserIds, addNotification, t, joinServerWithInvite]);
 
   useEffect(() => {
     if (!user) return;

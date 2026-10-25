@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import { useInstanceStore } from '../../store/instanceStore';
 import { copyToClipboard } from '../../lib/utils';
+import { buildInviteUrl } from '../../lib/inviteUtils';
 import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
@@ -478,10 +479,11 @@ export default function SuperAdminModal({ isOpen, onClose }: SuperAdminModalProp
         });
       }
 
-      await copyToClipboard(inviteCode);
-      addNotification("Invite code copied to clipboard", "success");
+      const inviteUrl = buildInviteUrl(inviteCode);
+      await copyToClipboard(inviteUrl);
+      addNotification("Lien d'invitation copié dans le presse-papier !", "success");
     } catch (err: any) {
-      addNotification("Failed to copy invite code: " + err.message, "error");
+      addNotification("Impossible de copier le lien d'invitation: " + err.message, "error");
     }
   };
 

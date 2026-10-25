@@ -258,8 +258,9 @@ ALTER TABLE public.expo_push_tokens ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "profiles_read_all" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "profiles_update_self" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
--- 2. Servers & Members: Accès si membre
-CREATE POLICY "servers_access" ON public.servers FOR ALL TO authenticated USING (true); -- On peut laisser SELECT true pour rejoindre via invite
+-- 2. Servers & Members: Accès si membre ou visiteur via invitation
+CREATE POLICY "servers_read_all" ON public.servers FOR SELECT USING (true);
+CREATE POLICY "servers_access" ON public.servers FOR ALL TO authenticated USING (true);
 CREATE POLICY "server_members_access" ON public.server_members FOR ALL TO authenticated USING (true);
 
 -- 3. DMs & DM Messages: STRICTEMENT RÉSERVÉ AUX PARTICIPANTS
@@ -298,6 +299,7 @@ CREATE POLICY "notifications_insert_all" ON public.notifications
 CREATE POLICY "Auth_All_messages" ON public.messages FOR ALL TO authenticated USING (true);
 CREATE POLICY "Auth_All_channels" ON public.channels FOR ALL TO authenticated USING (true);
 CREATE POLICY "Auth_All_categories" ON public.categories FOR ALL TO authenticated USING (true);
+CREATE POLICY "invites_read_all" ON public.invites FOR SELECT USING (true);
 CREATE POLICY "Auth_All_invites" ON public.invites FOR ALL TO authenticated USING (true);
 CREATE POLICY "Auth_All_roles" ON public.roles FOR ALL TO authenticated USING (true);
 CREATE POLICY "Auth_All_server_bans" ON public.server_bans FOR ALL TO authenticated USING (true);

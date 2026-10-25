@@ -373,9 +373,9 @@
       "serverNamePlaceholder": "My Awesome Server",
       "back": "Back",
       "create": "Create",
-      "joinDescription": "Enter an invite code below to join an existing server.",
-      "inviteLink": "Invite Code",
-      "invitePlaceholder": "Enter invite code",
+      "joinDescription": "Enter an invite code or link below to join an existing server.",
+      "inviteLink": "Invite Code or Link",
+      "invitePlaceholder": "https://drocsid.site/invite/code or code",
       "join": "Join Server"
     },
     "renameChannel": {
@@ -812,7 +812,13 @@
     "usernameError": "Username must be between 3 and 20 characters (letters, numbers, _ or -).",
     "passwordError": "Password must be at least 6 characters.",
     "usernameTaken": "This username is already taken.",
-    "or": "OR"
+    "or": "OR",
+    "invitedToServer": "Server Invitation Received",
+    "joinAfterAuth": "Sign in or sign up to automatically join this server.",
+    "drocsidServer": "Drocsid Server"
+  },
+  "channelList": {
+    "inviteCopied": "Invite link copied to clipboard!"
   },
   "download": {
     "title": "Download Drocsid",
