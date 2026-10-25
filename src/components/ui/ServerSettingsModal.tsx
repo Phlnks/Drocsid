@@ -1825,7 +1825,7 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                               {invite.uses !== undefined && (
                                 <>
                                   <span>•</span>
-                                  <span>{invite.uses} {invite.uses > 1 ? 'utilisations' : 'utilisation'}{invite.max_uses > 0 ? ` / ${invite.max_uses}` : ''}</span>
+                                  <span>{t('serverSettings.usesCount', { count: invite.uses })}{invite.max_uses > 0 ? ` / ${invite.max_uses}` : ''}</span>
                                 </>
                               )}
                             </div>
@@ -1834,20 +1834,20 @@ export default function ServerSettingsModal({ isOpen, onClose, server, initialTa
                             <button 
                               onClick={async () => {
                                 await copyToClipboard(fullUrl);
-                                addNotification("Lien d'invitation copié dans le presse-papier !", "success");
+                                addNotification(t('serverSettings.linkCopied', "Lien d'invitation copié dans le presse-papier !"), "success");
                               }}
                               className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
-                              title="Copier le lien complet"
+                              title={t('serverSettings.copyFullLink', 'Copier le lien complet')}
                             >
                               <LinkIcon className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={async () => {
                                 await copyToClipboard(invite.code);
-                                addNotification("Code d'invitation copié !", "success");
+                                addNotification(t('serverSettings.codeCopied', "Code d'invitation copié !"), "success");
                               }}
                               className="p-2 text-zinc-400 hover:text-indigo-400 hover:bg-zinc-800 rounded-md transition-colors"
-                              title="Copier uniquement le code"
+                              title={t('serverSettings.copyCodeOnly', 'Copier uniquement le code')}
                             >
                               <Copy className="w-4 h-4" />
                             </button>
