@@ -44,15 +44,21 @@ export function extractInviteCode(input: string): string {
   return str;
 }
 
-/**
- * Builds the full direct invitation URL from an invite code
- */
 export function buildInviteUrl(code: string): string {
   if (!code) return '';
-  const origin = typeof window !== 'undefined' && window.location?.origin 
-    ? window.location.origin 
-    : 'https://drocsid.site';
-  return `${origin}/invite/${encodeURIComponent(code.trim())}`;
+  const defaultBaseUrl = (import.meta.env.VITE_APP_URL as string) || 'https://drocsid.site';
+  let baseUrl = defaultBaseUrl;
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin;
+    // Only use window.location.origin if it's a standard web HTTP/HTTPS origin
+    if (origin.startsWith('http://') || origin.startsWith('https://')) {
+      baseUrl = origin;
+    }
+  }
+
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  return `${cleanBase}/invite/${encodeURIComponent(code.trim())}`;
 }
 
 /**

@@ -907,31 +907,19 @@ ipcMain.handle('updater:restart-and-install', (_event, payload) => {
     } catch (e) {}
 
     setTimeout(() => {
+      debugLog('[Updater] Enregistrement du relaunch et exécution de quitAndInstall...');
       try {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.destroy();
-        }
-      } catch (e) {}
+        app.relaunch();
+      } catch (e) {
+        debugLog(`[Updater] Erreur relaunch: ${e?.message}`);
+      }
 
+      // Lancement de l'installation et relance automatique après mise à jour (isSilent: false, isForceRunAfter: true)
+      // Passer isSilent: false sur Windows NSIS permet d'exécuter la relance automatique de l'exécutable après mise à jour
       try {
-        if (splashWindow && !splashWindow.isDestroyed()) {
-          splashWindow.destroy();
-        }
-      } catch (e) {}
-
-      // Libérer le verrou d'instance unique pour que le nouvel exécutable lancé par le setup puisse démarrer sans conflit
-      try {
-        app.releaseSingleInstanceLock();
-      } catch (e) {}
-
-      // Lancement de l'installation et relance automatique (mode silencieux + force run)
-      debugLog('[Updater] Exécution de quitAndInstall...');
-      try {
-        // electron-updater supporte (isSilent: boolean, isForceRunAfter: boolean) ou un objet d'options
-        // On force les deux modes pour compatibilité totale
-        autoUpdater.quitAndInstall(true, true);
+        autoUpdater.quitAndInstall(false, true);
       } catch (err) {
-        debugLog(`[Updater] Erreur quitAndInstall: ${err?.message || err}`);
+        debugLog(`[Updater] Erreur quitAndInstall(false, true): ${err?.message || err}`);
         try {
           autoUpdater.quitAndInstall();
         } catch (err2) {
